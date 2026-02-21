@@ -7,7 +7,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const src = path.join(__dirname, "..", "..", "skills");
+const src = path.join(__dirname, "..", "..", "target-learn", "skills");
 const dest = path.join(__dirname, "..", "skills");
 
 function copyRecursive(from, to) {

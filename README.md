@@ -10,7 +10,7 @@
 
 ```text
 superpowers-main/vscode-extension/
-├── superpowers-mcp-4.3.0.vsix   ← 打包完成的擴充套件檔案，可直接安裝
+├── superpowers-mcp-x.y.z.vsix   ← 打包完成的擴充套件檔案，可直接安裝
 ├── package.json                  ← 擴充套件清單，定義了內建 MCP Server 註冊
 ├── src/
 │   ├── extension.ts             ← VSCode/Trae/Antigravity 擴充套件啟動邏輯
@@ -31,7 +31,7 @@ superpowers-main/vscode-extension/
 ### 安裝步驟 (VSIX)
 1. 在編輯器中打開 **Extensions** 側邊欄。
 2. 點擊右上角的三個點 `...` 或齒輪圖示，選擇 **Install from VSIX...**。
-3. 選擇 `superpowers-mcp-4.3.0.vsix` 進行安裝。
+3. 選擇 `superpowers-mcp-x.y.z.vsix` 進行安裝。
 4. 安裝後系統會自動啟動內建的 MCP Server。
 
 ### 在 AI Chat 中對話
@@ -55,10 +55,10 @@ superpowers-main/vscode-extension/
       "type": "stdio",
       "command": "node",
       "args": [
-        "/Users/poseidomhung/Desktop/TREND/superpowers-main/vscode-extension/out/server.js"
+        "${extensionPath}/out/server.js"
       ],
       "env": {
-        "SKILLS_PATH": "/Users/poseidomhung/Desktop/TREND/superpowers-main/vscode-extension/skills"
+        "SKILLS_PATH": "${extensionPath}/skills"
       }
     }
   }

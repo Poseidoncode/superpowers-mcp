@@ -22,33 +22,17 @@
     "copilot",
     "agent"
   ],
-  "engines": {
-    "vscode": "^1.95.0"
+  "bin": {
+    "superpowers-mcp": "./out/server.js"
   },
-  "categories": [
-    "AI",
-    "Other"
+  "files": [
+    "out",
+    "skills"
   ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
-  "enabledApiProposals": [
-    "mcpServerDefinitionProvider"
-  ],
-  "contributes": {
-    "mcpServerDefinitionProviders": [
-      {
-        "id": "superpowersMcp",
-        "label": "Superpowers Skills"
-      }
-    ]
-  },
-  "main": "./out/extension.js",
   "scripts": {
-    "compile": "node esbuild.js",
+    "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
-    "package": "node esbuild.js --production && vsce package --allow-star-activation",
-    "vscode:prepublish": "node esbuild.js --production",
+    "prepublishOnly": "npm run copy-skills && npm run build",
     "copy-skills": "node scripts/copy-skills.js"
   },
   "dependencies": {
