@@ -1,0 +1,2 @@
+# Superpowers-OpenVSX
+Superpowers
