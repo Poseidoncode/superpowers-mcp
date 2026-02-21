@@ -1,0 +1,64 @@
+{
+  "name": "superpowers-mcp",
+  "displayName": "Superpowers MCP",
+  "description": "Superpowers skills library (TDD, debugging, collaboration workflows) as an MCP server for VSCode, Trae, and Antigravity",
+  "version": "4.3.0",
+  "publisher": "superpowers",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/obra/superpowers"
+  },
+  "homepage": "https://github.com/obra/superpowers",
+  "keywords": [
+    "mcp",
+    "ai",
+    "skills",
+    "tdd",
+    "debugging",
+    "collaboration",
+    "best-practices",
+    "workflows",
+    "copilot",
+    "agent"
+  ],
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "enabledApiProposals": [
+    "mcpServerDefinitionProvider"
+  ],
+  "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "superpowersMcp",
+        "label": "Superpowers Skills"
+      }
+    ]
+  },
+  "main": "./out/extension.js",
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production && vsce package --allow-star-activation",
+    "vscode:prepublish": "node esbuild.js --production",
+    "copy-skills": "node scripts/copy-skills.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}
