@@ -1,9 +1,0 @@
-node_modules/
-src/
-*.ts
-tsconfig.json
-esbuild.js
-scripts/
-.vscode/
-*.vsix
-out/**/*.map

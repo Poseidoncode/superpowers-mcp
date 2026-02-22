@@ -1,7 +1,7 @@
 {
   "name": "superpowers-mcp",
   "displayName": "Superpowers MCP",
-  "description": "Superpowers skills library (TDD, debugging, collaboration workflows) as an MCP server for VSCode, Trae, and Antigravity",
+  "description": "Superpowers skills library (TDD, debugging, collaboration workflows) as an MCP server for VSCode and Antigravity",
   "version": "4.3.0",
   "publisher": "superpowers",
   "license": "MIT",
@@ -35,13 +35,9 @@
     "prepublishOnly": "npm run copy-skills && npm run build",
     "copy-skills": "node scripts/copy-skills.js"
   },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.5.0"
-  },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.5.0",
     "@types/node": "^20.0.0",
-    "@types/vscode": "^1.95.0",
-    "@vscode/vsce": "^3.2.0",
     "esbuild": "^0.24.0",
     "typescript": "^5.6.0"
   }

@@ -14,14 +14,7 @@ const baseConfig = {
     logLevel: "info",
 };
 
-// Build extension host (VSCode extension)
-const extensionConfig = {
-    ...baseConfig,
-    entryPoints: ["src/extension.ts"],
-    outfile: "out/extension.js",
-    external: ["vscode"],
-    format: "cjs",
-};
+
 
 // Build MCP server (standalone node process)
 const serverConfig = {
@@ -38,17 +31,11 @@ const serverConfig = {
 
 async function build() {
     if (isWatch) {
-        const [extCtx, srvCtx] = await Promise.all([
-            esbuild.context(extensionConfig),
-            esbuild.context(serverConfig),
-        ]);
-        await Promise.all([extCtx.watch(), srvCtx.watch()]);
+        const srvCtx = await esbuild.context(serverConfig);
+        await srvCtx.watch();
         console.log("Watching for changes...");
     } else {
-        await Promise.all([
-            esbuild.build(extensionConfig),
-            esbuild.build(serverConfig),
-        ]);
+        await esbuild.build(serverConfig);
 
         // Make server.js executable
         const serverPath = path.join(__dirname, "out", "server.js");

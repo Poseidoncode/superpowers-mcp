@@ -4,12 +4,13 @@
 
 # Node modules
 node_modules/
-vscode-extension/node_modules/
+toolpack/node_modules/
 
 # Build artifacts
 out/
 dist/
 *.vsix
+*.tgz
 
 # OS artifacts
 .DS_Store
