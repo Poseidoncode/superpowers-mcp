@@ -83,19 +83,32 @@
 
 ## 📋 支援技能總覽 (共 14 個)
 
+為了解決技能太多難以選擇的問題，我們將這 14 個技能依照軟體開發的 6 個階段進行了分類：
+
+### 🚀 1. 規劃與設計 (Planning & Design)
 - `brainstorming`: 軟體設計與需求分析流程
-- `dispatching-parallel-agents`: 派發平行代理執行任務
-- `executing-plans`: 執行已建立的實作計畫
-- `finishing-a-development-branch`: 收尾開發分支與整合
-- `receiving-code-review`: 接收與處理程式碼審查回饋
-- `requesting-code-review`: 發起程式碼審查的預先檢查
-- `subagent-driven-development`: 驅動子代理執行任務
-- `systematic-debugging`: 系統性除錯與根因分析
-- `test-driven-development`: TDD（測試驅動開發）工作流
-- `using-git-worktrees`: 使用 Git Worktrees 管理多重分支
-- `using-superpowers`: Superpowers 使用指南與自我檢查
-- `verification-before-completion`: 完工前的證據導向驗證
 - `writing-plans`: 建立詳細的實作計畫
+
+### 💻 2. 開發與除錯 (Implementation & Debugging)
+- `executing-plans`: 執行已建立的實作計畫
+- `test-driven-development`: TDD（測試驅動開發）工作流
+- `systematic-debugging`: 系統性除錯與根因分析
+
+### 🛡️ 3. 品質驗證與審查 (Quality & Review)
+- `verification-before-completion`: 完工前的證據導向驗證
+- `requesting-code-review`: 發起程式碼審查的預先檢查
+- `receiving-code-review`: 接收與處理程式碼審查回饋
+- `finishing-a-development-branch`: 收尾開發分支與整合
+
+### 🌿 4. 版本控制 (Version Control)
+- `using-git-worktrees`: 使用 Git Worktrees 管理多重分支
+
+### 🤖 5. 代理進階控制 (Advanced Agent Controls)
+- `subagent-driven-development`: 驅動子代理執行複雜任務
+- `dispatching-parallel-agents`: 派發平行代理同步執行任務
+
+### ⚙️ 6. 系統與自定義 (Meta & Customization)
+- `using-superpowers`: Superpowers 核心操作指南與自我檢查
 - `writing-skills`: 撰寫與擴充新的自訂技能
 
 ---

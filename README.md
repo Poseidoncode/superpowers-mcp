@@ -83,19 +83,32 @@ This is the easiest way as it handles path resolution automatically.
 
 ## 📋 Supported Skills Overview (14 Total)
 
+To help you choose the right skill, we've categorized them into 6 logical phases of software development:
+
+### 🚀 1. Planning & Design
 - `brainstorming`: Software design and requirements analysis process
-- `dispatching-parallel-agents`: Dispatching tasks to parallel agents
-- `executing-plans`: Executing created implementation plans
-- `finishing-a-development-branch`: Finalizing and integrating feature branches
-- `receiving-code-review`: Receiving and addressing code review feedback
-- `requesting-code-review`: Initiating pre-checks for code reviews
-- `subagent-driven-development`: Driving sub-agents to execute tasks
-- `systematic-debugging`: Systematic debugging and root cause analysis
-- `test-driven-development`: TDD (Test-Driven Development) workflow
-- `using-git-worktrees`: Managing multiple branches using Git Worktrees
-- `using-superpowers`: Guidelines and self-checks for using Superpowers
-- `verification-before-completion`: Evidence-based verification before completion
 - `writing-plans`: Creating detailed implementation plans
+
+### 💻 2. Implementation & Debugging
+- `executing-plans`: Executing created implementation plans
+- `test-driven-development`: TDD (Test-Driven Development) workflow
+- `systematic-debugging`: Systematic debugging and root cause analysis
+
+### 🛡️ 3. Quality & Review
+- `verification-before-completion`: Evidence-based verification before completion
+- `requesting-code-review`: Initiating pre-checks for code reviews
+- `receiving-code-review`: Receiving and addressing code review feedback
+- `finishing-a-development-branch`: Finalizing and integrating feature branches
+
+### 🌿 4. Version Control
+- `using-git-worktrees`: Managing multiple branches using Git Worktrees
+
+### 🤖 5. Advanced Agent Controls
+- `subagent-driven-development`: Driving sub-agents to execute tasks
+- `dispatching-parallel-agents`: Dispatching tasks to parallel agents
+
+### ⚙️ 6. Customization & Meta
+- `using-superpowers`: Guidelines and self-checks for using Superpowers
 - `writing-skills`: Writing and expanding new custom skills
 
 ---
