@@ -32,8 +32,7 @@
   "scripts": {
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
-    "prepublishOnly": "npm run copy-skills && npm run build",
-    "copy-skills": "node scripts/copy-skills.js"
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.5.0",
