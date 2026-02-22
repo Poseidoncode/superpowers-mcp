@@ -9,7 +9,7 @@ This document summarizes the information and usage instructions for packaging th
 The MCP Toolpack is located in the project root directory:
 
 ```text
-Superpowers-OpenVSX/
+superpowers-mcp/
 ├── package.json                  ← NPM package manifest defining the built-in MCP Server registration and commands
 ├── src/
 │   └── server.ts                 ← MCP stdio server implementation (contains 14 skills)
@@ -67,3 +67,9 @@ If your IDE or AI agent environment requires manual configuration of the MCP Ser
 - `subagent-driven-development`: Driving sub-agents to execute tasks
 - `requesting-code-review`: Initiating pre-checks for code reviews
 - ... and 8 other core skills.
+
+---
+
+## 🙏 Acknowledgments
+
+This project is a fork and adaptation of the original [Superpowers](https://github.com/obra/superpowers) project by [obra](https://github.com/obra). We are grateful for their work in defining the agentic skills framework and software development methodology that powers this MCP server.
