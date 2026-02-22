@@ -17,9 +17,12 @@ import {
 // Paths
 // ---------------------------------------------------------------------------
 
+// Support running from npm package or local development
 const SKILLS_PATH = process.env.SKILLS_PATH
     ? process.env.SKILLS_PATH
-    : path.join(__dirname, "..", "skills");
+    : fs.existsSync(path.join(__dirname, "..", "skills"))
+        ? path.join(__dirname, "..", "skills") // dist/server.js -> skills/
+        : path.join(__dirname, "skills");    // current dir during dev
 
 // ---------------------------------------------------------------------------
 // Helpers

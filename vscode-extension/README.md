@@ -1,104 +1,73 @@
-# Superpowers MCP — VSCode Extension
+# Superpowers MCP
 
-**Superpowers** brings a complete AI development workflow to any VSCode-compatible editor — including **VSCode**, **Trae**, and **Antigravity** — via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io).
+**Superpowers** brings a complete AI development workflow to any MCP-compatible environment — including **Antigravity**, **Cursor**, **Trae**, and **Claude Desktop**. It exposes the proven [Superpowers](https://github.com/obra/superpowers) skill library via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io).
 
 ## What is Superpowers?
 
-Superpowers is a collection of proven AI agent skills for software development:
+Superpowers is a collection of high-discipline AI agent skills and workflows for software development:
 
 | Skill | Description |
 |-------|-------------|
-| `brainstorming` | Explores intent and design before writing code |
-| `test-driven-development` | RED → GREEN → REFACTOR cycle |
-| `systematic-debugging` | 4-phase root cause analysis |
-| `writing-plans` | Detailed implementation plans |
-| `subagent-driven-development` | Parallel task execution |
-| `requesting-code-review` | Pre-review checklist |
-| ... and 8 more | See full list below |
+| `brainstorming` | Explore intent and design requirements before implementation |
+| `test-driven-development` | Enforce the RED → GREEN → REFACTOR cycle |
+| `systematic-debugging` | 4-phase root cause analysis and fix verification |
+| `writing-plans` | Create detailed implementation plans with checkpoints |
+| `subagent-driven-development` | Coordinate parallel tasks with two-stage reviews |
+| `verification-before-completion` | Ensure work is actually fixed before declaring success |
+| ... and more | 14 total specialized development workflows |
 
-## Installation
+## Getting Started (Quick Start)
 
-Install from the [Open VSX Registry](https://open-vsx.org) or the VS Code Marketplace by searching for **Superpowers MCP**.
+The easiest way to use Superpowers is via `npx`. No manual installation of the package is required if your IDE supports running commands.
 
-The MCP server starts automatically when the extension is activated.
+### Antigravity / Cursor / Trae
 
-## Usage
-
-Once installed, the `Superpowers Skills` MCP server is available to any AI chat/agent in your editor.
-
-### In GitHub Copilot / AI Chat
-
-```
-Use the list_skills tool to see all available superpowers skills
-```
-
-```
-Use the read_skill tool to read the brainstorming skill, then help me plan this feature
-```
-
-```
-Apply the session-start prompt from the superpowers-mcp MCP server
-```
-
-### Available MCP Tools
-
-| Tool | Description |
-|------|-------------|
-| `list_skills` | List all skills with descriptions |
-| `read_skill` | Load a skill's full content by name |
-
-### Available MCP Resources
-
-Each skill is accessible as a resource:
-```
-skill://superpowers/brainstorming
-skill://superpowers/test-driven-development
-skill://superpowers/systematic-debugging
-... (14 skills total)
-```
-
-### Available MCP Prompts
-
-| Prompt | Description |
-|--------|-------------|
-| `session-start` | Inject superpowers context at session start |
-
-## Manual MCP Configuration (without proposed API)
-
-If your editor doesn't support the `mcpServerDefinitionProvider` proposed API, add this to `.vscode/mcp.json`:
+Add the following to your MCP settings (e.g., `settings.json` or MCP configuration UI):
 
 ```json
-{
-  "servers": {
-    "superpowers": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["${extensionPath}/out/server.js"],
-      "env": {
-        "SKILLS_PATH": "${extensionPath}/skills"
-      }
-    }
-  }
+"superpowers": {
+  "command": "npx",
+  "args": ["-y", "superpowers-mcp"]
 }
 ```
 
-## All Skills
+### Manual Installation (Development)
 
-- `brainstorming` — Design before implementation
-- `dispatching-parallel-agents` — Concurrent subagent workflows
-- `executing-plans` — Batch execution with checkpoints
-- `finishing-a-development-branch` — Merge/PR decision workflow
-- `receiving-code-review` — Responding to feedback
-- `requesting-code-review` — Pre-review checklist
-- `subagent-driven-development` — Fast iteration with two-stage review
-- `systematic-debugging` — Root cause analysis process
-- `test-driven-development` — RED-GREEN-REFACTOR cycle
-- `using-git-worktrees` — Parallel development branches
-- `using-superpowers` — Introduction to the skills system
-- `verification-before-completion` — Ensure it's actually fixed
-- `writing-plans` — Detailed implementation plans
-- `writing-skills` — Create new skills
+If you prefer to install it globally:
+
+```bash
+npm install -g superpowers-mcp
+```
+
+Then run the server:
+```bash
+superpowers-mcp
+```
+
+## Features
+
+### 🛠️ MCP Tools
+
+| Tool | Input | Description |
+|------|-------|-------------|
+| `list_skills` | None | List all available skills with concise descriptions. |
+| `read_skill` | `skill_name` | Load the full content, checklists, and patterns of a skill. |
+
+### 🧠 MCP Prompts
+
+| Prompt | Description |
+|--------|-------------|
+| `session-start` | Kickstart an AI session with the Superpowers mindset and tool instructions. |
+
+### 📚 MCP Resources
+
+Individual skills can be referenced directly via URIs:
+`skill://superpowers/[skill-name]` (e.g., `skill://superpowers/test-driven-development`)
+
+## Why use Superpowers?
+
+AI agents are powerful but often lack discipline. Superpowers provides the **discipline** and **process** required for enterprise-grade software engineering. By invoking a skill, you force the AI to follow industry best practices, use checklists, and avoid "shotgun debugging" or "lazy implementation."
 
 ## License
 
-MIT — Original Superpowers by [Jesse Vincent](https://github.com/obra/superpowers)
+MIT — Based on the original Superpowers project by [Jesse Vincent](https://github.com/obra/superpowers).

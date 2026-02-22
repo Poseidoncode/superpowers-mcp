@@ -26,7 +26,7 @@
     "superpowers-mcp": "./out/server.js"
   },
   "files": [
-    "out",
+    "out/server.js",
     "skills"
   ],
   "scripts": {
