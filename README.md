@@ -66,15 +66,15 @@ This is the easiest way as it handles path resolution automatically.
 
 ---
 
-## 🔄 Recommended Workflows
+## 🔄 Recommended Prompt Sequences
 
-### 1. New Feature Development Flow
+### 1. New Feature Development Sequence
 1. `[superpowers:brainstorm : Confirm requirements and architecture]`
 2. `[superpowers:writing-plans : Create an execution plan with specific steps]`
 3. `[superpowers:test-driven-development : Implement the feature with tests]`
 4. `[superpowers:verification-before-completion : Run test suites to ensure everything works]`
 
-### 2. Emergency Hotfix Flow
+### 2. Emergency Hotfix Sequence
 1. `[superpowers:systematic-debugging : Locate the root cause of the current issue]`
 2. `[superpowers:test-driven-development : Write a failing test for the bug and fix it]`
 3. `[superpowers:verification-before-completion : Validate the applied hotfix]`
@@ -84,12 +84,19 @@ This is the easiest way as it handles path resolution automatically.
 ## 📋 Supported Skills Overview (14 Total)
 
 - `brainstorming`: Software design and requirements analysis process
-- `test-driven-development`: TDD (Test-Driven Development) workflow
-- `systematic-debugging`: Systematic debugging and root cause analysis
-- `writing-plans`: Creating detailed implementation plans
-- `subagent-driven-development`: Driving sub-agents to execute tasks
+- `dispatching-parallel-agents`: Dispatching tasks to parallel agents
+- `executing-plans`: Executing created implementation plans
+- `finishing-a-development-branch`: Finalizing and integrating feature branches
+- `receiving-code-review`: Receiving and addressing code review feedback
 - `requesting-code-review`: Initiating pre-checks for code reviews
-- ... and 8 other core skills.
+- `subagent-driven-development`: Driving sub-agents to execute tasks
+- `systematic-debugging`: Systematic debugging and root cause analysis
+- `test-driven-development`: TDD (Test-Driven Development) workflow
+- `using-git-worktrees`: Managing multiple branches using Git Worktrees
+- `using-superpowers`: Guidelines and self-checks for using Superpowers
+- `verification-before-completion`: Evidence-based verification before completion
+- `writing-plans`: Creating detailed implementation plans
+- `writing-skills`: Writing and expanding new custom skills
 
 ---
 

@@ -66,15 +66,15 @@
 
 ---
 
-## 🔄 推薦工作流 (Workflow)
+## 🔄 推薦的指令 (Command Sequences)
 
-### 1. 新功能開發流
+### 1. 新功能開發
 1. `[superpowers:brainstorm : 確認需求與架構]`
 2. `[superpowers:writing-plans : 寫下具體步驟]`
 3. `[superpowers:test-driven-development : 撰寫測試與實作]`
 4. `[superpowers:verification-before-completion : 跑測試確認無誤]`
 
-### 2. 緊急修復流 (Hotfix)
+### 2. 緊急修復 (Hotfix)
 1. `[superpowers:systematic-debugging : 定位問題根源]`
 2. `[superpowers:test-driven-development : 寫一個失敗測試重現問題，再修復]`
 3. `[superpowers:verification-before-completion : 驗證修復結果]`
@@ -84,12 +84,19 @@
 ## 📋 支援技能總覽 (共 14 個)
 
 - `brainstorming`: 軟體設計與需求分析流程
-- `test-driven-development`: TDD（測試驅動開發）工作流
-- `systematic-debugging`: 系統性除錯與根因分析
-- `writing-plans`: 建立詳細的實作計畫
-- `subagent-driven-development`: 驅動子代理執行任務
+- `dispatching-parallel-agents`: 派發平行代理執行任務
+- `executing-plans`: 執行已建立的實作計畫
+- `finishing-a-development-branch`: 收尾開發分支與整合
+- `receiving-code-review`: 接收與處理程式碼審查回饋
 - `requesting-code-review`: 發起程式碼審查的預先檢查
-- ... 以及其他 8 個核心技能。
+- `subagent-driven-development`: 驅動子代理執行任務
+- `systematic-debugging`: 系統性除錯與根因分析
+- `test-driven-development`: TDD（測試驅動開發）工作流
+- `using-git-worktrees`: 使用 Git Worktrees 管理多重分支
+- `using-superpowers`: Superpowers 使用指南與自我檢查
+- `verification-before-completion`: 完工前的證據導向驗證
+- `writing-plans`: 建立詳細的實作計畫
+- `writing-skills`: 撰寫與擴充新的自訂技能
 
 ---
 
