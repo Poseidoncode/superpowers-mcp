@@ -1,5 +1,7 @@
 # Superpowers MCP Toolpack Usage Guide
 
+[English](README.md) | [繁體中文](README.zh-TW.md)
+
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
 
 ---

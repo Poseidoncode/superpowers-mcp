@@ -1,5 +1,7 @@
 # Superpowers MCP Toolpack 使用指南
 
+[English](README.md) | [繁體中文](README.zh-TW.md)
+
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
 
 ---
