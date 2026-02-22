@@ -4,22 +4,6 @@ This document summarizes the information and usage instructions for packaging th
 
 ---
 
-## 🏗️ Project Structure Overview
-
-The MCP Toolpack is located in the project root directory:
-
-```text
-superpowers-mcp/
-├── package.json                  ← NPM package manifest defining the built-in MCP Server registration and commands
-├── src/
-│   └── server.ts                 ← MCP stdio server implementation (contains 14 skills)
-├── skills/                       ← Offline packaged skills library (copied from the main project)
-└── out/
-    └── server.js (325 KB)         ← Compiled MCP Server
-```
-
----
-
 ## 🚀 How to Install and Use
 
 ### Supported Environments
@@ -38,23 +22,60 @@ Once installed or configured, your AI Agent (such as Copilot or Antigravity Casc
 
 ---
 
-## 🛠️ Manual MCP Configuration
+## 🛠️ MCP Configuration
 
-If your IDE or AI agent environment requires manual configuration of the MCP Server, please add the following settings (specifying the local npm package or absolute physical path):
+Add the following settings to your IDE (e.g., Cursor, Antigravity, or VSCode MCP settings). 
 
+### Method : NPX / BUNX (Recommended)
+
+This is the easiest way as it handles path resolution automatically.
+
+#### Using Bun (Faster)
 ```json
 {
   "superpowers": {
-    "command": "node",
-    "args": ["/path/to/superpowers-mcp/out/server.js"],
-    "env": {
-      "SKILLS_PATH": "/path/to/superpowers-mcp/skills"
-    }
+    "command": "bunx",
+    "args": ["-y", "superpowers-mcp"]
   }
 }
 ```
 
-> 💡 If you installed via npm globally, you can use `$(npm root -g)/superpowers-mcp` as the path prefix.
+#### Using Node/NPM
+```json
+{
+  "superpowers": {
+    "command": "npx",
+    "args": ["-y", "superpowers-mcp"]
+  }
+}
+```
+
+---
+
+## 💡 Common Skills & Scenarios
+
+| Skill Name | Community Recommended Scenario | Core Value |
+| :--- | :--- | :--- |
+| `brainstorming` | Before starting a new feature, exploring requirements and design. | Prevents the AI from jumping straight into writing code. |
+| `writing-plans` | Before multi-file refactoring or complex migrations. | Establishes a clear execution blueprint. |
+| `systematic-debugging` | When encountering any errors or abnormal behavior. | Enforces "root cause analysis" instead of guessing. |
+| `test-driven-development` | When implementing logically challenging features. | Ensures code is accompanied by tests, achieving Red-Green-Refactor. |
+| `verification-before-completion` | Before claiming "it's fixed" or "it's done". | Evidence-based completion confirmation. |
+
+---
+
+## 🔄 Recommended Workflows
+
+### 1. New Feature Development Flow
+1. `[superpowers:brainstorm : Confirm requirements and architecture]`
+2. `[superpowers:writing-plans : Create an execution plan with specific steps]`
+3. `[superpowers:test-driven-development : Implement the feature with tests]`
+4. `[superpowers:verification-before-completion : Run test suites to ensure everything works]`
+
+### 2. Emergency Hotfix Flow
+1. `[superpowers:systematic-debugging : Locate the root cause of the current issue]`
+2. `[superpowers:test-driven-development : Write a failing test for the bug and fix it]`
+3. `[superpowers:verification-before-completion : Validate the applied hotfix]`
 
 ---
 
