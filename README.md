@@ -104,8 +104,16 @@ To help you choose the right skill, we've categorized them into 6 logical phases
 - `using-git-worktrees`: Managing multiple branches using Git Worktrees
 
 ### 🤖 5. Advanced Agent Controls
-- `subagent-driven-development`: Driving sub-agents to execute tasks
-- `dispatching-parallel-agents`: Dispatching tasks to parallel agents
+
+These skills are designed for orchestrating complex meta-execution patterns within supported IDEs (like Antigravity or Cursor).
+
+- **`subagent-driven-development`**: Driving sub-agents to execute tasks
+  - **Usage**: Used to execute a predefined plan task-by-task. The system will spawn a fresh "implementer" sub-agent for a single task, followed by "spec reviewer" and "code quality reviewer" sub-agents to ensure high-quality output before moving to the next task.
+  - **Example**: `[superpowers:subagent-driven-development : Execute the tasks listed in docs/plans/feature-plan.md one by one]`
+- **`dispatching-parallel-agents`**: Dispatching tasks to parallel agents
+  - **Usage**: Used for tackling multiple *independent* issues (e.g., 3 unrelated failing tests or 3 separate web research topics). The AI will adopt a parallel-execution mindset, addressing each task independently without crossing state or experiencing context pollution, significantly speeding up output generation.
+  - **Debugging Example**: `[superpowers:dispatching-parallel-agents : Tests A, B, and C are failing independently. Dispatch 3 parallel agents to investigate and fix them]`
+  - **Research Example**: `[superpowers:dispatching-parallel-agents : Dispatch 3 parallel agents to search the web for: 1. React 19 features, 2. Vue 3.5 updates, 3. Svelte 5 Runes. Summarize each independently]`
 
 ### ⚙️ 6. Customization & Meta
 - `using-superpowers`: Guidelines and self-checks for using Superpowers

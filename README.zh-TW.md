@@ -104,8 +104,16 @@
 - `using-git-worktrees`: 使用 Git Worktrees 管理多重分支
 
 ### 🤖 5. 代理進階控制 (Advanced Agent Controls)
-- `subagent-driven-development`: 驅動子代理執行複雜任務
-- `dispatching-parallel-agents`: 派發平行代理同步執行任務
+
+這是特別針對在支援多重代理 (Multi-Agent) 協作或具備強大推論能力的 IDE（如 Antigravity 或 Cursor）中所設計的高階操作技巧。
+
+- **`subagent-driven-development`**: 驅動子代理執行複雜任務
+  - **具體用法**：適用於「執行已規劃好的詳細計畫」。針對每一個小任務，AI 會派發全新的「實作代理」去寫 Code，完成後立刻啟動「規格審查」與「品質審查」的雙重把關，審查通過才進入下一關。
+  - **指令範例**：`[superpowers:subagent-driven-development : 請依照 docs/plans/feature-plan.md 的內容，幫我逐一派發子代理實作]`
+- **`dispatching-parallel-agents`**: 派發平行代理同步執行任務
+  - **具體用法**：適用於「同時處理多個互不干擾的獨立問題」（例如 3 個無關聯的 Bug，或 3 個獨立的網路查詢需求）。AI 會切換為平行處理的思維模型，將各個問題視為獨立專案同時處理，避免記憶混亂（Context 污染）並加速多任務產出。
+  - **偵錯範例**：`[superpowers:dispatching-parallel-agents : 現在有 A, B, C 三個獨立的測試報錯，請派發 3 個代理同時去排查並修復]`
+  - **查詢範例**：`[superpowers:dispatching-parallel-agents : 幫我派發 3 個代理去網路上分別查詢：1. React 19 新特性, 2. Vue 3.5 更新重點, 3. Svelte 5 的 Runes 系統，並各自整理成摘要]`
 
 ### ⚙️ 6. 系統與自定義 (Meta & Customization)
 - `using-superpowers`: Superpowers 核心操作指南與自我檢查
