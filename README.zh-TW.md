@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-[![版本](https://img.shields.io/badge/version-4.3.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-4.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -127,10 +127,9 @@
 
 ## 🆕 最近更新
 
-### v4.3.1 (最新版)
+### v4.3.2 (最新版)
 - **安全性**: 修復 brainstorming Visual Companion 中的 XSS 漏洞
-- **功能**: 新增 Visual Companion 瀏覽器視覺化設計審查工具
-- **文件**: 新增規格文件審查提示模板
+- **文件**: 更新 README 和 SECURITY，修正版本資訊
 
 ### v4.3.0
 - 初始 MCP 伺服器實作

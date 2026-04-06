@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-[![Version](https://img.shields.io/badge/version-4.3.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-4.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -127,10 +127,9 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v4.3.1 (Latest)
+### v4.3.2 (Latest)
 - **Security**: Fixed XSS vulnerability in brainstorming Visual Companion
-- **Feature**: Added Visual Companion for browser-based design reviews and mockups
-- **Docs**: Added spec document reviewer prompt template
+- **Docs**: Updated README and SECURITY with accurate version info
 
 ### v4.3.0
 - Initial MCP server implementation
