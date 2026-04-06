@@ -2,6 +2,9 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
+[![Version](https://img.shields.io/badge/version-4.3.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
 
 ---
@@ -87,6 +90,7 @@ To help you choose the right skill, we've categorized them into 6 logical phases
 
 ### 🚀 1. Planning & Design
 - `brainstorming`: Software design and requirements analysis process
+  - **NEW**: Visual Companion for browser-based mockups and design reviews
 - `writing-plans`: Creating detailed implementation plans
 
 ### 💻 2. Implementation & Debugging
@@ -118,6 +122,19 @@ These skills are designed for orchestrating complex meta-execution patterns with
 ### ⚙️ 6. Customization & Meta
 - `using-superpowers`: Guidelines and self-checks for using Superpowers
 - `writing-skills`: Writing and expanding new custom skills
+
+---
+
+## 🆕 Recent Updates
+
+### v4.3.1 (Latest)
+- **Security**: Fixed XSS vulnerability in brainstorming Visual Companion
+- **Feature**: Added Visual Companion for browser-based design reviews and mockups
+- **Docs**: Added spec document reviewer prompt template
+
+### v4.3.0
+- Initial MCP server implementation
+- 14 core skills migrated from original Superpowers
 
 ---
 

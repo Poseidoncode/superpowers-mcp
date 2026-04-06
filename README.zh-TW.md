@@ -2,6 +2,9 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
+[![版本](https://img.shields.io/badge/version-4.3.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
 
 ---
@@ -87,6 +90,7 @@
 
 ### 🚀 1. 規劃與設計 (Planning & Design)
 - `brainstorming`: 軟體設計與需求分析流程
+  - **新增**: Visual Companion 瀏覽器視覺化設計審查工具
 - `writing-plans`: 建立詳細的實作計畫
 
 ### 💻 2. 開發與除錯 (Implementation & Debugging)
@@ -118,6 +122,19 @@
 ### ⚙️ 6. 系統與自定義 (Meta & Customization)
 - `using-superpowers`: Superpowers 核心操作指南與自我檢查
 - `writing-skills`: 撰寫與擴充新的自訂技能
+
+---
+
+## 🆕 最近更新
+
+### v4.3.1 (最新版)
+- **安全性**: 修復 brainstorming Visual Companion 中的 XSS 漏洞
+- **功能**: 新增 Visual Companion 瀏覽器視覺化設計審查工具
+- **文件**: 新增規格文件審查提示模板
+
+### v4.3.0
+- 初始 MCP 伺服器實作
+- 從原始 Superpowers 遷移 14 個核心技能
 
 ---
 
