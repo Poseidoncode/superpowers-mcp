@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-[![Version](https://img.shields.io/badge/version-4.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-5.1.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -127,7 +127,13 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v4.3.2 (Latest)
+### v5.1.0 (Latest)
+- **Inline Self-Review**: Replaced heavyweight subagent review loops (Spec Review, Plan Review) in `brainstorming` and `writing-plans` with lightweight inline self-review checklists, significantly improving efficiency by eliminating subagent overhead.
+- **Git Worktree Redesign**: Rewrote `using-git-worktrees` and `finishing-a-development-branch` with a `detect-and-defer` mechanism, natively supporting AI editors' (like Claude Code) built-in worktree tools while safely falling back to git CLI commands.
+- **Token Optimization**: Removed obsolete `Integration` sections from all skills, reducing prompt token footprints.
+- **Consolidation**: Consolidated the independent `code-reviewer` agent directly into `requesting-code-review`.
+
+### v4.3.2
 - **Security**: Fixed XSS vulnerability in brainstorming Visual Companion
 - **Docs**: Updated README and SECURITY with accurate version info
 

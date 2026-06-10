@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-[![版本](https://img.shields.io/badge/version-4.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-5.1.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -127,7 +127,13 @@
 
 ## 🆕 最近更新
 
-### v4.3.2 (最新版)
+### v5.1.0 (最新版)
+- **輕量化行內自我審查 (Inline Self-Review)**: 在 `brainstorming` 和 `writing-plans` 中，將開銷巨大（約 25 分鐘）的子代理審查循環（Spec Review 與 Plan Review）替換為更高效的行內自我審查清單，消除子代理帶來的額外資源消耗與等待時間。
+- **Git Worktree 機制重構**: 重寫了 `using-git-worktrees` 與 `finishing-a-development-branch` 技能，引入 `detect-and-defer`（檢測與委派）機制，優先委派給 AI 編輯器（如 Claude Code）的原生 worktree 工具，並能安全地 fallback 到 git 指令。
+- **Token 消耗最佳化**: 移除了所有技能檔案中的 `Integration` 區塊，減少載入時的 Token 佔用，提高執行效率。
+- **程式碼審查角色合併**: 將獨立的 `code-reviewer` 代理角色直接合併至 `requesting-code-review` 技能中。
+
+### v4.3.2
 - **安全性**: 修復 brainstorming Visual Companion 中的 XSS 漏洞
 - **文件**: 更新 README 和 SECURITY，修正版本資訊
 
