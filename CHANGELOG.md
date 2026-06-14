@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.1] - 2026-06-15
+
+### Security
+- Fixed DOM XSS vulnerability (DOM text reinterpreted as HTML) in `skills/brainstorming/scripts/helper.js` by replacing direct `innerHTML` usage with safe `textContent` + DOM creation methods.
+- Upgraded `path-to-regexp` to version `8.4.2` to resolve high-severity Regular Expression Denial of Service (ReDoS) vulnerability.
+- Updated `.gitignore` to prevent committing sensitive environment and private key files.
+- Completed full-scale project security audit and updated `tests/security_audit_report.md` with new findings.
+
+### Changed
+- Upgraded devDependencies `esbuild` from `0.25.12` to `0.28.1`.
+
 ## [5.1.0] - 2026-06-11
 
 ### Added

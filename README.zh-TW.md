@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-[![版本](https://img.shields.io/badge/version-5.1.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-5.1.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -127,7 +127,12 @@
 
 ## 🆕 最近更新
 
-### v5.1.0 (最新版)
+### v5.1.1 (最新版)
+- **資安檢測與加固**: 進行了專案發布前的全方位安全性審查，並更新 `.gitignore` 設定以防未來潛在的金鑰與敏感環境變數檔案外洩。
+- **漏洞修補 (Patches)**: 修復了 brainstorming 技能中 Visual Companion (`helper.js`) 的 DOM XSS 漏洞，將不安全的 `innerHTML` 替換為安全的 DOM 操作 API；同時將 `path-to-regexp` 套件安全升級至 `8.4.2` 以解決高風險的 ReDoS 漏洞。
+- **開發依賴升級**: 將 `esbuild` 套件版本升級至 `0.28.1`。
+
+### v5.1.0
 - **輕量化行內自我審查 (Inline Self-Review)**: 在 `brainstorming` 和 `writing-plans` 中，將開銷巨大（約 25 分鐘）的子代理審查循環（Spec Review 與 Plan Review）替換為更高效的行內自我審查清單，消除子代理帶來的額外資源消耗與等待時間。
 - **Git Worktree 機制重構**: 重寫了 `using-git-worktrees` 與 `finishing-a-development-branch` 技能，引入 `detect-and-defer`（檢測與委派）機制，優先委派給 AI 編輯器（如 Claude Code）的原生 worktree 工具，並能安全地 fallback 到 git 指令。
 - **Token 消耗最佳化**: 移除了所有技能檔案中的 `Integration` 區塊，減少載入時的 Token 佔用，提高執行效率。
