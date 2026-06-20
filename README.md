@@ -128,6 +128,7 @@ These skills are designed for orchestrating complex meta-execution patterns with
 ## 🆕 Recent Updates
 
 ### v5.1.2 (Latest)
+- **Security Hardening**: Removed the last remaining `innerHTML` usage in `skills/brainstorming/scripts/helper.js`, replacing it with safe DOM creation methods — now zero `innerHTML` in the entire codebase.
 - **Dependency Security**: Upgraded `hono` from `4.12.23` to `4.12.26` to patch 5 advisories including CORS origin reflection, Lambda body-limit bypass, and Set-Cookie header merging.
 - **Clean Slate**: All 37 Dependabot advisories and npm audit warnings now fully resolved — zero outstanding vulnerabilities.
 
