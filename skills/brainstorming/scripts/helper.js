@@ -61,7 +61,12 @@
         indicator.appendChild(selectedText);
         indicator.append(' — return to terminal to continue');
       } else {
-        indicator.innerHTML = '<span class="selected-text">' + selected.length + ' selected</span> — return to terminal to continue';
+        const countText = document.createElement('span');
+        countText.className = 'selected-text';
+        countText.textContent = selected.length + ' selected';
+        indicator.textContent = '';
+        indicator.appendChild(countText);
+        indicator.append(' — return to terminal to continue');
       }
     }, 0);
   });
