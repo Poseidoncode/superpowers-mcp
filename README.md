@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-[![Version](https://img.shields.io/badge/version-5.1.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-5.1.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -127,7 +127,11 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v5.1.1 (Latest)
+### v5.1.2 (Latest)
+- **Dependency Security**: Upgraded `hono` from `4.12.23` to `4.12.26` to patch 5 advisories including CORS origin reflection, Lambda body-limit bypass, and Set-Cookie header merging.
+- **Clean Slate**: All 37 Dependabot advisories and npm audit warnings now fully resolved — zero outstanding vulnerabilities.
+
+### v5.1.1
 - **Security Audit & Hardening**: Conducted a full-scale security audit and updated `.gitignore` rules to prevent potential secret leaks.
 - **Vulnerability Patches**: Patched XSS vulnerability in brainstorming Visual Companion (`helper.js`) by replacing unsafe `innerHTML` usage with secure DOM APIs. Upgraded `path-to-regexp` to `8.4.2` to resolve a high-severity ReDoS vulnerability.
 - **Dev Dependencies**: Bumped `esbuild` to `0.28.1`.
