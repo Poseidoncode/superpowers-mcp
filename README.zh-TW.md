@@ -128,6 +128,9 @@
 
 ## 🆕 最近更新
 
+### v6.0.1 (即將推出)
+- **安全性修復 — Reflected XSS (#2)**: 修復 `skills/brainstorming/scripts/server.cjs` 中的伺服器端反射型跨站腳本漏洞。原本 `bootstrapPage()` 使用使用者提供的 `keyFromQuery` 參數（雖已通過 `timingSafeEqualStr` 驗證），現改為使用伺服器端 `TOKEN` 常數，徹底消除使用者可控資料進入 HTML 回應的風險。行為完全不變（驗證後的值相同）。
+
 ### v6.0.0 (最新版)
 - **同步上游 obra/superpowers v6.1.1**: 大規模同步，引入上游對所有技能的改進。
 - **subagent-driven-development 流程改造**: 將原本的兩階段審查（規格 → 程式碼品質）合併為單一 **task reviewer** 子代理，並在最後增加 **whole-branch final review**。新增 **Pre-Flight Plan Review** 在執行前掃描任務衝突。新增 **Model Selection Guidance** 以最佳化成本與回合數。
