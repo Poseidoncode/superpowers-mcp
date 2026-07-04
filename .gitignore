@@ -2,6 +2,9 @@
 .private-journal/
 .claude/
 
+# pi-subagents runtime
+.pi-subagents/
+
 # Node modules
 node_modules/
 toolpack/node_modules/
