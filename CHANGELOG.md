@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.0] - 2026-07-04
+
+### Major
+- **Upstream Sync with obra/superpowers v6.1.1**: Synchronized upstream improvements across all skills.
+
+### Changed
+- **subagent-driven-development Redesign**: Consolidated two-stage review (spec → code quality) into a single "task reviewer" sub-agent. Added whole-branch final review at completion. Added Pre-Flight Plan Review for conflict detection before execution begins. Added Model Selection Guidance for cost-optimized sub-agent dispatch.
+- **using-superpowers Simplified**: Removed platform-specific sections and Graphviz diagram. Added per-platform reference files (`antigravity-tools.md`, `pi-tools.md`) and updated `codex-tools.md` for cleaner multi-environment support.
+- **brainstorming Visual Companion**: Changed to just-in-time offering — no longer offered upfront, only when a visual question actually arises.
+- **Type Safety**: Fixed `Record<string,string>` cast in `src/server.ts` with proper `typeof` guard for the `skill_name` parameter.
+- **Code Quality**: Replaced remaining `innerHTML` usage with safe DOM methods. Removed redundant checks, verbose comments, and inlined single-use helpers.
+
+### Added
+- `skills/subagent-driven-development/task-reviewer-prompt.md` — consolidated reviewer prompt replacing separate spec and code-quality prompts.
+- `skills/subagent-driven-development/scripts/review-package` — script for packaging review context.
+- `skills/subagent-driven-development/scripts/sdd-workspace` — subagent workspace setup.
+- `skills/subagent-driven-development/scripts/task-brief` — task briefing script.
+- `skills/using-superpowers/references/antigravity-tools.md` — Antigravity CLI tool mapping.
+- `skills/using-superpowers/references/pi-tools.md` — Pi CLI tool mapping.
+- `.pi-subagents/` to `.gitignore`.
+
+### Removed
+- `skills/subagent-driven-development/spec-reviewer-prompt.md` (consolidated into task-reviewer).
+- `skills/subagent-driven-development/code-quality-reviewer-prompt.md` (consolidated into task-reviewer).
+
 ## [5.1.2] - 2026-06-20
 
 ### Security

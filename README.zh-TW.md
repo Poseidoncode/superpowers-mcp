@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-[![版本](https://img.shields.io/badge/version-5.1.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.0.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -72,15 +72,15 @@
 ## 🔄 推薦的指令 (Command Sequences)
 
 ### 1. 新功能開發
-1. `[superpowers:brainstorm : 確認需求與架構]`
-2. `[superpowers:writing-plans : 寫下具體步驟]`
-3. `[superpowers:test-driven-development : 撰寫測試與實作]`
-4. `[superpowers:verification-before-completion : 跑測試確認無誤]`
+1. 「用 read_skill 讀取 brainstorming 技能，確認需求與架構。」
+2. 「用 read_skill 讀取 writing-plans 技能，建立具體的實作步驟。」
+3. 「用 read_skill 讀取 test-driven-development 技能，以 TDD 方式實作功能。」
+4. 「用 read_skill 讀取 verification-before-completion 技能，跑測試確認一切正常。」
 
 ### 2. 緊急修復 (Hotfix)
-1. `[superpowers:systematic-debugging : 定位問題根源]`
-2. `[superpowers:test-driven-development : 寫一個失敗測試重現問題，再修復]`
-3. `[superpowers:verification-before-completion : 驗證修復結果]`
+1. 「用 read_skill 讀取 systematic-debugging 技能，定位目前問題的根因。」
+2. 「用 read_skill 讀取 test-driven-development 技能，寫一個失敗測試再修復它。」
+3. 「用 read_skill 讀取 verification-before-completion 技能，驗證修復結果。」
 
 ---
 
@@ -90,7 +90,7 @@
 
 ### 🚀 1. 規劃與設計 (Planning & Design)
 - `brainstorming`: 軟體設計與需求分析流程
-  - **新增**: Visual Companion 瀏覽器視覺化設計審查工具
+  - Visual Companion 瀏覽器視覺化設計審查工具（just-in-time 觸發）
 - `writing-plans`: 建立詳細的實作計畫
 
 ### 💻 2. 開發與除錯 (Implementation & Debugging)
@@ -112,12 +112,13 @@
 這是特別針對在支援多重代理 (Multi-Agent) 協作或具備強大推論能力的 IDE（如 Antigravity 或 Cursor）中所設計的高階操作技巧。
 
 - **`subagent-driven-development`**: 驅動子代理執行複雜任務
-  - **具體用法**：適用於「執行已規劃好的詳細計畫」。針對每一個小任務，AI 會派發全新的「實作代理」去寫 Code，完成後立刻啟動「規格審查」與「品質審查」的雙重把關，審查通過才進入下一關。
-  - **指令範例**：`[superpowers:subagent-driven-development : 請依照 docs/plans/feature-plan.md 的內容，幫我逐一派發子代理實作]`
+  - **具體用法**：適用於「執行已規劃好的詳細計畫」。針對每一個小任務，AI 會派發全新的「實作代理」去寫 Code，完成後啟動合併的 **task reviewer**（規格 + 品質一次審查），並在最後執行 **whole-branch final review**（全分支最終審查）。在執行前還會進行 **Pre-Flight Plan Review**，掃描任務之間的潛在衝突。
+  - **模型選擇**：根據任務複雜度選擇子代理模型 — 機械性工作用低成本模型，架構設計與細微併發變更需要強大模型。
+  - **指令範例**：「用 read_skill 讀取 subagent-driven-development 技能，然後依照 docs/plans/feature-plan.md 的內容逐一派發子代理實作。」
 - **`dispatching-parallel-agents`**: 派發平行代理同步執行任務
   - **具體用法**：適用於「同時處理多個互不干擾的獨立問題」（例如 3 個無關聯的 Bug，或 3 個獨立的網路查詢需求）。AI 會切換為平行處理的思維模型，將各個問題視為獨立專案同時處理，避免記憶混亂（Context 污染）並加速多任務產出。
-  - **偵錯範例**：`[superpowers:dispatching-parallel-agents : 現在有 A, B, C 三個獨立的測試報錯，請派發 3 個代理同時去排查並修復]`
-  - **查詢範例**：`[superpowers:dispatching-parallel-agents : 幫我派發 3 個代理去網路上分別查詢：1. React 19 新特性, 2. Vue 3.5 更新重點, 3. Svelte 5 的 Runes 系統，並各自整理成摘要]`
+  - **偵錯範例**：「用 read_skill 讀取 dispatching-parallel-agents 技能，然後派發 3 個平行代理去分別排查 A、B、C 三個獨立測試報錯。」
+  - **查詢範例**：「用 read_skill 讀取 dispatching-parallel-agents 技能，然後平行查詢 React 19 新特性、Vue 3.5 更新重點、Svelte 5 的 Runes 系統，各自獨立摘要。」
 
 ### ⚙️ 6. 系統與自定義 (Meta & Customization)
 - `using-superpowers`: Superpowers 核心操作指南與自我檢查
@@ -127,7 +128,19 @@
 
 ## 🆕 最近更新
 
-### v5.1.1 (最新版)
+### v6.0.0 (最新版)
+- **同步上游 obra/superpowers v6.1.1**: 大規模同步，引入上游對所有技能的改進。
+- **subagent-driven-development 流程改造**: 將原本的兩階段審查（規格 → 程式碼品質）合併為單一 **task reviewer** 子代理，並在最後增加 **whole-branch final review**。新增 **Pre-Flight Plan Review** 在執行前掃描任務衝突。新增 **Model Selection Guidance** 以最佳化成本與回合數。
+- **using-superpowers 簡化**: 移除平台特定說明與 Graphviz 圖表，改為 **各平台獨立參考檔案**（新增 `antigravity-tools.md`、`pi-tools.md`，更新 `codex-tools.md`），更乾淨地支援多種 AI 環境。
+- **brainstorming Visual Companion**: 改為 **just-in-time 觸發** — 不再預先詢問，只在真正需要視覺呈現時才提議。
+- **型別安全與程式碼品質**: 修正 `server.ts` 中的 `Record<string,string>` 型別強轉為正確的 `typeof` 守衛。以安全的 DOM 方法取代殘餘的 `innerHTML`。移除冗餘檢查與囉嗦註解。
+
+### v5.1.2
+- **安全性強化**: 移除 `skills/brainstorming/scripts/helper.js` 中最後一個 `innerHTML` 用法，以安全的 DOM 創建方法取代 — 現在整個程式庫 zero `innerHTML`。
+- **依賴安全性**: 升級 `hono` 從 `4.12.23` 至 `4.12.26`，修補 5 個安全公告，包括 CORS origin reflection、Lambda body-limit bypass 和 Set-Cookie header merging。
+- **乾淨狀態**: 所有 37 個 Dependabot 安全公告與 npm audit 警告全部解決 — 零未修補漏洞。
+
+### v5.1.1
 - **資安檢測與加固**: 進行了專案發布前的全方位安全性審查，並更新 `.gitignore` 設定以防未來潛在的金鑰與敏感環境變數檔案外洩。
 - **漏洞修補 (Patches)**: 修復了 brainstorming 技能中 Visual Companion (`helper.js`) 的 DOM XSS 漏洞，將不安全的 `innerHTML` 替換為安全的 DOM 操作 API；同時將 `path-to-regexp` 套件安全升級至 `8.4.2` 以解決高風險的 ReDoS 漏洞。
 - **開發依賴升級**: 將 `esbuild` 套件版本升級至 `0.28.1`。

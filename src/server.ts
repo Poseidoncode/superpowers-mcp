@@ -112,7 +112,7 @@ function readSkillContent(skillPath: string): string {
 const server = new Server(
     {
         name: "superpowers-mcp",
-        version: "5.1.2",
+        version: "6.0.0",
     },
     {
         capabilities: {

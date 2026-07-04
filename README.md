@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-[![Version](https://img.shields.io/badge/version-5.1.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -72,15 +72,15 @@ This is the easiest way as it handles path resolution automatically.
 ## 🔄 Recommended Prompt Sequences
 
 ### 1. New Feature Development Sequence
-1. `[superpowers:brainstorm : Confirm requirements and architecture]`
-2. `[superpowers:writing-plans : Create an execution plan with specific steps]`
-3. `[superpowers:test-driven-development : Implement the feature with tests]`
-4. `[superpowers:verification-before-completion : Run test suites to ensure everything works]`
+1. "Read the brainstorming skill to confirm requirements and architecture."
+2. "Read the writing-plans skill to create an execution plan with specific steps."
+3. "Read the test-driven-development skill to implement the feature with tests."
+4. "Read the verification-before-completion skill to run test suites and ensure everything works."
 
 ### 2. Emergency Hotfix Sequence
-1. `[superpowers:systematic-debugging : Locate the root cause of the current issue]`
-2. `[superpowers:test-driven-development : Write a failing test for the bug and fix it]`
-3. `[superpowers:verification-before-completion : Validate the applied hotfix]`
+1. "Read the systematic-debugging skill to locate the root cause of the current issue."
+2. "Read the test-driven-development skill to write a failing test for the bug and fix it."
+3. "Read the verification-before-completion skill to validate the applied hotfix."
 
 ---
 
@@ -90,7 +90,7 @@ To help you choose the right skill, we've categorized them into 6 logical phases
 
 ### 🚀 1. Planning & Design
 - `brainstorming`: Software design and requirements analysis process
-  - **NEW**: Visual Companion for browser-based mockups and design reviews
+  - Visual Companion for browser-based mockups and design reviews (just-in-time)
 - `writing-plans`: Creating detailed implementation plans
 
 ### 💻 2. Implementation & Debugging
@@ -112,12 +112,13 @@ To help you choose the right skill, we've categorized them into 6 logical phases
 These skills are designed for orchestrating complex meta-execution patterns within supported IDEs (like Antigravity or Cursor).
 
 - **`subagent-driven-development`**: Driving sub-agents to execute tasks
-  - **Usage**: Used to execute a predefined plan task-by-task. The system will spawn a fresh "implementer" sub-agent for a single task, followed by "spec reviewer" and "code quality reviewer" sub-agents to ensure high-quality output before moving to the next task.
-  - **Example**: `[superpowers:subagent-driven-development : Execute the tasks listed in docs/plans/feature-plan.md one by one]`
+  - **Usage**: Used to execute a predefined plan task-by-task. The system spawns a fresh "implementer" sub-agent per task, followed by a consolidated **task reviewer** (spec compliance + code quality) sub-agent, plus a **whole-branch final review** at the end. A **Pre-Flight Plan Review** scans for task conflicts before execution begins.
+  - **Model Selection**: Choose sub-agent models based on task complexity — cheaper models for mechanical work, capable models for architecture and subtle concurrency changes.
+  - **Example**: "Read the subagent-driven-development skill, then execute the tasks listed in docs/plans/feature-plan.md one by one."
 - **`dispatching-parallel-agents`**: Dispatching tasks to parallel agents
   - **Usage**: Used for tackling multiple *independent* issues (e.g., 3 unrelated failing tests or 3 separate web research topics). The AI will adopt a parallel-execution mindset, addressing each task independently without crossing state or experiencing context pollution, significantly speeding up output generation.
-  - **Debugging Example**: `[superpowers:dispatching-parallel-agents : Tests A, B, and C are failing independently. Dispatch 3 parallel agents to investigate and fix them]`
-  - **Research Example**: `[superpowers:dispatching-parallel-agents : Dispatch 3 parallel agents to search the web for: 1. React 19 features, 2. Vue 3.5 updates, 3. Svelte 5 Runes. Summarize each independently]`
+  - **Debugging Example**: "Read the dispatching-parallel-agents skill, then dispatch 3 parallel agents to investigate the independently failing tests A, B, and C."
+  - **Research Example**: "Read the dispatching-parallel-agents skill, then search the web for React 19 features, Vue 3.5 updates, and Svelte 5 Runes in parallel — summarize each independently."
 
 ### ⚙️ 6. Customization & Meta
 - `using-superpowers`: Guidelines and self-checks for using Superpowers
@@ -127,7 +128,14 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v5.1.2 (Latest)
+### v6.0.0 (Latest)
+- **Upstream Sync with obra/superpowers v6.1.1**: Major synchronization bringing upstream improvements across all skills.
+- **subagent-driven-development Redesign**: Consolidated two-stage review (spec → code quality) into a single "task reviewer" sub-agent, plus added a broad **whole-branch final review** at completion. New **Pre-Flight Plan Review** catches task conflicts before execution begins. Added **Model Selection Guidance** to optimize cost vs. turn count.
+- **using-superpowers Simplified**: Removed platform-specific sections and Graphviz diagram. Introduced **per-platform reference files** (`antigravity-tools.md`, `pi-tools.md`) and updated `codex-tools.md` for cleaner multi-environment support.
+- **brainstorming Visual Companion**: Changed to **just-in-time** offering — no longer offered upfront, only when a visual question actually arises.
+- **Type Safety & Code Quality**: Fixed `Record<string,string>` cast in `server.ts` with proper `typeof` guard. Replaced remaining `innerHTML` with safe DOM methods. Removed redundant checks and verbose comments across the codebase.
+
+### v5.1.2
 - **Security Hardening**: Removed the last remaining `innerHTML` usage in `skills/brainstorming/scripts/helper.js`, replacing it with safe DOM creation methods — now zero `innerHTML` in the entire codebase.
 - **Dependency Security**: Upgraded `hono` from `4.12.23` to `4.12.26` to patch 5 advisories including CORS origin reflection, Lambda body-limit bypass, and Set-Cookie header merging.
 - **Clean Slate**: All 37 Dependabot advisories and npm audit warnings now fully resolved — zero outstanding vulnerabilities.
