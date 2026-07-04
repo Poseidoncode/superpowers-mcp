@@ -128,7 +128,10 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v6.0.0 (Latest)
+### v6.0.1 (Latest)
+- **Security Fix — Reflected XSS (#2)**: Fixed server-side reflected cross-site scripting in `skills/brainstorming/scripts/server.cjs`. The `bootstrapPage()` function was called with the user-supplied `keyFromQuery` parameter (even though validated via `timingSafeEqualStr`). Changed to use the server-side `TOKEN` constant instead, eliminating user-tainted data from the HTML response sink. Zero behavior change (the validated value is identical).
+
+### v6.0.0
 - **Upstream Sync with obra/superpowers v6.1.1**: Major synchronization bringing upstream improvements across all skills.
 - **subagent-driven-development Redesign**: Consolidated two-stage review (spec → code quality) into a single "task reviewer" sub-agent, plus added a broad **whole-branch final review** at completion. New **Pre-Flight Plan Review** catches task conflicts before execution begins. Added **Model Selection Guidance** to optimize cost vs. turn count.
 - **using-superpowers Simplified**: Removed platform-specific sections and Graphviz diagram. Introduced **per-platform reference files** (`antigravity-tools.md`, `pi-tools.md`) and updated `codex-tools.md` for cleaner multi-environment support.

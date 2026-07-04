@@ -30,7 +30,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
-## Current Security Status (v6.0.0)
+## Current Security Status (v6.0.1)
 
 | Check | Status |
 | ----- | ------ |
@@ -39,7 +39,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | `eval` / `new Function` / `document.write` | :zero: Zero occurrences |
 | Hardcoded secrets in tracked files | :zero: Zero — `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*` |
 | World-writable files | :zero: Zero |
-| XSS vectors (brainstorming Visual Companion) | :white_check_mark: Patched — DOM XSS fixed in v5.1.1, remaining `innerHTML` eliminated in v6.0.0 |
+| XSS vectors (brainstorming Visual Companion & server) | :white_check_mark: Patched — DOM XSS fixed in v5.1.1, remaining `innerHTML` eliminated in v6.0.0, reflected server-side XSS fixed in v6.0.1 |
 | ReDoS (`path-to-regexp`) | :white_check_mark: Patched — upgraded to v8.4.2 in v5.1.1 |
 | CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — upgraded to v4.12.26 in v5.1.2 |
 
