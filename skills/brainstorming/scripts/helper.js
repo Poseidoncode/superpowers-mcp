@@ -3,7 +3,6 @@
   const MAX_RECONNECT_MS = 30000;
   const TOMBSTONE_AFTER_MS = 15000; // show the "paused" overlay after this long disconnected
 
-  // Pure: next backoff delay (doubles, capped). Exported for unit tests.
   function nextReconnectDelay(current, max) {
     return Math.min(current * 2, max);
   }
@@ -58,7 +57,6 @@
     el.style.setProperty('--status-color', color);
   }
 
-  // Self-styled so it works on framed and full-document screens alike.
   function showTombstone() {
     if (tombstoneShown) return;
     tombstoneShown = true;
@@ -67,10 +65,18 @@
     el.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;' +
       'align-items:center;justify-content:center;padding:2rem;text-align:center;' +
       'background:rgba(20,20,22,0.92);color:#f5f5f7;font-family:system-ui,sans-serif';
-    el.innerHTML = '<div style="max-width:480px">' +
-      '<h2 style="margin:0 0 .5rem;font-weight:600">Companion paused</h2>' +
-      '<p style="margin:0;opacity:.85">This brainstorm companion has stopped. ' +
-      'Ask your coding agent to bring it back — this page reconnects automatically.</p></div>';
+    const inner = document.createElement('div');
+    inner.style.cssText = 'max-width:480px';
+    const h2 = document.createElement('h2');
+    h2.style.cssText = 'margin:0 0 .5rem;font-weight:600';
+    h2.textContent = 'Companion paused';
+    inner.appendChild(h2);
+    const p = document.createElement('p');
+    p.style.cssText = 'margin:0;opacity:.85';
+    p.textContent = 'This brainstorm companion has stopped. ' +
+      'Ask your coding agent to bring it back — this page reconnects automatically.';
+    inner.appendChild(p);
+    el.appendChild(inner);
     if (document.body) document.body.appendChild(el);
   }
 
@@ -126,7 +132,6 @@
     }
   }
 
-  // Capture clicks on choice elements
   document.addEventListener('click', (e) => {
     const target = e.target.closest('[data-choice]');
     if (!target) return;
@@ -140,7 +145,6 @@
 
   });
 
-  // Frame UI: selection tracking
   window.selectedChoice = null;
 
   window.toggleSelect = function(el) {
@@ -157,7 +161,6 @@
     window.selectedChoice = el.dataset.choice;
   };
 
-  // Expose API for explicit use
   window.brainstorm = {
     send: sendEvent,
     choice: (value, metadata = {}) => sendEvent({ type: 'choice', value, ...metadata })

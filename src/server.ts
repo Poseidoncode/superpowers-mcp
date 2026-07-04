@@ -287,7 +287,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "read_skill") {
-        const skillName = (args as Record<string, string>)?.skill_name;
+        const skillName = typeof args?.skill_name === 'string' ? args.skill_name : undefined;
         if (!skillName) {
             throw new McpError(ErrorCode.InvalidParams, "skill_name is required");
         }
