@@ -380,7 +380,7 @@ function handleRequest(req, res) {
   const keyFromQuery = qIdx >= 0 ? new URLSearchParams(req.url.slice(qIdx + 1)).get('key') : null;
   if (req.method === 'GET' && pathname === '/' && keyFromQuery && timingSafeEqualStr(keyFromQuery, TOKEN)) {
     res.writeHead(200, securityHeaders({ 'Content-Type': 'text/html; charset=utf-8' }));
-    res.end(bootstrapPage(keyFromQuery));
+    res.end(bootstrapPage(TOKEN));
   } else if (req.method === 'GET' && pathname === '/') {
     const screenFile = getNewestScreen();
     let html = screenFile
