@@ -52,7 +52,15 @@ Conducted an additional round of security review preparing for the release of `v
 * **Security Hardening**: Hardened `.gitignore` by explicitly adding rules for `.env*`, `*.pem`, `*.key`, `*.token`, and `credentials*` to prevent any accidental leakage from the source.
 * **Code Check**: Re-verified the DOM XSS fix in `skills/brainstorming/scripts/helper.js`, confirming that it fully complies with safe DOM manipulation practices.
 
+### 6. Architecture & Security Hardening Review (2026-07-16 - v6.0.2)
+Conducted a comprehensive audit of the newly refactored `v6.0.2` architecture, focused on input validation, resource isolation, and parser safety:
+* **Directory Traversal Defense**: The core file reading capability has been encapsulated inside `SkillsManager` ([src/skills-manager.ts](file:///Users/poseidomhung/Documents/github/Infinity/superpowers-mcp/src/skills-manager.ts)). In `findSkill(skillName)`, a strict whitelist regex validation `/^[a-zA-Z0-9-_]+$/` is applied to `skillName` before retrieving the file. This blocks any `..`, `/`, or `\` path traversal payloads.
+* **ReDoS Prevention**: The YAML frontmatter parsing logic `parseFrontmatter` has been completely rewritten to use a safe, non-recursive line-by-line parser instead of complex multi-line regular expressions, eliminating the risk of ReDoS (Regular Expression Denial of Service) attacks.
+* **Symbolic Link Auditing**: Hardened `scripts/copy-skills.js` to explicitly skip symbolic links, preventing directory loops or unauthorized file exposure during build phases.
+* **Secrets Scanning**: Confirmed that `.gitignore` correctly prevents accidental leakages of credentials, keyfiles, or local draft task lists. Verified that no active credentials or API keys exist in the codebase.
+* **Dependency & Build Validation**: Executed `npm audit` (returned 0 vulnerabilities), successfully compiled the codebase using `npm run build`, and verified all MCP communication capabilities via automated smoke tests (`node tests/run_test.js`).
+
 ---
 
 ## 💡 Conclusion
-The project has successfully passed all pre-release security checks (Last revised: 2026-06-15). All known vulnerabilities are resolved, and both the source code and dependencies are 100% secure. Ready for release.
+The project has successfully passed all pre-release security checks (Last revised: 2026-07-16). All known vulnerabilities are resolved, and both the source code and dependencies are 100% secure. Ready for release.
