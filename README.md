@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-[![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.0.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -128,7 +128,35 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v6.0.1 (Latest)
+### v6.0.2 (Latest)
+- **Modular Refactoring & Performance Upgrades**:
+  - **Decoupled Architecture**: Extracted file system access, metadata caching, and parsing logic into a dedicated [`src/skills-manager.ts`](src/skills-manager.ts), leaving [`src/server.ts`](src/server.ts) purely focused on MCP protocol handling.
+  - **O(1) Map-Based Cache**: Replaced the $O(N)$ double-array scan with case-insensitive, dual-key (by name and directory name) memory caches for fast $O(1)$ lookups.
+  - **Async I/O Pipeline**: Swapped synchronous file API calls (`readdirSync`, `readFileSync`) with promises and `Promise.all` concurrent execution, unlocking high-throughput performance.
+  - **Markdown Cache**: Cached stripped skill content in memory to avoid repetitive disk reads when tools are invoked frequently.
+- **Security Hardening**:
+  - **ReDoS Prevention**: Replaced regex-based frontmatter parser with a safe, line-by-line state machine parser, completely eliminating CPU exhaustion risks and supporting multiline YAML descriptions.
+  - **Path Traversal Shield**: Added strict alphanumeric white-listing (`/^[a-zA-Z0-9-_]+$/`) on skill name inputs to prevent traversal attacks.
+  - **Directory Injection Check**: Validated `SKILLS_PATH` to actively reject potentially hostile system root folders.
+  - **Path & Username Leak Protection**: Caught native file system errors and masked them into generic, path-free `McpError` payloads.
+  - **Windows Build and Script Safety**: Handled Windows `chmodSync` platform checks in `esbuild.js` and skipped Symlinks in `copy-skills.js` to prevent recursive file copy loops.
+
+- **Upstream Security Cherry-Picks**: Applied security hardening from obra/superpowers v6.1.1:
+  - **WebSocket frame size validation**: Added `MAX_FRAME_PAYLOAD_BYTES (10 MB)` check in `decodeFrame()` to prevent oversized frame attacks (CWE-789). Dual protection — BigInt extended-length and general post-resolution guard.
+  - **Hardlink containment**: Added `stat.nlink !== 1` check in `isRegularFileInsideContentDir()` prevents path traversal via hardlinks.
+  - **`escapeHtmlText()` extraction**: Extracted inline `escHtml` closure into a reusable named function for consistent HTML escaping.
+  - **URL parsing refactor**: Extracted `pathnameOf()` and `queryKey()` helpers, reducing duplicate inline URL logic in `handleRequest()`.
+- **`review-package` Path Resolution Fix**: Fixed `sdd-workspace` invocation to use absolute path resolution (`$(cd "$(dirname "$0")" && pwd)`) instead of relative path, fixing CWD-dependent failures.
+- **Windows Native Helper Scripts**: Added PowerShell wrappers for Visual Companion startup/shutdown, SDD review/task helpers, and systematic-debugging polluter detection.
+- **Skill Documentation Enhancements**:
+  - `subagent-driven-development`: Added `plan-mandated` review guidance for handling plan conflicts.
+  - `writing-skills`: Strengthened prohibition vs. recipe guidance with empirical evidence from wording tests.
+  - `test-driven-development`: Fixed table formatting for clarity.
+  - `writing-skills/anthropic-best-practices`: Updated image CDN URLs.
+- **`helper.js` Comment Alignment**: Added 4 clarifying inline comments to align with upstream documentation without changing behavior. DOM-safe `showTombstone()` preserved (no `innerHTML` regression).
+- **Cleanup**: Removed obsolete `walkthrough.md` (v5.1.0 upgrade guide).
+
+### v6.0.1
 - **Security Fix — Reflected XSS (#2)**: Fixed server-side reflected cross-site scripting in `skills/brainstorming/scripts/server.cjs`. The `bootstrapPage()` function was called with the user-supplied `keyFromQuery` parameter (even though validated via `timingSafeEqualStr`). Changed to use the server-side `TOKEN` constant instead, eliminating user-tainted data from the HTML response sink. Zero behavior change (the validated value is identical).
 
 ### v6.0.0

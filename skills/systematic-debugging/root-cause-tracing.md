@@ -102,6 +102,9 @@ Use the bisection script `find-polluter.sh` in this directory:
 
 ```bash
 ./find-polluter.sh '.git' 'src/**/*.test.ts'
+
+# Windows PowerShell:
+./find-polluter.ps1 '.git' 'src/**/*.test.ts'
 ```
 
 Runs tests one-by-one, stops at first polluter. See script for usage.

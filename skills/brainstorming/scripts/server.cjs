@@ -62,6 +62,10 @@ function decodeFrame(buffer) {
     offset = 10;
   }
 
+  if (payloadLen > MAX_FRAME_PAYLOAD_BYTES) {
+    throw new Error('WebSocket frame payload exceeds maximum allowed size');
+  }
+
   const maskOffset = offset;
   const dataOffset = offset + 4;
   const totalLen = dataOffset + payloadLen;
@@ -227,9 +231,16 @@ function isTruthyEnv(value) {
   return !['0', 'false', 'no', 'off'].includes(normalized);
 }
 
+function escapeHtmlText(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function brandMarkup() {
-  const escHtml = (v) => String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const version = escHtml(SUPERPOWERS_VERSION);
+  const version = escapeHtmlText(SUPERPOWERS_VERSION);
   const text = SUPERPOWERS_TELEMETRY_DISABLED
     ? 'Prime Radiant Superpowers v' + version
     : 'Superpowers v' + version;
@@ -296,6 +307,7 @@ function isRegularFileInsideContentDir(filePath) {
     stat = fs.lstatSync(filePath);
     if (stat.isSymbolicLink()) return false;
     if (!stat.isFile()) return false;
+    if (stat.nlink !== 1) return false;
     realContentDir = fs.realpathSync(CONTENT_DIR);
     realFilePath = fs.realpathSync(filePath);
   } catch (e) {
@@ -340,6 +352,17 @@ function isAuthorized(req) {
   return false;
 }
 
+function pathnameOf(url) {
+  const q = url.indexOf('?');
+  return q >= 0 ? url.slice(0, q) : url;
+}
+
+function queryKey(url) {
+  const q = url.indexOf('?');
+  if (q < 0) return null;
+  return new URLSearchParams(url.slice(q + 1)).get('key');
+}
+
 function securityHeaders(headers = {}) {
   return {
     'Referrer-Policy': 'no-referrer',
@@ -375,9 +398,8 @@ function handleRequest(req, res) {
   res.setHeader('Set-Cookie',
     COOKIE_NAME + '=' + TOKEN + '; HttpOnly; SameSite=Strict; Path=/');
 
-  const qIdx = req.url.indexOf('?');
-  const pathname = qIdx >= 0 ? req.url.slice(0, qIdx) : req.url;
-  const keyFromQuery = qIdx >= 0 ? new URLSearchParams(req.url.slice(qIdx + 1)).get('key') : null;
+  const pathname = pathnameOf(req.url);
+  const keyFromQuery = queryKey(req.url);
   if (req.method === 'GET' && pathname === '/' && keyFromQuery && timingSafeEqualStr(keyFromQuery, TOKEN)) {
     res.writeHead(200, securityHeaders({ 'Content-Type': 'text/html; charset=utf-8' }));
     res.end(bootstrapPage(TOKEN));

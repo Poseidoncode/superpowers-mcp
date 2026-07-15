@@ -57,6 +57,7 @@
     el.style.setProperty('--status-color', color);
   }
 
+  // Self-styled so it works on framed and full-document screens alike.
   function showTombstone() {
     if (tombstoneShown) return;
     tombstoneShown = true;
@@ -132,6 +133,7 @@
     }
   }
 
+  // Capture clicks on choice elements
   document.addEventListener('click', (e) => {
     const target = e.target.closest('[data-choice]');
     if (!target) return;
@@ -145,6 +147,7 @@
 
   });
 
+  // Frame UI: selection tracking
   window.selectedChoice = null;
 
   window.toggleSelect = function(el) {
@@ -161,6 +164,7 @@
     window.selectedChoice = el.dataset.choice;
   };
 
+  // Expose API for explicit use
   window.brainstorm = {
     send: sendEvent,
     choice: (value, metadata = {}) => sendEvent({ type: 'choice', value, ...metadata })

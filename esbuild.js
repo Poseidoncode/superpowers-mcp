@@ -37,10 +37,16 @@ async function build() {
     } else {
         await esbuild.build(serverConfig);
 
-        // Make server.js executable
+        // Make server.js executable safely across platforms
         const serverPath = path.join(__dirname, "out", "server.js");
         if (fs.existsSync(serverPath)) {
-            fs.chmodSync(serverPath, "755");
+            try {
+                if (process.platform !== "win32") {
+                    fs.chmodSync(serverPath, "755");
+                }
+            } catch (chmodErr) {
+                console.warn(`Warning: Failed to set executable permissions on ${serverPath}:`, chmodErr);
+            }
         }
         console.log("Build complete.");
     }

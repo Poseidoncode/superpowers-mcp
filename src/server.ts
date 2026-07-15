@@ -1,5 +1,5 @@
-import * as fs from "fs";
 import * as path from "path";
+import * as fs from "fs";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -12,98 +12,30 @@ import {
     ErrorCode,
     McpError,
 } from "@modelcontextprotocol/sdk/types.js";
+import { SkillsManager } from "./skills-manager.js";
 
 // ---------------------------------------------------------------------------
-// Paths
+// Paths & Environment Protection
 // ---------------------------------------------------------------------------
 
-// Support running from npm package or local development
-const SKILLS_PATH = process.env.SKILLS_PATH
-    ? process.env.SKILLS_PATH
-    : fs.existsSync(path.join(__dirname, "..", "skills"))
-        ? path.join(__dirname, "..", "skills") // dist/server.js -> skills/
-        : path.join(__dirname, "skills");    // current dir during dev
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-interface SkillMeta {
-    name: string;
-    description: string;
-    skillPath: string;
-}
-
-/**
- * Parse YAML frontmatter from a SKILL.md file.
- * Only extracts `name` and `description` fields (the only two supported by superpowers).
- */
-function parseFrontmatter(content: string): { name: string; description: string } {
-    const match = content.match(/^---\n([\s\S]*?)\n---/);
-    if (!match) {
-        return { name: "", description: "" };
+function getSafeSkillsPath(): string {
+    const envPath = process.env.SKILLS_PATH;
+    if (envPath) {
+        const resolved = path.resolve(envPath);
+        const unsafeRoots = ["/", "/etc", "/var", "/bin", "/sbin", "C:\\", "C:\\Windows"];
+        if (unsafeRoots.includes(resolved) || resolved === path.parse(resolved).root) {
+            process.stderr.write(`Warning: Potentially unsafe SKILLS_PATH: "${envPath}". Fallback to default.\n`);
+        } else {
+            return resolved;
+        }
     }
 
-    const yaml = match[1];
-    const nameMatch = yaml.match(/^name:\s*["']?(.+?)["']?\s*$/m);
-    const descMatch = yaml.match(/^description:\s*["']?([\s\S]+?)["']?\s*$/m);
-
-    return {
-        name: nameMatch ? nameMatch[1].trim() : "",
-        description: descMatch ? descMatch[1].trim().replace(/\n\s*/g, " ") : "",
-    };
+    const defaultPath = path.join(__dirname, "..", "skills");
+    return fs.existsSync(defaultPath) ? defaultPath : path.join(__dirname, "skills");
 }
 
-/**
- * Enumerate all skills from the skills directory.
- */
-function listSkills(): SkillMeta[] {
-    if (!fs.existsSync(SKILLS_PATH)) {
-        return [];
-    }
-
-    const skills: SkillMeta[] = [];
-
-    for (const entry of fs.readdirSync(SKILLS_PATH, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-
-        const skillDir = path.join(SKILLS_PATH, entry.name);
-        const skillFile = path.join(skillDir, "SKILL.md");
-
-        if (!fs.existsSync(skillFile)) continue;
-
-        const content = fs.readFileSync(skillFile, "utf-8");
-        const { name, description } = parseFrontmatter(content);
-
-        skills.push({
-            name: name || entry.name,
-            description,
-            skillPath: skillFile,
-        });
-    }
-
-    return skills.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/**
- * Find a skill by name (directory name or frontmatter name).
- */
-function findSkill(skillName: string): SkillMeta | undefined {
-    const skills = listSkills();
-    return (
-        skills.find((s) => s.name === skillName) ??
-        skills.find((s) => path.basename(path.dirname(s.skillPath)) === skillName)
-    );
-}
-
-/**
- * Read skill content, stripping frontmatter.
- */
-function readSkillContent(skillPath: string): string {
-    const raw = fs.readFileSync(skillPath, "utf-8");
-    // Strip YAML frontmatter block
-    return raw.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
-}
+const SKILLS_PATH = getSafeSkillsPath();
+const skillsManager = new SkillsManager(SKILLS_PATH);
 
 // ---------------------------------------------------------------------------
 // Server setup
@@ -112,7 +44,7 @@ function readSkillContent(skillPath: string): string {
 const server = new Server(
     {
         name: "superpowers-mcp",
-        version: "6.0.0",
+        version: "6.0.2",
     },
     {
         capabilities: {
@@ -128,8 +60,7 @@ const server = new Server(
 // ---------------------------------------------------------------------------
 
 server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    const skills = listSkills();
-
+    const skills = await skillsManager.listSkills();
     return {
         resources: skills.map((skill) => ({
             uri: `skill://superpowers/${skill.name}`,
@@ -149,23 +80,26 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     }
 
     const skillName = match[1];
-    const skill = findSkill(skillName);
+    const skill = await skillsManager.findSkill(skillName);
 
     if (!skill) {
         throw new McpError(ErrorCode.InvalidRequest, `Skill not found: ${skillName}`);
     }
 
-    const content = fs.readFileSync(skill.skillPath, "utf-8");
-
-    return {
-        contents: [
-            {
-                uri,
-                mimeType: "text/markdown",
-                text: content,
-            },
-        ],
-    };
+    try {
+        const content = await skillsManager.readSkillContent(skill.skillPath);
+        return {
+            contents: [
+                {
+                    uri,
+                    mimeType: "text/markdown",
+                    text: content,
+                },
+            ],
+        };
+    } catch {
+        throw new McpError(ErrorCode.InternalError, `Failed to read skill content safely.`);
+    }
 });
 
 // ---------------------------------------------------------------------------
@@ -177,8 +111,7 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
         prompts: [
             {
                 name: "session-start",
-                description:
-                    "Inject the Superpowers context into an AI agent session. Tells the agent it has superpowers and how to use the skill system.",
+                description: "Inject the Superpowers context into an AI agent session. Tells the agent it has superpowers and how to use the skill system.",
             },
         ],
     };
@@ -186,23 +119,15 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
 
 server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     if (request.params.name !== "session-start") {
-        throw new McpError(
-            ErrorCode.InvalidRequest,
-            `Unknown prompt: ${request.params.name}`
-        );
+        throw new McpError(ErrorCode.InvalidRequest, `Unknown prompt: ${request.params.name}`);
     }
 
-    // Read using-superpowers skill content (same as what session-start hook injects)
-    const usingSuperpowersPath = path.join(
-        SKILLS_PATH,
-        "using-superpowers",
-        "SKILL.md"
-    );
+    const usingSuperpowersPath = path.join(SKILLS_PATH, "using-superpowers", "SKILL.md");
 
     let skillContent = "";
-    if (fs.existsSync(usingSuperpowersPath)) {
-        skillContent = fs.readFileSync(usingSuperpowersPath, "utf-8");
-    } else {
+    try {
+        skillContent = await skillsManager.readSkillContent(usingSuperpowersPath);
+    } catch {
         skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
     }
 
@@ -215,8 +140,7 @@ ${skillContent}
 </EXTREMELY_IMPORTANT>`;
 
     return {
-        description:
-            "Superpowers session start context — establishes how to find and use skills",
+        description: "Superpowers session start context — establishes how to find and use skills",
         messages: [
             {
                 role: "user",
@@ -238,8 +162,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         tools: [
             {
                 name: "list_skills",
-                description:
-                    "List all available Superpowers skills with their names and descriptions. Use this to discover which skills are available before loading one.",
+                description: "List all available Superpowers skills with their names and descriptions. Use this to discover which skills are available before loading one.",
                 inputSchema: {
                     type: "object",
                     properties: {},
@@ -248,15 +171,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: "read_skill",
-                description:
-                    "Read the full content of a Superpowers skill by name. The skill content contains instructions, checklists, and patterns to follow. Read a skill before attempting the task it covers.",
+                description: "Read the full content of a Superpowers skill by name. The skill content contains instructions, checklists, and patterns to follow. Read a skill before attempting the task it covers.",
                 inputSchema: {
                     type: "object",
                     properties: {
                         skill_name: {
                             type: "string",
-                            description:
-                                'Name of the skill to read (e.g. "brainstorming", "test-driven-development", "systematic-debugging")',
+                            description: 'Name of the skill to read (e.g. "brainstorming", "test-driven-development", "systematic-debugging")',
                         },
                     },
                     required: ["skill_name"],
@@ -266,12 +187,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     };
 });
 
+interface ReadSkillArguments {
+    skill_name?: unknown;
+}
+
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
     if (name === "list_skills") {
-        const skills = listSkills();
-
+        const skills = await skillsManager.listSkills();
         const skillList = skills
             .map((s) => `**${s.name}**\n${s.description}`)
             .join("\n\n---\n\n");
@@ -287,32 +211,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "read_skill") {
-        const skillName = typeof args?.skill_name === 'string' ? args.skill_name : undefined;
+        const readArgs = args as ReadSkillArguments | undefined;
+        const skillName = typeof readArgs?.skill_name === 'string' ? readArgs.skill_name.trim() : undefined;
+
         if (!skillName) {
             throw new McpError(ErrorCode.InvalidParams, "skill_name is required");
         }
 
-        const skill = findSkill(skillName);
+        const skill = await skillsManager.findSkill(skillName);
         if (!skill) {
-            const available = listSkills()
-                .map((s) => s.name)
-                .join(", ");
+            const availableSkills = await skillsManager.listSkills();
+            const available = availableSkills.map((s) => s.name).join(", ");
             throw new McpError(
                 ErrorCode.InvalidRequest,
                 `Skill "${skillName}" not found. Available skills: ${available}`
             );
         }
 
-        const content = fs.readFileSync(skill.skillPath, "utf-8");
-
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `# Skill: ${skill.name}\n\n${content}`,
-                },
-            ],
-        };
+        try {
+            const content = await skillsManager.readSkillContent(skill.skillPath);
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `# Skill: ${skill.name}\n\n${content}`,
+                    },
+                ],
+            };
+        } catch {
+            throw new McpError(ErrorCode.InternalError, `Failed to read skill "${skillName}" due to an internal error.`);
+        }
     }
 
     throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
@@ -325,7 +253,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    // Server runs until process exits
 }
 
 main().catch((err) => {

@@ -198,7 +198,7 @@ Next failing test for next feature.
 ## Good Tests
 
 | Quality | Good | Bad |
-|---------|------|---------|
+|---------|------|-----|
 | **Minimal** | One thing. "and" in name? Split it. | `test('validates email and domain and whitespace')` |
 | **Clear** | Name describes behavior | `test('test1')` |
 | **Shows intent** | Demonstrates desired API | Obscures what code should do |

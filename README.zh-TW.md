@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-[![版本](https://img.shields.io/badge/version-6.0.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.0.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -128,7 +128,34 @@
 
 ## 🆕 最近更新
 
-### v6.0.1 (最新版)
+### v6.0.2 (最新版)
+- **模組化拆分與效能提升**：
+  - **職責解耦**：將檔案存取、YAML 解析與快取邏輯抽離至獨立模組 [`src/skills-manager.ts`](src/skills-manager.ts)，主程式 [`src/server.ts`](src/server.ts) 專注於 MCP 路由註冊。
+  - **O(1) 雙向快取**：引入大小寫不敏感的 Map 雙向鍵值快取（以技能名與目錄名為 Key），將原本 $O(N)$ 的陣列雙重遍歷優化為 $O(1)$ 的直接讀取。
+  - **非同步 I/O 管線**：全面以 `fs/promises` 代替同步磁碟操作，搭配 `Promise.all` 併發枚舉，釋放 Node.js 事件循環阻塞。
+  - **Markdown 內容快取**：快取已剝離 YAML frontmatter 的技能文檔，避免工具頻繁調用時對硬碟的重複讀寫損耗。
+- **安全性深度防禦**：
+  - **防範 ReDoS 攻擊**：棄用非貪婪正則，重構為「逐行 Frontmatter 解析器」，規避了惡意/損壞 Markdown 導致的 CPU 回溯鎖死風險，且支援了 YAML 多行 `description` 欄位。
+  - **路徑遍歷（Path Traversal）防禦**：對 `skill_name` 輸入參數使用英數白名單篩選（`/^[a-zA-Z0-9-_]+$/`）。
+  - **絕對路徑防洩露**：安全捕獲原生 I/O 錯誤，隱蔽主機真實實體路徑與帳號名稱，回傳通用 `McpError`。
+  - **環境路徑與指令碼加固**：檢測 `SKILLS_PATH` 防範根目錄惡意注入；修復 `esbuild.js` 在 Windows 上的 `chmodSync` 崩潰問題，並在 `copy-skills.js` 中跳過符號連結 (Symlink) 杜絕遞迴拷貝死循環。
+
+- **上游安全更新同步**：套用來自 obra/superpowers v6.1.1 的安全加固：
+  - **WebSocket 影格長度限制**：在 `decodeFrame()` 中新增 `MAX_FRAME_PAYLOAD_BYTES (10 MB)` 檢測，防止超大型影格攻擊（CWE-789）。
+  - **硬連結限制**：在 `isRegularFileInsideContentDir()` 中加入 `stat.nlink !== 1` 檢測，防止透過硬連結 (Hardlink) 繞過路徑遍歷。
+  - **提取 `escapeHtmlText()`**：將行內的 `escHtml` 閉包提取為可重複使用的具名函數，以確保 HTML 逸出的一致性。
+  - **URL 解析重構**：抽離出 `pathnameOf()` and `queryKey()` 輔助函數，減少 `handleRequest()` 中的重複 URL 解析。
+- **`review-package` 路徑解析修正**：修復 `sdd-workspace` 呼叫，改用絕對路徑解析 (`$(cd "$(dirname "$0")" && pwd)`) 以防止與工作路徑 (CWD) 依賴相關的調用失敗。
+- **Windows 原生輔助腳本**：新增 Visual Companion 啟動/關閉、SDD review/task helper，以及 systematic-debugging polluter detection 的 PowerShell wrapper。
+- **技能文檔改進**：
+  - `subagent-driven-development`：新增 `plan-mandated` 審查指引，以處理計畫之間的衝突。
+  - `writing-skills`：結合字詞測試的實證，強化「禁止撰寫步驟清單 (recipes) 技能」的指引。
+  - `test-driven-development`：修正表格格式以提升清晰度。
+  - `writing-skills/anthropic-best-practices`：更新圖片的 CDN 網址。
+- **`helper.js` 註解對齊**：新增 4 個說明的行內註解以對齊上游文檔。保留 DOM 安全的 `showTombstone()` 實作（無 `innerHTML` 退化）。
+- **清理**：移除了已廢棄的 `walkthrough.md` (v5.1.0 升級指南)。
+
+### v6.0.1
 - **安全性修復 — Reflected XSS (#2)**: 修復 `skills/brainstorming/scripts/server.cjs` 中的伺服器端反射型跨站腳本漏洞。原本 `bootstrapPage()` 使用使用者提供的 `keyFromQuery` 參數（雖已通過 `timingSafeEqualStr` 驗證），現改為使用伺服器端 `TOKEN` 常數，徹底消除使用者可控資料進入 HTML 回應的風險。行為完全不變（驗證後的值相同）。
 
 ### v6.0.0

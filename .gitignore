@@ -1,6 +1,7 @@
 .worktrees/
 .private-journal/
 .claude/
+.superpowers/
 
 # pi-subagents runtime
 .pi-subagents/

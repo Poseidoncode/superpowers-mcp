@@ -37,6 +37,9 @@ The server watches a directory for HTML files and serves the newest one to the b
 # the first screen; --project-dir persists mockups and enables same-port restart.
 scripts/start-server.sh --project-dir /path/to/project --open
 
+# Windows PowerShell:
+scripts/start-server.ps1 --project-dir C:\path\to\project --open
+
 # Returns: {"type":"server-started","port":52341,
 #           "url":"http://localhost:52341/?key=ab12…",
 #           "screen_dir":"/path/to/project/.superpowers/brainstorm/12345-1706000000/content",
@@ -66,6 +69,8 @@ scripts/start-server.sh --project-dir /path/to/project --open
 ```
 
 On Windows, the script auto-detects and switches to foreground mode (which blocks the tool call). Use `run_in_background: true` on the Bash tool call so the server survives across conversation turns, then read `$STATE_DIR/server-info` on the next turn to get the URL and port.
+
+For native PowerShell, use `scripts/start-server.ps1` with the same flags. It writes the same `server-info` file and supports `--project-dir`, `--host`, `--url-host`, `--idle-timeout-minutes`, `--open`, `--foreground`, and `--background`.
 
 **Codex:**
 ```bash
@@ -281,6 +286,9 @@ If `$STATE_DIR/events` doesn't exist, the user didn't interact with the browser 
 
 ```bash
 scripts/stop-server.sh $SESSION_DIR
+
+# Windows PowerShell:
+scripts/stop-server.ps1 $SESSION_DIR
 ```
 
 If the session used `--project-dir`, mockup files persist in `.superpowers/brainstorm/` for later reference. Only `/tmp` sessions get deleted on stop.
