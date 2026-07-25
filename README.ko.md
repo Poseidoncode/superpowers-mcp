@@ -1,0 +1,205 @@
+# Superpowers MCP Toolpack 사용 가이드
+
+[English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+
+[![Version](https://img.shields.io/badge/version-6.0.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+이 문서는 원본 Superpowers 스킬 라이브러리를 독립적인 MCP Toolpack으로 패키징하기 위한 정보와 사용 지침을 요약한 것입니다.
+
+---
+
+## 🚀 설치 및 사용 방법
+
+### 지원 환경
+
+**Antigravity**, **Cursor**, **VSCode** 및 MCP 툴체인을 지원하는 기타 AI 편집기.
+
+### AI 에이전트와 대화하기
+
+설치 또는 구성이 완료되면 AI 에이전트(Copilot 또는 Antigravity Cascade 등)가 `Superpowers Skills`를 인식할 수 있습니다.
+
+**다음과 같이 질문할 수 있습니다:**
+
+- "모든 superpowers 스킬을 나열해줘"
+- "read_skill을 사용하여 brainstorming 스킬을 읽고, 이 기능의 구현을 분석해줘"
+- "session-start 프롬프트를 적용해줘" (원래 시작 주입 메커니즘 시뮬레이션)
+
+---
+
+## 🛠️ MCP 구성
+
+다음 설정을 IDE(Cursor, Antigravity 또는 VSCode MCP 설정 등)에 추가하세요.
+
+### 방법: NPX / BUNX (권장)
+
+경로 해결을 자동으로 처리하므로 가장 쉬운 방법입니다.
+
+#### Bun 사용 (더 빠름)
+```json
+{
+  "superpowers": {
+    "command": "bunx",
+    "args": ["-y", "superpowers-mcp"]
+  }
+}
+```
+
+#### Node/NPM 사용
+```json
+{
+  "superpowers": {
+    "command": "npx",
+    "args": ["-y", "superpowers-mcp"]
+  }
+}
+```
+
+---
+
+## 💡 일반적인 스킬 및 시나리오
+
+| 스킬 이름 | 권장 시나리오 | 핵심 가치 |
+| :--- | :--- | :--- |
+| `brainstorming` | 새 기능을 시작하기 전, 요구사항 및 설계 탐색 | AI가 바로 코드를 작성하기 시작하는 것을 방지 |
+| `writing-plans` | 여러 파일 리팩토링이나 복잡한 마이그레이션 전 | 명확한 실행 청사진 수립 |
+| `systematic-debugging` | 오류나 비정상 동작을 발견했을 때 | 추측 대신 "근본 원인 분석" 강제 |
+| `test-driven-development` | 논리적으로 어려운 기능을 구현할 때 | 코드에 테스트가 수반되도록 보장 (Red-Green-Refactor) |
+| `verification-before-completion` | "고쳤다" 또는 "완료했다"고 말하기 전 | 증거 기반 완료 확인 |
+
+---
+
+## 🔄 권장 프롬프트 시퀀스
+
+### 1. 새 기능 개발 시퀀스
+1. "read_skill로 brainstorming 스킬을 읽고 요구사항과 아키텍처를 확인해줘"
+2. "read_skill로 writing-plans 스킬을 읽고 구체적인 단계가 있는 실행 계획을 만들어줘"
+3. "read_skill로 test-driven-development 스킬을 읽고 테스트와 함께 기능을 구현해줘"
+4. "read_skill로 verification-before-completion 스킬을 읽고 테스트 스위트를 실행하여 모든 것이 작동하는지 확인해줘"
+
+### 2. 긴급 핫픽스 시퀀스
+1. "read_skill로 systematic-debugging 스킬을 읽고 현재 문제의 근본 원인을 찾아줘"
+2. "read_skill로 test-driven-development 스킬을 읽고 버그에 대한 실패 테스트를 작성하고 수정해줘"
+3. "read_skill로 verification-before-completion 스킬을 읽고 적용된 핫픽스를 검증해줘"
+
+---
+
+## 📋 지원되는 스킬 개요 (총 14개)
+
+올바른 스킬을 선택할 수 있도록 소프트웨어 개발의 6가지 논리적 단계로 분류했습니다.
+
+### 🚀 1. 계획 및 설계
+- `brainstorming`: 소프트웨어 설계 및 요구사항 분석 프로세스
+  - 브라우저 기반 목업 및 디자인 리뷰를 위한 Visual Companion (적시 제공)
+- `writing-plans`: 상세한 구현 계획 수립
+
+### 💻 2. 구현 및 디버깅
+- `executing-plans`: 생성된 구현 계획 실행
+- `test-driven-development`: TDD(테스트 주도 개발) 워크플로우
+- `systematic-debugging`: 체계적인 디버깅 및 근본 원인 분석
+
+### 🛡️ 3. 품질 및 리뷰
+- `verification-before-completion`: 완료 전 증거 기반 검증
+- `requesting-code-review`: 코드 리뷰를 위한 사전 점검 시작
+- `receiving-code-review`: 코드 리뷰 피드백 수신 및 대응
+- `finishing-a-development-branch`: 기능 브랜치 마무리 및 통합
+
+### 🌿 4. 버전 관리
+- `using-git-worktrees`: Git Worktrees를 사용한 여러 브랜치 관리
+
+### 🤖 5. 고급 에이전트 제어
+
+이러한 스킬은 지원되는 IDE(Antigravity 또는 Cursor 등) 내에서 복잡한 메타 실행 패턴을 오케스트레이션하기 위해 설계되었습니다.
+
+- **`subagent-driven-development`**: 서브에이전트를 구동하여 작업 실행
+  - **사용법**: 미리 정의된 계획을 작업별로 실행합니다. 시스템은 각 작업마다 새로운 "구현" 서브에이전트를 생성한 후, 통합된 **작업 리뷰어**(명세 준수 + 코드 품질) 서브에이전트와 마지막에 **전체 브랜치 최종 리뷰**를 실행합니다. **Pre-Flight Plan Review**는 실행 시작 전 작업 충돌을 스캔합니다.
+  - **모델 선택**: 작업 복잡성에 따라 서브에이전트 모델 선택 — 기계적인 작업에는 저비용 모델, 아키텍처 및 미묘한 동시성 변경에는 고성능 모델
+  - **예시**: "subagent-driven-development 스킬을 읽고 docs/plans/feature-plan.md에 나열된 작업을 하나씩 실행해줘"
+- **`dispatching-parallel-agents`**: 작업을 병렬 에이전트에 할당
+  - **사용법**: 여러 *독립적인* 문제(예: 3개의 관련 없는 실패 테스트 또는 3개의 별도 웹 연구 주제)를 처리하는 데 사용됩니다. AI는 병렬 실행 마인드셋을 채택하여 상태를 교차하거나 컨텍스트 오염을 겪지 않고 각 작업을 독립적으로 처리하여 출력 생성을 크게 가속화합니다.
+  - **디버깅 예시**: "dispatching-parallel-agents 스킬을 읽고 3개의 병렬 에이전트를 할당하여 독립적으로 실패하는 테스트 A, B, C를 각각 조사해줘"
+  - **연구 예시**: "dispatching-parallel-agents 스킬을 읽고 React 19 기능, Vue 3.5 업데이트, Svelte 5 Runes에 대해 웹을 병렬 검색하고 — 각각 독립적으로 요약해줘"
+
+### ⚙️ 6. 사용자 정의 및 메타
+- `using-superpowers`: Superpowers 사용을 위한 지침 및 자체 점검
+- `writing-skills`: 새로운 사용자 정의 스킬 작성 및 확장
+
+---
+
+## 🆕 최근 업데이트
+
+### v6.0.3 (최신)
+- **명령 삽입 수정**: `server.cjs`의 `BRAINSTORM_OPEN_CMD` 실행 경로를 `cp.exec()`에서 `cp.execFile()`로 변경. 이전 코드는 환경 변수와 URL을 셸을 통해 연결했지만, 새 코드는 argv 배열로 인수를 전달하여 환경 변수 내용에 관계없이 셸 메타문자 삽입을 제거합니다.
+- **의존성 보안 (overrides)**: `package.json`에 `overrides` 블록을 추가하여 전이적 의존성의 최소 버전을 강제:
+  - `@hono/node-server`: 1.19.14 → **2.0.11** — 인코딩된 백슬래시를 통한 serve-static의 Windows 경로 탐색 수정 ([GHSA-frvp-7c67-39w9](https://github.com/advisories/GHSA-frvp-7c67-39w9))
+  - `fast-uri`: 3.1.2 → **4.1.1** — IDN 정규화를 통한 호스트 혼동 ([GHSA-4c8g-83qw-93j6](https://github.com/advisories/GHSA-4c8g-83qw-93j6)) 및 리터럴 백슬래시 권한 구분자 ([GHSA-v2hh-gcrm-f6hx](https://github.com/advisories/GHSA-v2hh-gcrm-f6hx)) 수정
+  - `body-parser`: 2.2.2 → **2.3.0** — 잘못된 limit 값이 크기 제한을 자동으로 비활성화하는 DoS 수정 ([GHSA-v422-hmwv-36x6](https://github.com/advisories/GHSA-v422-hmwv-36x6))
+- **업스트림 버그 수정**:
+  - `find-polluter.sh`: `./` 접두사 경로를 허용하고, 패턴에서 `**/`를 축소하여 최상위 테스트 파일 지원
+  - `finishing-a-development-branch/SKILL.md`: Step 5가 디렉토리를 변경하기 전에 `WORKTREE_PATH`를 캡처하여 정리 회귀 수정. Option 2에 detached HEAD 푸시 변형 추가
+
+### v6.0.2
+- **모듈 리팩토링 및 성능 향상**:
+  - **분리된 아키텍처**: 파일 시스템 액세스, 메타데이터 캐싱 및 구문 분석 로직을 전용 [`src/skills-manager.ts`](src/skills-manager.ts)로 추출하고 [`src/server.ts`](src/server.ts)는 MCP 프로토콜 처리에 집중
+  - **O(1) 맵 기반 캐시**: $O(N)$ 이중 배열 스캔을 대소문자 구분 없는 이중 키(이름 및 디렉토리 이름) 메모리 캐시로 대체하여 빠른 $O(1)$ 조회 구현
+  - **비동기 I/O 파이프라인**: 동기 파일 API 호출을 Promise 및 `Promise.all` 병렬 실행으로 전환하여 높은 처리량 구현
+  - **Markdown 캐시**: 메모리에서 스트리핑된 스킬 콘텐츠를 캐시하여 도구가 자주 호출될 때 반복적인 디스크 읽기 방지
+- **보안 강화**:
+  - **ReDoS 방지**: 정규식 기반 frontmatter 파서를 안전한 줄 단위 상태 머신 파서로 대체하여 CPU 고갈 위험을 완전히 제거하고 여러 줄 YAML 설명 지원
+  - **경로 탐색 차단**: 스킬 이름 입력에 엄격한 영숫자 화이트리스트(`/^[a-zA-Z0-9-_]+$/`) 추가
+  - **디렉토리 삽입 검사**: `SKILLS_PATH`를 검증하여 잠재적으로 적대적인 시스템 루트 폴더를 적극적으로 거부
+  - **경로 및 사용자 이름 누출 방지**: 네이티브 파일 시스템 오류를 포착하여 경로가 없는 일반 `McpError`로 마스킹
+  - **Windows 빌드 및 스크립트 안전성**: `esbuild.js`에서 Windows `chmodSync` 플랫폼 검사 처리, `copy-skills.js`에서 심볼릭 링크 건너뛰기
+
+- **업스트림 보안 체리픽**: obra/superpowers v6.1.1의 보안 강화 적용:
+  - **WebSocket 프레임 크기 검증**: `decodeFrame()`에 `MAX_FRAME_PAYLOAD_BYTES(10MB)` 검사 추가 (CWE-789)
+  - **하드링크 차단**: `isRegularFileInsideContentDir()`에 `stat.nlink !== 1` 검사 추가
+  - **`escapeHtmlText()` 추출**: 인라인 `escHtml` 클로저를 재사용 가능한 명명된 함수로 추출
+  - **URL 구문 분석 리팩토링**: `pathnameOf()` 및 `queryKey()` 헬퍼 추출
+- **`review-package` 경로 해결 수정**: `sdd-workspace` 호출을 절대 경로 해결로 수정
+- **Windows 네이티브 헬퍼 스크립트**: Visual Companion, SDD review/task, systematic-debugging용 PowerShell 래퍼 추가
+- **스킬 문서 개선**:
+  - `subagent-driven-development`: 계획 충돌 처리를 위한 `plan-mandated` 리뷰 가이던스 추가
+  - `writing-skills`: 표현 테스트의 실증적 증거로 금지 대 레시피 가이던스 강화
+  - `test-driven-development`: 테이블 서식 수정
+  - `writing-skills/anthropic-best-practices`: 이미지 CDN URL 업데이트
+- **`helper.js` 주석 정렬**: 동작 변경 없이 4개의 인라인 주석 추가
+- **정리**: 사용되지 않는 `walkthrough.md` 제거
+
+### v6.0.1
+- **보안 수정 — Reflected XSS (#2)**: `server.cjs`의 서버 측 반사형 XSS 수정. `bootstrapPage()`가 사용자 제공 `keyFromQuery` 매개변수를 사용하던 것을 서버 측 `TOKEN` 상수를 사용하도록 변경
+
+### v6.0.0
+- **obra/superpowers v6.1.1과의 업스트림 동기화**: 모든 스킬에 걸친 대규모 동기화
+- **subagent-driven-development 재설계**: 2단계 리뷰를 통합된 "작업 리뷰어"로 변경, 전체 브랜치 최종 리뷰 추가, Pre-Flight Plan Review 신설
+- **using-superpowers 단순화**: 플랫폼별 섹션 제거, 플랫폼별 참조 파일 도입
+- **brainstorming Visual Companion**: 적시 제공으로 변경
+- **타입 안전성 및 코드 품질**: `Record<string,string>` 캐스트 수정, 남은 `innerHTML`을 안전한 DOM 메서드로 대체
+
+### v5.1.2
+- **보안 강화**: `helper.js`의 마지막 `innerHTML` 사용을 안전한 DOM 생성 메서드로 대체
+- **의존성 보안**: hono를 `4.12.23`에서 `4.12.26`으로 업그레이드
+
+### v5.1.1
+- **보안 감사 및 강화**: 전체 보안 감사 수행, `.gitignore` 규칙 업데이트
+- **취약점 패치**: `helper.js`의 XSS 수정, `path-to-regexp`를 `8.4.2`로 업그레이드
+
+### v5.1.0
+- **인라인 셀프 리뷰**: 서브에이전트 리뷰 루프를 가벼운 인라인 셀프 리뷰 체크리스트로 대체
+- **Git Worktree 재설계**: `detect-and-defer` 메커니즘으로 재작성
+- **토큰 최적화**: 모든 스킬에서 `Integration` 섹션 제거
+- **통합**: 독립적인 `code-reviewer` 에이전트를 `requesting-code-review`로 통합
+
+### v4.3.2
+- **보안**: brainstorming Visual Companion의 XSS 취약점 수정
+- **문서**: 정확한 버전 정보로 README 및 SECURITY 업데이트
+
+### v4.3.0
+- 초기 MCP 서버 구현
+- 원본 Superpowers에서 14개의 핵심 스킬 마이그레이션
+
+---
+
+## 🙏 감사의 말
+
+이 프로젝트는 [obra](https://github.com/obra)의 원본 [Superpowers](https://github.com/obra/superpowers) 프로젝트의 포크 및 각색입니다. 이 MCP 서버의 기반이 되는 에이전틱 스킬 프레임워크와 소프트웨어 개발 방법론을 정의해 준 그들의 작업에 감사드립니다.

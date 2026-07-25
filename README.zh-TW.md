@@ -1,8 +1,8 @@
 # Superpowers MCP Toolpack 使用指南
 
-[English](README.md) | [繁體中文](README.zh-TW.md)
+[English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.0.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.0.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -128,7 +128,17 @@
 
 ## 🆕 最近更新
 
-### v6.0.2 (最新版)
+### v6.0.3 (最新版)
+- **命令注入修復**：將 brainstorming Visual Companion 伺服器 (`server.cjs`) 中 `BRAINSTORM_OPEN_CMD` 的啟動方式從 `cp.exec()` 改為 `cp.execFile()`。舊版程式會將環境變數與 URL 透過 shell 串接執行；新版改以 argv 陣列傳遞參數，徹底消除 shell metacharacter 注入風險。
+- **依賴安全性 (overrides)**：在 `package.json` 中新增 `overrides` 區塊，強制設定間接依賴的最低版本：
+  - `@hono/node-server`: 1.19.14 → **2.0.11** — 修復 Windows 上 serve-static 經由編碼反斜線的路徑遍歷漏洞 ([GHSA-frvp-7c67-39w9](https://github.com/advisories/GHSA-frvp-7c67-39w9))
+  - `fast-uri`: 3.1.2 → **4.1.1** — 修復 IDN 正規化的主機混淆 ([GHSA-4c8g-83qw-93j6](https://github.com/advisories/GHSA-4c8g-83qw-93j6)) 與反斜線權限定界符 ([GHSA-v2hh-gcrm-f6hx](https://github.com/advisories/GHSA-v2hh-gcrm-f6hx))
+  - `body-parser`: 2.2.2 → **2.3.0** — 修復無效 limit 值導致大小限制被靜默停用的 DoS 漏洞 ([GHSA-v422-hmwv-36x6](https://github.com/advisories/GHSA-v422-hmwv-36x6))
+- **上游錯誤修正**：
+  - `find-polluter.sh`：現在支援 `./` 前綴路徑（不只是裸路徑），並透過收縮 `**/` 模式支援頂層測試檔案
+  - `finishing-a-development-branch/SKILL.md`：在 Step 5 切換目錄前預先捕獲 `WORKTREE_PATH`，修復清理階段的回歸錯誤。新增 Option 2 的 detached HEAD 推送變體
+
+### v6.0.2
 - **模組化拆分與效能提升**：
   - **職責解耦**：將檔案存取、YAML 解析與快取邏輯抽離至獨立模組 [`src/skills-manager.ts`](src/skills-manager.ts)，主程式 [`src/server.ts`](src/server.ts) 專注於 MCP 路由註冊。
   - **O(1) 雙向快取**：引入大小寫不敏感的 Map 雙向鍵值快取（以技能名與目錄名為 Key），將原本 $O(N)$ 的陣列雙重遍歷優化為 $O(1)$ 的直接讀取。

@@ -2,7 +2,7 @@
   "name": "superpowers-mcp",
   "displayName": "Superpowers MCP",
   "description": "Superpowers skills library (TDD, debugging, collaboration workflows) as an MCP server for VSCode and Antigravity",
-  "version": "6.0.2",
+  "version": "6.0.3",
   "publisher": "superpowers",
   "license": "MIT",
   "repository": {

@@ -1,8 +1,8 @@
 # Superpowers MCP Toolpack Usage Guide
 
-[English](README.md) | [繁體中文](README.zh-TW.md)
+[English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.0.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.0.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -128,7 +128,17 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v6.0.2 (Latest)
+### v6.0.3 (Latest)
+- **Command Injection Fix**: Replaced `cp.exec()` with `cp.execFile()` in the brainstorming Visual Companion server (`server.cjs`) for the `BRAINSTORM_OPEN_CMD` launcher path. The old code concatenated the env var with the URL via the shell; the new code passes arguments as an argv array, eliminating shell metacharacter injection regardless of env var content.
+- **Dependency Security (overrides)**: Added `overrides` block in `package.json` enforcing minimum versions for transitive dependencies:
+  - `@hono/node-server`: 1.19.14 → **2.0.11** — fixes Windows path traversal in serve-static via encoded backslash ([GHSA-frvp-7c67-39w9](https://github.com/advisories/GHSA-frvp-7c67-39w9))
+  - `fast-uri`: 3.1.2 → **4.1.1** — fixes host confusion via IDN canonicalization ([GHSA-4c8g-83qw-93j6](https://github.com/advisories/GHSA-4c8g-83qw-93j6)) and literal backslash authority delimiter ([GHSA-v2hh-gcrm-f6hx](https://github.com/advisories/GHSA-v2hh-gcrm-f6hx))
+  - `body-parser`: 2.2.2 → **2.3.0** — fixes DoS when invalid limit value silently disables size enforcement ([GHSA-v422-hmwv-36x6](https://github.com/advisories/GHSA-v422-hmwv-36x6))
+- **Upstream Bug Fixes**:
+  - `find-polluter.sh`: Now accepts `./`-prefixed paths (not just bare paths) and supports top-level test files by collapsing `**/` in the pattern
+  - `finishing-a-development-branch/SKILL.md`: Captures `WORKTREE_PATH` before Step 5 changes directory, fixing a cleanup regression. Added detached HEAD push variant for Option 2
+
+### v6.0.2
 - **Modular Refactoring & Performance Upgrades**:
   - **Decoupled Architecture**: Extracted file system access, metadata caching, and parsing logic into a dedicated [`src/skills-manager.ts`](src/skills-manager.ts), leaving [`src/server.ts`](src/server.ts) purely focused on MCP protocol handling.
   - **O(1) Map-Based Cache**: Replaced the $O(N)$ double-array scan with case-insensitive, dual-key (by name and directory name) memory caches for fast $O(1)$ lookups.

@@ -30,7 +30,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
-## Current Security Status (v6.0.2)
+## Current Security Status (v6.0.3)
 
 | Check | Status |
 | ----- | ------ |
@@ -44,8 +44,9 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Path Traversal | :white_check_mark: Secured — skill name inputs verified against strict alphanumeric whitelist regex (`/^[a-zA-Z0-9-_]+$/`) in v6.0.2 |
 | Local Path & Username Disclosure | :white_check_mark: Secured — native fs/path errors are caught and masked to generic `McpError` in v6.0.2 |
 | Environment Path Injection | :white_check_mark: Secured — `SKILLS_PATH` validated to reject system roots in v6.0.2 |
+| Shell Command Injection (`BRAINSTORM_OPEN_CMD`) | :white_check_mark: Patched — `cp.exec` with string concatenation replaced by `cp.execFile` with argv array in v6.0.3 to eliminate shell metacharacter injection |
 | Companion Server Symlink Exploits | :white_check_mark: Secured — symlinks are filtered out and paths are resolved via `fs.realpathSync` to prevent arbitrary file read in v6.0.2 |
-| CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — upgraded to v4.12.26 in v5.1.2 |
+| CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — upgraded to v4.12.32 in v6.0.3 (body-parser also upgraded to v2.3.0 to close a moderate DoS advisory) |
 
 ## Security Best Practices
 
