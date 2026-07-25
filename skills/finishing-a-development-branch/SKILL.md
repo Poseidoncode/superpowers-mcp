@@ -44,6 +44,9 @@ Stop. Don't proceed to Step 2.
 ```bash
 GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
 GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
+# Capture now, while still inside the workspace — Step 5 changes directory
+# before cleanup (Step 6) needs this value
+WORKTREE_PATH=$(git rev-parse --show-toplevel)
 ```
 
 This determines which menu to show and how cleanup works:
@@ -123,6 +126,8 @@ git branch -d <feature-branch>
 ```bash
 # Push branch
 git push -u origin <feature-branch>
+# From a detached HEAD, name the new branch on the remote:
+# git push origin HEAD:refs/heads/<new-branch>
 ```
 
 **Do NOT clean up worktree** — user needs it alive to iterate on PR feedback.
@@ -160,21 +165,17 @@ git branch -D <feature-branch>
 
 ### Step 6: Cleanup Workspace
 
-**Only runs for Options 1 and 4.** Options 2 and 3 always preserve the worktree.
-
-```bash
-GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
-GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
-WORKTREE_PATH=$(git rev-parse --show-toplevel)
-```
+**Only runs for Options 1 and 4.** Options 2 and 3 always preserve the worktree. Both callers have already changed directory to the
+main repo root — worktree removal must run from outside the worktree —
+and use the `GIT_DIR`/`GIT_COMMON`/`WORKTREE_PATH` values captured in
+Step 2, from before that directory change.
 
 **If `GIT_DIR == GIT_COMMON`:** Normal repo, no worktree to clean up. Done.
 
-**If worktree path is under `.worktrees/` or `worktrees/`:** Superpowers created this worktree — we own cleanup.
+**If `WORKTREE_PATH` is under `.worktrees/` or `worktrees/`:** Superpowers
+created this worktree — we own cleanup:
 
 ```bash
-MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
-cd "$MAIN_ROOT"
 git worktree remove "$WORKTREE_PATH"
 git worktree prune  # Self-healing: clean up any stale registrations
 ```
