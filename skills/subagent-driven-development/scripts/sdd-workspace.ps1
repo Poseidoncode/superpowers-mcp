@@ -12,19 +12,19 @@
 $ErrorActionPreference = "Stop"
 
 if ($args.Count -ne 1) {
-    Write-Error "usage: sdd-workspace.ps1 PLAN_FILE"
+    [Console]::Error.WriteLine("usage: sdd-workspace.ps1 PLAN_FILE")
     exit 2
 }
 
 $plan = $args[0]
 if (-not (Test-Path -LiteralPath $plan -PathType Leaf)) {
-    Write-Error "no such plan file: $plan"
+    [Console]::Error.WriteLine("no such plan file: $plan")
     exit 2
 }
 
 $slug = [System.IO.Path]::GetFileNameWithoutExtension($plan)
 if ([string]::IsNullOrEmpty($slug) -or $slug -eq "." -or $slug -eq "..") {
-    Write-Error "cannot derive a workspace name from: $plan"
+    [Console]::Error.WriteLine("cannot derive a workspace name from: $plan")
     exit 2
 }
 

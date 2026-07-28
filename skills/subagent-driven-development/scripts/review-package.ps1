@@ -6,7 +6,7 @@
 $ErrorActionPreference = "Stop"
 
 if ($args.Count -lt 3 -or $args.Count -gt 4) {
-    Write-Error "usage: review-package.ps1 PLAN_FILE BASE HEAD [OUTFILE]"
+    [Console]::Error.WriteLine("usage: review-package.ps1 PLAN_FILE BASE HEAD [OUTFILE]")
     exit 2
 }
 
@@ -15,19 +15,19 @@ $base = $args[1]
 $head = $args[2]
 
 if (-not (Test-Path -LiteralPath $plan -PathType Leaf)) {
-    Write-Error "no such plan file: $plan"
+    [Console]::Error.WriteLine("no such plan file: $plan")
     exit 2
 }
 
 & git rev-parse --verify --quiet $base *> $null
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "bad BASE: $base"
+    [Console]::Error.WriteLine("bad BASE: $base")
     exit 2
 }
 
 & git rev-parse --verify --quiet $head *> $null
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "bad HEAD: $head"
+    [Console]::Error.WriteLine("bad HEAD: $head")
     exit 2
 }
 

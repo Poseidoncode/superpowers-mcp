@@ -6,14 +6,14 @@
 $ErrorActionPreference = "Stop"
 
 if ($args.Count -lt 2 -or $args.Count -gt 3) {
-    Write-Error "usage: task-brief.ps1 PLAN_FILE TASK_NUMBER [OUTFILE]"
+    [Console]::Error.WriteLine("usage: task-brief.ps1 PLAN_FILE TASK_NUMBER [OUTFILE]")
     exit 2
 }
 
 $plan = $args[0]
 $taskNumber = $args[1]
 if (-not (Test-Path -LiteralPath $plan -PathType Leaf)) {
-    Write-Error "no such plan file: $plan"
+    [Console]::Error.WriteLine("no such plan file: $plan")
     exit 2
 }
 
@@ -44,7 +44,7 @@ foreach ($line in [System.IO.File]::ReadLines((Resolve-Path -LiteralPath $plan).
 
 Set-Content -Path $out -Value $selected -Encoding utf8
 if ((-not (Test-Path -LiteralPath $out)) -or ((Get-Item -LiteralPath $out).Length -eq 0)) {
-    Write-Error "task $taskNumber not found in $plan (no heading matching 'Task $taskNumber')"
+    [Console]::Error.WriteLine("task $taskNumber not found in $plan (no heading matching 'Task $taskNumber')")
     exit 3
 }
 
