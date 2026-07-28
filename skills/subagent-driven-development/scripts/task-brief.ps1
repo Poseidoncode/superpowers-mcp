@@ -1,6 +1,7 @@
 #!/usr/bin/env pwsh
 # Extract one task's full text from an implementation plan.
 # Usage: ./task-brief.ps1 PLAN_FILE TASK_NUMBER [OUTFILE]
+# Default OUTFILE: <repo-root>/.superpowers/sdd/<plan-basename>/task-<N>-brief.md
 
 $ErrorActionPreference = "Stop"
 
@@ -20,7 +21,7 @@ if ($args.Count -eq 3) {
     $out = $args[2]
 } else {
     $scriptDir = Split-Path -Parent $PSCommandPath
-    $dir = (& (Join-Path $scriptDir "sdd-workspace.ps1")).Trim()
+    $dir = (& (Join-Path $scriptDir "sdd-workspace.ps1") $plan).Trim()
     $out = Join-Path $dir "task-$taskNumber-brief.md"
 }
 

@@ -1,16 +1,23 @@
 #!/usr/bin/env pwsh
 # Generate a review package: commit list, stat summary, and net diff.
-# Usage: ./review-package.ps1 BASE HEAD [OUTFILE]
+# Usage: ./review-package.ps1 PLAN_FILE BASE HEAD [OUTFILE]
+# Default OUTFILE: <repo-root>/.superpowers/sdd/<plan-basename>/review-<base7>..<head7>.diff
 
 $ErrorActionPreference = "Stop"
 
-if ($args.Count -lt 2 -or $args.Count -gt 3) {
-    Write-Error "usage: review-package.ps1 BASE HEAD [OUTFILE]"
+if ($args.Count -lt 3 -or $args.Count -gt 4) {
+    Write-Error "usage: review-package.ps1 PLAN_FILE BASE HEAD [OUTFILE]"
     exit 2
 }
 
-$base = $args[0]
-$head = $args[1]
+$plan = $args[0]
+$base = $args[1]
+$head = $args[2]
+
+if (-not (Test-Path -LiteralPath $plan -PathType Leaf)) {
+    Write-Error "no such plan file: $plan"
+    exit 2
+}
 
 & git rev-parse --verify --quiet $base *> $null
 if ($LASTEXITCODE -ne 0) {
@@ -24,11 +31,11 @@ if ($LASTEXITCODE -ne 0) {
     exit 2
 }
 
-if ($args.Count -eq 3) {
-    $out = $args[2]
+if ($args.Count -eq 4) {
+    $out = $args[3]
 } else {
     $scriptDir = Split-Path -Parent $PSCommandPath
-    $dir = (& (Join-Path $scriptDir "sdd-workspace.ps1")).Trim()
+    $dir = (& (Join-Path $scriptDir "sdd-workspace.ps1") $plan).Trim()
     $baseShort = (& git rev-parse --short $base).Trim()
     $headShort = (& git rev-parse --short $head).Trim()
     $out = Join-Path $dir "review-$baseShort..$headShort.diff"

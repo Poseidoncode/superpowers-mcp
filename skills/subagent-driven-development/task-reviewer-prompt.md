@@ -179,11 +179,9 @@ Subagent (general-purpose):
 - `[BASE_SHA]` — commit before this task
 - `[HEAD_SHA]` — current commit
 - `[DIFF_FILE]` — REQUIRED: the path the controller wrote the review
-  package to (`scripts/review-package BASE HEAD`, or `scripts/review-package.ps1 BASE HEAD` on Windows PowerShell, prints the unique path it
-  wrote; the package never enters the controller's context)
+  package to (`scripts/review-package PLAN_FILE BASE HEAD`, or
+  `scripts/review-package.ps1 PLAN_FILE BASE HEAD` on Windows PowerShell,
+  prints the unique path it wrote; the package never enters the controller's context)
 
 **Reviewer returns:** Spec Compliance verdict (✅/❌/⚠️), Strengths, Issues
 (Critical/Important/Minor), Task quality verdict
-
-A fix dispatch can address spec gaps and quality findings together;
-re-review after fixes covers both verdicts.

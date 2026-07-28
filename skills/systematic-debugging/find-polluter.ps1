@@ -17,10 +17,26 @@ Write-Output "Searching for test that creates: $pollutionCheck"
 Write-Output "Test pattern: $testPattern"
 Write-Output ""
 
-$testFiles = @(Get-ChildItem -Path $testPattern -File -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName)
-if ($testFiles.Count -eq 0) {
-    $testFiles = @(Get-ChildItem -Path . -File -Recurse | Where-Object { $_.FullName -like (Join-Path (Get-Location) $testPattern) } | Sort-Object FullName)
-}
+# Accept the pattern written with or without a leading ./ (or .\)
+$testPattern = $testPattern -replace '^\.[/\\]', ''
+
+# '**/' can't match zero directory levels in a -like comparison, so a
+# pattern like src/**/*.test.ts would skip src/top.test.ts; also try the
+# pattern with '**/' collapsed to cover files directly under the base
+# directory.
+$patterns = @($testPattern)
+$collapsed = $testPattern -replace '\*\*[/\\]', ''
+if ($collapsed -ne $testPattern) { $patterns += $collapsed }
+
+$root = (Get-Location).Path.Replace('\', '/')
+$testFiles = @(Get-ChildItem -Path . -File -Recurse -ErrorAction SilentlyContinue | Where-Object {
+    $full = $_.FullName.Replace('\', '/')
+    $hit = $false
+    foreach ($p in $patterns) {
+        if ($full -like "$root/$p") { $hit = $true; break }
+    }
+    $hit
+} | Sort-Object FullName -Unique)
 
 $total = $testFiles.Count
 Write-Output "Found $total test files"
