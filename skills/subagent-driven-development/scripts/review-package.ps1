@@ -35,7 +35,7 @@ if ($args.Count -eq 4) {
     $out = $args[3]
 } else {
     $scriptDir = Split-Path -Parent $PSCommandPath
-    $dir = (& (Join-Path $scriptDir "sdd-workspace.ps1") $plan).Trim()
+    $dir = (& (Join-Path $scriptDir "sdd-workspace.ps1") $plan | Select-Object -First 1).Trim()
     $baseShort = (& git rev-parse --short $base).Trim()
     $headShort = (& git rev-parse --short $head).Trim()
     $out = Join-Path $dir "review-$baseShort..$headShort.diff"

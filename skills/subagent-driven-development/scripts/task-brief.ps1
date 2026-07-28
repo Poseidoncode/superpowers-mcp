@@ -21,7 +21,7 @@ if ($args.Count -eq 3) {
     $out = $args[2]
 } else {
     $scriptDir = Split-Path -Parent $PSCommandPath
-    $dir = (& (Join-Path $scriptDir "sdd-workspace.ps1") $plan).Trim()
+    $dir = (& (Join-Path $scriptDir "sdd-workspace.ps1") $plan | Select-Object -First 1).Trim()
     $out = Join-Path $dir "task-$taskNumber-brief.md"
 }
 
