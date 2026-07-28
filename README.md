@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.0.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.2.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -128,7 +128,20 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v6.0.3 (Latest)
+### v6.2.0 (Latest)
+- **Upstream Sync with obra/superpowers v6.2.0**: Synchronized upstream improvements across all skills while preserving local security enhancements and PowerShell helpers.
+  - **subagent-driven-development Restructure**: Plan-scoped workspaces (`.superpowers/sdd/<plan>/`) so concurrent plans can never read or overwrite each other's artifacts. Resume-based review-fix loop with a five-round circuit breaker, plus a new scoped `re-review-prompt.md` for re-reviews after fixes.
+  - **test-driven-development**: `testing-anti-patterns.md` replaced by upstream `writing-good-tests.md`.
+  - **finishing-a-development-branch**: Adopted the upstream rewrite (includes the same worktree-path capture fix previously patched locally; branch discard is now explicit-request-only).
+  - **Skills-wide compression**: Recap and persuasion sections removed across many `SKILL.md` files, reducing prompt token footprint.
+  - **gemini-tools.md**: Restored to the updated upstream version; `visual-companion.md` gains a Gemini CLI launch section.
+- **PowerShell Parity Fixes**:
+  - All SDD `.ps1` scripts ported to the new plan-scoped `PLAN_FILE` interfaces; `find-polluter.ps1` gained the `./`-prefix and `**/` collapse fixes from the bash version.
+  - **Exit-code parity**: Fixed `Write-Error` under `$ErrorActionPreference = "Stop"` swallowing the intended exit codes — validation failures now correctly exit 2 and a missing task exits 3, matching the bash scripts.
+  - **`sdd-workspace.ps1` slug derivation**: Strips only a trailing `.md` (matching bash `basename`), instead of any file extension.
+- **Version Alignment**: `package.json`, `package-lock.json`, and the MCP server handshake version are now consistent at 6.2.0.
+
+### v6.0.3
 - **Command Injection Fix**: Replaced `cp.exec()` with `cp.execFile()` in the brainstorming Visual Companion server (`server.cjs`) for the `BRAINSTORM_OPEN_CMD` launcher path. The old code concatenated the env var with the URL via the shell; the new code passes arguments as an argv array, eliminating shell metacharacter injection regardless of env var content.
 - **Dependency Security (overrides)**: Added `overrides` block in `package.json` enforcing minimum versions for transitive dependencies:
   - `@hono/node-server`: 1.19.14 → **2.0.11** — fixes Windows path traversal in serve-static via encoded backslash ([GHSA-frvp-7c67-39w9](https://github.com/advisories/GHSA-frvp-7c67-39w9))

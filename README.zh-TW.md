@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.0.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.2.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -62,7 +62,7 @@
 | 技能名稱 | 社群推薦使用情境 | 核心價值 |
 | :--- | :--- | :--- |
 | `brainstorming` | 啟動新功能前，探索需求與設計。 | 防止 AI 直接衝進去寫 code。 |
-| `writing-plans` | 進行多檔案重構或複雜迁移前。 | 建立明確的執行藍圖。 |
+| `writing-plans` | 進行多檔案重構或複雜遷移前。 | 建立明確的執行藍圖。 |
 | `systematic-debugging` | 遇到任何報錯或行為異常時。 | 強制執行「根因分析」而非亂猜。 |
 | `test-driven-development` | 實作具邏輯挑戰的功能時。 | 確保代碼隨附測試，實現 Red-Green-Refactor。 |
 | `verification-before-completion` | 聲稱「修好了」或「做完了」之前。 | 證據導向的完工確認。 |
@@ -128,7 +128,20 @@
 
 ## 🆕 最近更新
 
-### v6.0.3 (最新版)
+### v6.2.0 (最新版)
+- **上游同步 obra/superpowers v6.2.0**：同步上游所有技能的改進，同時保留本地的安全性強化與 PowerShell 輔助腳本。
+  - **subagent-driven-development 重構**：採用計畫範圍工作區（`.superpowers/sdd/<plan>/`），並行計畫之間的產物再也不會互相讀寫。改為可續接的 review-fix 迴圈，內建五輪熔斷機制，並新增修復後複審專用的 `re-review-prompt.md`。
+  - **test-driven-development**：`testing-anti-patterns.md` 由上游的 `writing-good-tests.md` 取代。
+  - **finishing-a-development-branch**：採用上游重寫版（包含與本地先前修補相同的 worktree 路徑捕獲修復；分支丟棄現在需要明確要求才會執行）。
+  - **技能全面精簡**：移除多個 `SKILL.md` 中的回顧與說服性段落，降低 prompt token 佔用。
+  - **gemini-tools.md**：還原為上游更新版；`visual-companion.md` 新增 Gemini CLI 啟動章節。
+- **PowerShell 一致性修復**：
+  - 所有 SDD `.ps1` 腳本移植到新的計畫範圍 `PLAN_FILE` 介面；`find-polluter.ps1` 移植了 bash 版的 `./` 前綴與 `**/` 收縮修復。
+  - **Exit code 一致性**：修復 `$ErrorActionPreference = "Stop"` 下 `Write-Error` 變成終止錯誤、導致預期 exit code 被吞掉的問題 — 驗證失敗現正確回傳 2、找不到任務回傳 3，與 bash 腳本一致。
+  - **`sdd-workspace.ps1` slug 推導**：只剝除尾端的 `.md`（與 bash `basename` 一致），不再剝除任意副檔名。
+- **版本對齊**：`package.json`、`package-lock.json` 與 MCP server 握手版本現統一為 6.2.0。
+
+### v6.0.3
 - **命令注入修復**：將 brainstorming Visual Companion 伺服器 (`server.cjs`) 中 `BRAINSTORM_OPEN_CMD` 的啟動方式從 `cp.exec()` 改為 `cp.execFile()`。舊版程式會將環境變數與 URL 透過 shell 串接執行；新版改以 argv 陣列傳遞參數，徹底消除 shell metacharacter 注入風險。
 - **依賴安全性 (overrides)**：在 `package.json` 中新增 `overrides` 區塊，強制設定間接依賴的最低版本：
   - `@hono/node-server`: 1.19.14 → **2.0.11** — 修復 Windows 上 serve-static 經由編碼反斜線的路徑遍歷漏洞 ([GHSA-frvp-7c67-39w9](https://github.com/advisories/GHSA-frvp-7c67-39w9))

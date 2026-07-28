@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.0.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.2.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、オリジナルの Superpowers スキルライブラリを独立した MCP Toolpack にパッケージ化するための情報と使用手順をまとめたものです。
@@ -128,7 +128,20 @@
 
 ## 🆕 最近の更新
 
-### v6.0.3（最新）
+### v6.2.0（最新）
+- **上流 obra/superpowers v6.2.0 との同期**：ローカルのセキュリティ強化と PowerShell ヘルパーを保持したまま、全スキルに上流の改善を同期しました。
+  - **subagent-driven-development 再構築**：プラン単位のワークスペース（`.superpowers/sdd/<plan>/`）を採用し、並行プラン間で成果物の読み書きが干渉しない構造になりました。再開可能な review-fix ループに 5 ラウンドのサーキットブレーカーを内蔵し、修正後の再レビュー専用の `re-review-prompt.md` を追加。
+  - **test-driven-development**：`testing-anti-patterns.md` が上流の `writing-good-tests.md` に置き換わりました。
+  - **finishing-a-development-branch**：上流の書き直し版を採用（ローカルで先行適用していた worktree パス取得の修正と同等の内容を含む。ブランチ破棄は明示的な要求がある場合のみ実行）。
+  - **スキル全体の圧縮**：多くの `SKILL.md` から recap セクションや説得文を削除し、プロンプトのトークン使用量を削減。
+  - **gemini-tools.md**：上流の更新版に復元。`visual-companion.md` に Gemini CLI 起動セクションを追加。
+- **PowerShell パリティ修正**：
+  - すべての SDD `.ps1` スクリプトを新しいプラン単位の `PLAN_FILE` インターフェースに移植。`find-polluter.ps1` に bash 版の `./` プレフィックス対応と `**/` 折りたたみ修正を移植。
+  - **終了コードの一致**：`$ErrorActionPreference = "Stop"` 下で `Write-Error` が終了エラー化し、意図した終了コードが飲み込まれる問題を修正 — 検証失敗は正しく 2、タスク未検出は 3 を返し、bash スクリプトと一致。
+  - **`sdd-workspace.ps1` のスラッグ導出**：任意の拡張子ではなく末尾の `.md` のみを除去（bash の `basename` と一致）。
+- **バージョン統一**：`package.json`、`package-lock.json`、MCP サーバーのハンドシェイクバージョンを 6.2.0 に統一。
+
+### v6.0.3
 - **コマンドインジェクション修正**: `server.cjs` の `BRAINSTORM_OPEN_CMD` 起動パスを `cp.exec()` から `cp.execFile()` に変更。旧コードは環境変数と URL をシェル経由で連結していましたが、新しいコードは argv 配列として引数を渡し、環境変数の内容に関係なくシェルメタキャラクタインジェクションを排除します。
 - **依存関係のセキュリティ（overrides）**: `package.json` に `overrides` ブロックを追加し、推移的依存関係の最低バージョンを強制：
   - `@hono/node-server`: 1.19.14 → **2.0.11** — エンコードされたバックスラッシュを介した serve-static の Windows パストラバーサルを修正（[GHSA-frvp-7c67-39w9](https://github.com/advisories/GHSA-frvp-7c67-39w9)）

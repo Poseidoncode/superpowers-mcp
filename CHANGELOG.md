@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.2.0] - 2026-07-29
+
+### Major
+- **Upstream Sync with obra/superpowers v6.2.0**: Synchronized upstream improvements across all skills while preserving local security enhancements and PowerShell helpers.
+
+### Changed
+- **subagent-driven-development Restructure**: Plan-scoped workspaces (`.superpowers/sdd/<plan>/`) so concurrent plans can never read or overwrite each other's artifacts. Resume-based review-fix loop with a five-round circuit breaker. New scoped `re-review-prompt.md` for re-reviews after fixes.
+- **test-driven-development**: `testing-anti-patterns.md` replaced by upstream `writing-good-tests.md`.
+- **finishing-a-development-branch**: Adopted upstream rewrite (includes the same worktree-path capture fix previously patched locally; branch discard is now explicit-request-only).
+- **Skills-wide compression**: Recap and persuasion sections removed across many `SKILL.md` files, reducing prompt token footprint.
+- **gemini-tools.md**: Restored to the updated upstream version; `visual-companion.md` gains a Gemini CLI launch section.
+- Aligned version reporting: `package.json`, `package-lock.json`, and the MCP server handshake version are now consistent.
+
+### Fixed
+- **PowerShell exit-code parity**: With `$ErrorActionPreference = "Stop"`, `Write-Error` became a terminating error so the `exit 2/3` statements never ran; SDD `.ps1` scripts now write to stderr directly and preserve the bash exit-code contract (2 = usage/validation, 3 = task not found).
+- **`sdd-workspace.ps1` slug derivation**: Strips only a trailing `.md` (matching bash `basename "$plan" .md`) instead of any extension.
+- **`task-brief.ps1` / `review-package.ps1` hardening**: Capture only the first output line from `sdd-workspace.ps1` so a future extra output line cannot corrupt the workspace path.
+- **`find-polluter.ps1`**: Ported the `./`-prefix and `**/` collapse fixes from the bash version.
+
+## [6.0.3] - 2026-07-25
+
+### Security
+- **Command Injection Fix**: Replaced `cp.exec()` with `cp.execFile()` in the brainstorming Visual Companion server (`server.cjs`) for the `BRAINSTORM_OPEN_CMD` launcher path, eliminating shell metacharacter injection regardless of env var content.
+- **Dependency Security (overrides)**: Added `overrides` block in `package.json` enforcing minimum versions for transitive dependencies: `@hono/node-server` >= 2.0.11 (GHSA-frvp-7c67-39w9), `fast-uri` >= 4.1.1 (GHSA-4c8g-83qw-93j6, GHSA-v2hh-gcrm-f6hx), `body-parser` >= 2.3.0 (GHSA-v422-hmwv-36x6).
+
+### Fixed
+- `find-polluter.sh`: Accepts `./`-prefixed paths and supports top-level test files by collapsing `**/` in the pattern.
+- `finishing-a-development-branch/SKILL.md`: Captures `WORKTREE_PATH` before Step 5 changes directory, fixing a cleanup regression. Added detached HEAD push variant for Option 2.
+
+### Added
+- Japanese (`README.ja.md`) and Korean (`README.ko.md`) README translations; all four locales now cross-link each other.
+
 ## [6.0.2] - 2026-07-16
 
 ### Added

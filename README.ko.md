@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.0.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.2.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 원본 Superpowers 스킬 라이브러리를 독립적인 MCP Toolpack으로 패키징하기 위한 정보와 사용 지침을 요약한 것입니다.
@@ -128,7 +128,20 @@
 
 ## 🆕 최근 업데이트
 
-### v6.0.3 (최신)
+### v6.2.0 (최신)
+- **업스트림 obra/superpowers v6.2.0 동기화**: 로컬 보안 강화와 PowerShell 헬퍼를 유지하면서 모든 스킬에 업스트림 개선 사항을 동기화했습니다.
+  - **subagent-driven-development 재구성**: 플랜 단위 워크스페이스(`.superpowers/sdd/<plan>/`)를 도입하여 동시에 실행되는 플랜 간 산출물이 서로를 읽거나 덮어쓰지 않도록 구조적으로 방지합니다. 재개 가능한 review-fix 루프에 5회 서킷 브레이커를 내장하고, 수정 후 재검토 전용 `re-review-prompt.md`를 추가했습니다.
+  - **test-driven-development**: `testing-anti-patterns.md`가 업스트림의 `writing-good-tests.md`로 대체되었습니다.
+  - **finishing-a-development-branch**: 업스트림 재작성 버전 채택(로컬에서 먼저 패치했던 worktree 경로 캡처 수정과 동일한 내용 포함, 브랜치 삭제는 명시적 요청 시에만 수행).
+  - **스킬 전반 압축**: 여러 `SKILL.md`에서 요약(recap) 및 설득 문구를 제거하여 프롬프트 토큰 사용량 절감.
+  - **gemini-tools.md**: 업스트림 업데이트 버전으로 복원, `visual-companion.md`에 Gemini CLI 실행 섹션 추가.
+- **PowerShell 패리티 수정**:
+  - 모든 SDD `.ps1` 스크립트를 새로운 플랜 단위 `PLAN_FILE` 인터페이스로 이식, `find-polluter.ps1`에 bash 버전의 `./` 접두사 및 `**/` 축소 수정 사항 이식.
+  - **종료 코드 일치**: `$ErrorActionPreference = "Stop"` 환경에서 `Write-Error`가 종료 오류가 되어 의도한 종료 코드가 삼켜지던 문제 수정 — 검증 실패 시 정확히 2, 작업을 찾지 못하면 3을 반환하여 bash 스크립트와 일치.
+  - **`sdd-workspace.ps1` 슬러그 도출**: 임의의 확장자가 아닌 끝의 `.md`만 제거(bash `basename`과 일치).
+- **버전 정렬**: `package.json`, `package-lock.json`, MCP 서버 핸드셰이크 버전을 6.2.0으로 통일.
+
+### v6.0.3
 - **명령 삽입 수정**: `server.cjs`의 `BRAINSTORM_OPEN_CMD` 실행 경로를 `cp.exec()`에서 `cp.execFile()`로 변경. 이전 코드는 환경 변수와 URL을 셸을 통해 연결했지만, 새 코드는 argv 배열로 인수를 전달하여 환경 변수 내용에 관계없이 셸 메타문자 삽입을 제거합니다.
 - **의존성 보안 (overrides)**: `package.json`에 `overrides` 블록을 추가하여 전이적 의존성의 최소 버전을 강제:
   - `@hono/node-server`: 1.19.14 → **2.0.11** — 인코딩된 백슬래시를 통한 serve-static의 Windows 경로 탐색 수정 ([GHSA-frvp-7c67-39w9](https://github.com/advisories/GHSA-frvp-7c67-39w9))

@@ -6,6 +6,7 @@ The following versions of Superpowers MCP are currently supported with security 
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 6.2.x   | :white_check_mark: |
 | 6.0.x   | :white_check_mark: |
 | 5.1.x   | :white_check_mark: |
 | 5.0.x   | :x:                |
@@ -30,7 +31,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
-## Current Security Status (v6.0.3)
+## Current Security Status (v6.2.0)
 
 | Check | Status |
 | ----- | ------ |
