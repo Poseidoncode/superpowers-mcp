@@ -34,9 +34,17 @@ function Test-BrainstormServer {
     param([int]$ProcessId)
     $expected = Read-ExpectedServerId
     if (-not $expected) { return $false }
-    $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
-    if (-not $process) { return $false }
-    return ($process.CommandLine -like "*--brainstorm-server-id=$expected*")
+    if ($IsWindows) {
+        $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
+        if (-not $process) { return $false }
+        return ($process.CommandLine -like "*--brainstorm-server-id=$expected*")
+    }
+    # Unix: ps -p prints the full command line, e.g.
+    # node ... server.cjs --brainstorm-server-id=<id>; the id is validated
+    # hex above, so no regex escaping is needed.
+    $cmd = (& ps -p $ProcessId -o command= 2>$null)
+    if (-not $cmd) { return $false }
+    return ($cmd -match "--brainstorm-server-id=$expected")
 }
 
 if (Test-Path -LiteralPath $pidFile) {
