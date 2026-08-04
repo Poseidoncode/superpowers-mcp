@@ -2,12 +2,24 @@ const crypto = require('crypto');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const net = require('net');
 
 // ========== WebSocket Protocol (RFC 6455) ==========
 
 const OPCODES = { TEXT: 0x01, CLOSE: 0x08, PING: 0x09, PONG: 0x0A };
 const WS_MAGIC = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const MAX_FRAME_PAYLOAD_BYTES = 10 * 1024 * 1024;
+// Bound concurrent WebSocket clients (each holds a frame buffer up to
+// MAX_FRAME_PAYLOAD_BYTES) so an authenticated local client can't exhaust
+// memory. Generous: covers many browser tabs plus scripted clients.
+const MAX_WS_CLIENTS = 16;
+const WS_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const WS_FRAME_TIMEOUT_MS = 5000;
+// Screens are agent-generated HTML; cap how much of one we'll read/serve.
+const MAX_SCREEN_BYTES = 20 * 1024 * 1024;
+// Cap the per-session events log (dropped oldest when exceeded).
+const MAX_EVENTS_FILE_BYTES = 1024 * 1024;
+const MAX_LOG_EVENT_BYTES = 4096;
 
 function computeAcceptKey(clientKey) {
   return crypto.createHash('sha1').update(clientKey + WS_MAGIC).digest('base64');
@@ -66,6 +78,12 @@ function decodeFrame(buffer) {
     throw new Error('WebSocket frame payload exceeds maximum allowed size');
   }
 
+  // RFC 6455 §5.5: control frames (opcodes 0x8-0xA) must have payloads
+  // of at most 125 bytes. Enforce it so a PING can't be used to amplify.
+  if (opcode >= 0x8 && payloadLen > 125) {
+    throw new Error('WebSocket control frame payload exceeds 125 bytes');
+  }
+
   const maskOffset = offset;
   const dataOffset = offset + 4;
   const totalLen = dataOffset + payloadLen;
@@ -84,10 +102,13 @@ function decodeFrame(buffer) {
 
 const PORT_FILE = process.env.BRAINSTORM_PORT_FILE || null;
 const randomPort = () => 49152 + Math.floor(Math.random() * 16383);
-// Prefer an explicit port, else the port this session last bound (so a restart
-// reuses it and an already-open browser tab reconnects), else a random high port.
+// Prefer an explicit port, else the port this session last bound, else a random
+// high port. Authentication is intentionally rotated on every server start.
 function preferredPort() {
-  if (process.env.BRAINSTORM_PORT) return Number(process.env.BRAINSTORM_PORT);
+  if (process.env.BRAINSTORM_PORT) {
+    const p = Number(process.env.BRAINSTORM_PORT);
+    if (Number.isInteger(p) && p > 1023 && p < 65536) return p;
+  }
   if (PORT_FILE) {
     try {
       const p = Number(fs.readFileSync(PORT_FILE, 'utf-8').trim());
@@ -97,8 +118,21 @@ function preferredPort() {
   return randomPort();
 }
 let PORT = preferredPort();
+function isLoopbackHost(value) {
+  const host = String(value).trim().replace(/^\[|\]$/g, '').toLowerCase();
+  return host === 'localhost' || host === '::1' || (net.isIP(host) === 4 && host.startsWith('127.'));
+}
+
 const HOST = process.env.BRAINSTORM_HOST || '127.0.0.1';
+if (!isLoopbackHost(HOST)) {
+  console.error('Refusing insecure non-loopback HTTP bind; use a TLS reverse proxy or tunnel to 127.0.0.1');
+  process.exit(1);
+}
 const URL_HOST = process.env.BRAINSTORM_URL_HOST || (HOST === '127.0.0.1' ? 'localhost' : HOST);
+if (!isLoopbackHost(URL_HOST)) {
+  console.error('BRAINSTORM_URL_HOST must be a loopback hostname or address');
+  process.exit(1);
+}
 const SESSION_DIR = process.env.BRAINSTORM_DIR || '/tmp/brainstorm';
 const CONTENT_DIR = path.join(SESSION_DIR, 'content');
 const STATE_DIR = path.join(SESSION_DIR, 'state');
@@ -112,42 +146,26 @@ const TELEMETRY_DISABLE_ENV_VARS = [
 const SUPERPOWERS_TELEMETRY_DISABLED = TELEMETRY_DISABLE_ENV_VARS.some(name => isTruthyEnv(process.env[name]));
 let ownerPid = process.env.BRAINSTORM_OWNER_PID ? Number(process.env.BRAINSTORM_OWNER_PID) : null;
 
-// Per-session secret key. The companion is reachable by any local browser tab
-// and, when bound to a non-loopback host, by any host that can route to it.
-// The key authenticates the real client uniformly across loopback, tunnel, and
-// remote binds — and defeats DNS rebinding — where a Host/Origin allowlist
-// cannot. It rides the served URL as ?key= and is mirrored into a cookie on
-// first load so same-origin subresources and the WebSocket carry it for free.
-// Persisted alongside the port (BRAINSTORM_TOKEN_FILE) so a restart keeps the
-// same key and an already-open tab's cookie still validates.
-const TOKEN_FILE = process.env.BRAINSTORM_TOKEN_FILE || null;
+// Each server invocation gets a fresh 256-bit secret. An explicitly supplied
+// BRAINSTORM_TOKEN is retained for controlled integrations, but launchers never
+// persist it across logical sessions.
 function generateToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
-function chmodOwnerOnly(file) {
-  try { fs.chmodSync(file, 0o600); } catch (e) { /* best effort */ }
-}
-
 function initialToken() {
   if (process.env.BRAINSTORM_TOKEN) {
-    return { value: process.env.BRAINSTORM_TOKEN, source: 'env' };
-  }
-  if (TOKEN_FILE) {
-    try {
-      const t = fs.readFileSync(TOKEN_FILE, 'utf-8').trim();
-      if (/^[0-9a-f]{32,}$/i.test(t)) {
-        chmodOwnerOnly(TOKEN_FILE);
-        return { value: t, source: 'file' };
-      }
-    } catch (e) { /* no prior token recorded */ }
+    const t = String(process.env.BRAINSTORM_TOKEN).trim();
+    if (/^[0-9a-f]{32,}$/i.test(t)) {
+      return { value: t, source: 'env' };
+    }
   }
   return { value: generateToken(), source: 'generated' };
 }
 
 const tokenInfo = initialToken();
-let TOKEN = tokenInfo.value;
-let tokenSource = tokenInfo.source;
+const TOKEN = tokenInfo.value;
+const tokenSource = tokenInfo.source;
 let COOKIE_NAME = 'brainstorm-key-' + PORT; // refined to the actual bound port in onListen
 
 const MIME_TYPES = {
@@ -185,23 +203,11 @@ h1 { color: #333; } p { color: #666; } code { background: #f0f0f0; padding: 0.1e
 <p>This page needs the full URL your coding agent gave you, including the
 <code>?key=&hellip;</code> part. Copy the complete URL and open it again.</p></body></html>`;
 
-function bootstrapPage(key) {
-  const jsonKey = JSON.stringify(String(key));
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Opening Brainstorm Companion</title></head>
-<body>
-<script>
-try { sessionStorage.setItem('brainstorm-session-key', ${jsonKey}); } catch (e) {}
-location.replace('/');
-</script>
-</body>
-</html>`;
-}
-
 const frameTemplate = fs.readFileSync(path.join(__dirname, 'frame-template.html'), 'utf-8');
 const helperScript = fs.readFileSync(path.join(__dirname, 'helper.js'), 'utf-8');
-const helperInjection = '<script>\n' + helperScript + '\n</script>';
+function helperInjection(nonce) {
+  return '<script nonce="' + nonce + '">\n' + helperScript + '\n</script>';
+}
 
 // ========== Helper Functions ==========
 
@@ -264,17 +270,219 @@ function wrapInFrame(content) {
   return renderBranding(frameTemplate).replace('<!-- CONTENT -->', content);
 }
 
+function ensurePrivateDirectory(directory) {
+  try {
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const stat = fs.lstatSync(directory);
+    if (stat.isSymbolicLink() || !stat.isDirectory()) return false;
+    fs.chmodSync(directory, 0o700);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function openPrivateAppendFile(filePath) {
+  const noFollow = fs.constants.O_NOFOLLOW || 0;
+  let before = null;
+  try {
+    before = fs.lstatSync(filePath);
+    if (before.isSymbolicLink() || !before.isFile() || before.nlink !== 1) return null;
+  } catch (e) {
+    if (e.code !== 'ENOENT') return null;
+  }
+
+  let fd = null;
+  const appendFlags = fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT | noFollow;
+  try {
+    if (!before) {
+      try {
+        fd = fs.openSync(filePath, appendFlags | fs.constants.O_EXCL, 0o600);
+      } catch (e) {
+        if (e.code !== 'EEXIST') throw e;
+      }
+    }
+    if (fd === null) {
+      before = fs.lstatSync(filePath);
+      if (before.isSymbolicLink() || !before.isFile() || before.nlink !== 1) return null;
+      fd = fs.openSync(filePath, appendFlags, 0o600);
+    }
+    const actual = fs.fstatSync(fd);
+    if (!actual.isFile() || actual.nlink !== 1 || (before && !sameFileIdentity(before, actual))) {
+      fs.closeSync(fd);
+      return null;
+    }
+    fs.fchmodSync(fd, 0o600);
+    return fd;
+  } catch (e) {
+    if (fd !== null) {
+      try { fs.closeSync(fd); } catch (closeErr) { /* already closed */ }
+    }
+    return null;
+  }
+}
+
+function writePrivateFile(filePath, data) {
+  const noFollow = fs.constants.O_NOFOLLOW || 0;
+  let before = null;
+  try {
+    before = fs.lstatSync(filePath);
+    if (before.isSymbolicLink() || !before.isFile() || before.nlink !== 1) return false;
+  } catch (e) {
+    if (e.code !== 'ENOENT') return false;
+  }
+
+  let fd = null;
+  const writeFlags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | noFollow;
+  try {
+    if (!before) {
+      try {
+        fd = fs.openSync(filePath, writeFlags | fs.constants.O_EXCL, 0o600);
+      } catch (e) {
+        if (e.code !== 'EEXIST') throw e;
+      }
+    }
+    if (fd === null) {
+      before = fs.lstatSync(filePath);
+      if (before.isSymbolicLink() || !before.isFile() || before.nlink !== 1) return false;
+      fd = fs.openSync(filePath, writeFlags, 0o600);
+    }
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.nlink !== 1 || (before && !sameFileIdentity(before, stat))) return false;
+    fs.fchmodSync(fd, 0o600);
+    fs.writeFileSync(fd, data);
+    return true;
+  } catch (e) {
+    return false;
+  } finally {
+    if (fd !== null) {
+      try { fs.closeSync(fd); } catch (e) { /* already closed */ }
+    }
+  }
+}
+
+// Best-effort: return the newest screen file, or null when the content dir is
+// missing/empty or a file vanished between readdir and stat (the agent may be
+// writing screens concurrently). Callers must not let a throw escape the
+// request handler — an uncaught ENOENT there would crash the whole server.
 function getNewestScreen() {
-  const files = fs.readdirSync(CONTENT_DIR)
-    .filter(f => !f.startsWith('.') && f.endsWith('.html'))
-    .map(f => {
-      const fp = path.join(CONTENT_DIR, f);
-      if (!isRegularFileInsideContentDir(fp)) return null;
-      return { path: fp, mtime: fs.statSync(fp).mtime.getTime() };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.mtime - a.mtime);
-  return files.length > 0 ? files[0].path : null;
+  try {
+    const files = fs.readdirSync(CONTENT_DIR)
+      .filter(f => !f.startsWith('.') && f.endsWith('.html'))
+      .map(f => {
+        const fp = path.join(CONTENT_DIR, f);
+        if (!isRegularFileInsideContentDir(fp)) return null;
+        try {
+          const st = fs.statSync(fp);
+          if (!st.isFile() || st.size > MAX_SCREEN_BYTES) return null;
+          return { path: fp, mtime: st.mtime.getTime() };
+        } catch (e) {
+          return null; // deleted between readdir and stat
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.mtime - a.mtime);
+    return files.length > 0 ? files[0].path : null;
+  } catch (e) {
+    console.error('Failed to list screens:', e.message);
+    return null;
+  }
+}
+
+// Make sure the content dir exists (it may have been deleted at runtime) and
+// the watcher is (re-)established so new screens keep triggering reloads.
+function ensureContentDir() {
+  if (!ensurePrivateDirectory(CONTENT_DIR)) {
+    console.error('Failed to recreate or validate content dir');
+    return false;
+  }
+  ensureContentWatcher();
+  return true;
+}
+
+// Resolve a content file and capture its identity before opening it. The
+// second resolution plus fd-level identity check closes the check/open race:
+// if a parent directory or file is swapped between checks, the opened fd no
+// longer matches the expected device/inode and the read is rejected.
+function resolveContentFile(filePath) {
+  const contentDirStat = fs.lstatSync(CONTENT_DIR);
+  if (contentDirStat.isSymbolicLink() || !contentDirStat.isDirectory()) return null;
+
+  const realContentDir = fs.realpathSync(CONTENT_DIR);
+  const pathStat = fs.lstatSync(filePath);
+  if (pathStat.isSymbolicLink() || !pathStat.isFile() || pathStat.nlink !== 1) return null;
+
+  const realFilePath = fs.realpathSync(filePath);
+  const relative = path.relative(realContentDir, realFilePath);
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
+
+  const stat = fs.statSync(realFilePath);
+  if (!stat.isFile() || stat.nlink !== 1) return null;
+  return { realFilePath, stat };
+}
+
+function sameFileIdentity(a, b) {
+  return a.dev === b.dev && a.ino === b.ino;
+}
+
+// Read a file from CONTENT_DIR defensively: open with O_NOFOLLOW (POSIX) and
+// fstat the open fd so a concurrent writer can't swap the file for a symlink
+// or an oversized file between our identity check and the read. Returns null
+// on any failure — callers must treat null as "not found" and MUST NOT call
+// writeHead again after a 200 was already sent (that throws
+// ERR_HTTP_HEADERS_SENT and crashes the process).
+function readContentFile(filePath, maxBytes) {
+  let fd = null;
+  try {
+    const expected = resolveContentFile(filePath);
+    if (!expected || expected.stat.size > maxBytes) return null;
+
+    const confirmed = resolveContentFile(filePath);
+    if (
+      !confirmed ||
+      expected.realFilePath !== confirmed.realFilePath ||
+      !sameFileIdentity(expected.stat, confirmed.stat)
+    ) return null;
+
+    fd = fs.openSync(filePath, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+    const st = fs.fstatSync(fd);
+    if (!st.isFile() || st.nlink !== 1 || st.size > maxBytes || !sameFileIdentity(st, confirmed.stat)) return null;
+
+    const chunks = [];
+    const chunkSize = 64 * 1024;
+    let total = 0;
+    while (total <= maxBytes) {
+      const buffer = Buffer.allocUnsafe(Math.min(chunkSize, maxBytes + 1 - total));
+      const bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
+      if (bytesRead === 0) break;
+      total += bytesRead;
+      chunks.push(buffer.subarray(0, bytesRead));
+      if (total > maxBytes) return null;
+    }
+
+    const after = fs.fstatSync(fd);
+    if (!after.isFile() || after.nlink !== 1 || after.size > maxBytes || !sameFileIdentity(after, confirmed.stat)) return null;
+    return Buffer.concat(chunks, total);
+  } catch (e) {
+    return null;
+  } finally {
+    if (fd !== null) {
+      try { fs.closeSync(fd); } catch (e) { /* already closed */ }
+    }
+  }
+}
+
+function serveScreen() {
+  ensureContentDir();
+  const screenFile = getNewestScreen();
+  if (!screenFile) return waitingPage();
+  const raw = readContentFile(screenFile, MAX_SCREEN_BYTES);
+  if (raw === null) {
+    console.error('Failed to read screen:', screenFile);
+    return waitingPage();
+  }
+  const html = raw.toString('utf-8');
+  return isFullDocument(html) ? html : wrapInFrame(html);
 }
 
 function urlHostForHttp(host) {
@@ -302,18 +510,11 @@ function browserLauncherForPlatform(url, {
 }
 
 function isRegularFileInsideContentDir(filePath) {
-  let stat, realContentDir, realFilePath;
   try {
-    stat = fs.lstatSync(filePath);
-    if (stat.isSymbolicLink()) return false;
-    if (!stat.isFile()) return false;
-    if (stat.nlink !== 1) return false;
-    realContentDir = fs.realpathSync(CONTENT_DIR);
-    realFilePath = fs.realpathSync(filePath);
+    return resolveContentFile(filePath) !== null;
   } catch (e) {
     return false;
   }
-  return realFilePath.startsWith(realContentDir + path.sep);
 }
 
 // ========== Authentication ==========
@@ -363,12 +564,14 @@ function queryKey(url) {
   return new URLSearchParams(url.slice(q + 1)).get('key');
 }
 
-function securityHeaders(headers = {}) {
+function securityHeaders(headers = {}, scriptNonce = null) {
+  const scriptSource = scriptNonce ? "'nonce-" + scriptNonce + "'" : "'none'";
   return {
     'Referrer-Policy': 'no-referrer',
     'Cache-Control': 'no-store',
     'X-Frame-Options': 'DENY',
-    'Content-Security-Policy': "frame-ancestors 'none'",
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'; script-src " + scriptSource + "; style-src 'unsafe-inline'; img-src 'self' https://primeradiant.com data:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'",
     'Cross-Origin-Resource-Policy': 'same-origin',
     ...headers
   };
@@ -401,21 +604,20 @@ function handleRequest(req, res) {
   const pathname = pathnameOf(req.url);
   const keyFromQuery = queryKey(req.url);
   if (req.method === 'GET' && pathname === '/' && keyFromQuery && timingSafeEqualStr(keyFromQuery, TOKEN)) {
-    res.writeHead(200, securityHeaders({ 'Content-Type': 'text/html; charset=utf-8' }));
-    res.end(bootstrapPage(TOKEN));
+    res.writeHead(303, securityHeaders({ Location: '/' }));
+    res.end();
   } else if (req.method === 'GET' && pathname === '/') {
-    const screenFile = getNewestScreen();
-    let html = screenFile
-      ? (raw => isFullDocument(raw) ? raw : wrapInFrame(raw))(fs.readFileSync(screenFile, 'utf-8'))
-      : waitingPage();
+    let html = serveScreen();
+    const nonce = crypto.randomBytes(16).toString('base64');
+    const injection = helperInjection(nonce);
 
     if (html.includes('</body>')) {
-      html = html.replace('</body>', helperInjection + '\n</body>');
+      html = html.replace('</body>', injection + '\n</body>');
     } else {
-      html += helperInjection;
+      html += injection;
     }
 
-    res.writeHead(200, securityHeaders({ 'Content-Type': 'text/html; charset=utf-8' }));
+    res.writeHead(200, securityHeaders({ 'Content-Type': 'text/html; charset=utf-8' }, nonce));
     res.end(html);
   } else if (req.method === 'GET' && pathname.startsWith('/files/')) {
     const fileName = path.basename(pathname.slice(7));
@@ -427,10 +629,20 @@ function handleRequest(req, res) {
       res.end('Not found');
       return;
     }
+    // Read FIRST, headers after: if the file vanished between the identity
+    // check and the read, writeHead(200) was never sent and the 404 below is
+    // legal. (Writing 200, then throwing and writing 404 in a catch would
+    // itself throw ERR_HTTP_HEADERS_SENT and crash the process.)
+    const data = readContentFile(filePath, MAX_SCREEN_BYTES);
+    if (data === null) {
+      res.writeHead(404, securityHeaders());
+      res.end('Not found');
+      return;
+    }
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     res.writeHead(200, securityHeaders({ 'Content-Type': contentType }));
-    res.end(fs.readFileSync(filePath));
+    res.end(data);
   } else {
     res.writeHead(404, securityHeaders());
     res.end('Not found');
@@ -441,11 +653,41 @@ function handleRequest(req, res) {
 
 const clients = new Set();
 
+// RFC 6455 handshake validation: only accept genuine WebSocket upgrade
+// requests, so an authenticated-but-non-WS client can't enter the frame
+// parser (and so a cross-protocol request can't piggyback on the socket).
+function isWebSocketUpgradeRequest(req) {
+  const upgrade = String(req.headers.upgrade || '').toLowerCase();
+  const connection = String(req.headers.connection || '').toLowerCase()
+    .split(',').map(s => s.trim());
+  const version = String(req.headers['sec-websocket-version'] || '');
+  const key = String(req.headers['sec-websocket-key'] || '');
+  // 16 random bytes, base64-encoded (22 chars + '==' padding).
+  const validKey = /^[A-Za-z0-9+/]{22}==$/.test(key);
+  return upgrade === 'websocket' &&
+    connection.includes('upgrade') &&
+    version === '13' &&
+    validKey;
+}
+
 function handleUpgrade(req, socket) {
   if (!isAuthorized(req) || !isAllowedWebSocketOrigin(req)) { socket.destroy(); return; }
+  if (!isWebSocketUpgradeRequest(req)) { socket.destroy(); return; }
+  // The companion's WebSocket lives at '/' only (helper.js connects there).
+  if (pathnameOf(req.url) !== '/') { socket.destroy(); return; }
 
   const key = req.headers['sec-websocket-key'];
   if (!key) { socket.destroy(); return; }
+
+  // Keep the cap, but evict the oldest connection so a client cannot reserve
+  // every slot indefinitely and prevent a fresh browser from connecting.
+  if (clients.size >= MAX_WS_CLIENTS) {
+    const oldest = clients.values().next().value;
+    if (oldest) {
+      clients.delete(oldest);
+      try { oldest.destroy(); } catch (e) { /* already gone */ }
+    }
+  }
 
   const accept = computeAcceptKey(key);
   socket.write(
@@ -456,48 +698,122 @@ function handleUpgrade(req, socket) {
   );
 
   let buffer = Buffer.alloc(0);
+  let closed = false;
+  let partialFrameTimer = null;
   clients.add(socket);
 
+  const clearPartialFrameTimer = () => {
+    if (partialFrameTimer !== null) {
+      clearTimeout(partialFrameTimer);
+      partialFrameTimer = null;
+    }
+  };
+  const armPartialFrameTimer = () => {
+    if (partialFrameTimer !== null) return;
+    partialFrameTimer = setTimeout(() => {
+      partialFrameTimer = null;
+      closed = true;
+      clients.delete(socket);
+      socket.destroy();
+    }, WS_FRAME_TIMEOUT_MS);
+    partialFrameTimer.unref();
+  };
+  const closeSocket = (code = 1000) => {
+    if (closed) return;
+    closed = true;
+    clients.delete(socket);
+    clearPartialFrameTimer();
+    const closeBuf = Buffer.alloc(code === 1000 ? 0 : 2);
+    if (closeBuf.length) closeBuf.writeUInt16BE(code);
+    try { socket.end(encodeFrame(OPCODES.CLOSE, closeBuf)); } catch (e) { /* best effort */ }
+    socket.pause();
+    socket.destroySoon();
+  };
+
+  socket.setTimeout(WS_IDLE_TIMEOUT_MS, () => closeSocket(1001));
   socket.on('data', (chunk) => {
+    // RFC 6455 §5.5.1: after sending CLOSE we must not process further
+    // frames — a peer could otherwise keep writing events (and extending
+    // its activity influence) in the window before destruction.
+    if (closed) return;
     buffer = Buffer.concat([buffer, chunk]);
+    if (buffer.length > MAX_FRAME_PAYLOAD_BYTES + 14) {
+      closeSocket(1009);
+      return;
+    }
     while (buffer.length > 0) {
       let result;
       try {
         result = decodeFrame(buffer);
       } catch (e) {
-        socket.end(encodeFrame(OPCODES.CLOSE, Buffer.alloc(0)));
-        clients.delete(socket);
+        closeSocket(1002);
         return;
       }
-      if (!result) break;
+      if (!result) {
+        armPartialFrameTimer();
+        return;
+      }
       buffer = buffer.slice(result.bytesConsumed);
+      clearPartialFrameTimer();
 
       switch (result.opcode) {
         case OPCODES.TEXT:
           handleMessage(result.payload.toString());
           break;
         case OPCODES.CLOSE:
-          socket.end(encodeFrame(OPCODES.CLOSE, Buffer.alloc(0)));
-          clients.delete(socket);
+          closeSocket();
           return;
         case OPCODES.PING:
           socket.write(encodeFrame(OPCODES.PONG, result.payload));
           break;
         case OPCODES.PONG:
           break;
-        default: {
-          const closeBuf = Buffer.alloc(2);
-          closeBuf.writeUInt16BE(1003);
-          socket.end(encodeFrame(OPCODES.CLOSE, closeBuf));
-          clients.delete(socket);
+        default:
+          closeSocket(1003);
           return;
-        }
       }
     }
   });
 
-  socket.on('close', () => clients.delete(socket));
-  socket.on('error', () => clients.delete(socket));
+  socket.on('close', () => {
+    clearPartialFrameTimer();
+    clients.delete(socket);
+  });
+  socket.on('error', () => {
+    clearPartialFrameTimer();
+    clients.delete(socket);
+  });
+}
+
+function appendEvent(event) {
+  const eventsFile = path.join(STATE_DIR, 'events');
+  const serialized = JSON.stringify(event);
+  if (typeof serialized !== 'string') return;
+  const line = serialized + '\n';
+  const lineBytes = Buffer.byteLength(line, 'utf8');
+  if (lineBytes > MAX_EVENTS_FILE_BYTES) {
+    console.error('User event exceeds events file size limit');
+    return;
+  }
+
+  const fd = openPrivateAppendFile(eventsFile);
+  if (fd === null) {
+    console.error('Failed to append user event: events path is not a private regular file');
+    return;
+  }
+  try {
+    const current = fs.fstatSync(fd);
+    if (current.size + lineBytes > MAX_EVENTS_FILE_BYTES) {
+      fs.ftruncateSync(fd, 0);
+    }
+    fs.writeSync(fd, line);
+  } catch (e) {
+    // STATE_DIR may have been deleted at runtime — never let a user event
+    // crash the server.
+    console.error('Failed to append user event:', e.message);
+  } finally {
+    try { fs.closeSync(fd); } catch (e) { /* already closed */ }
+  }
 }
 
 function handleMessage(text) {
@@ -509,10 +825,15 @@ function handleMessage(text) {
     return;
   }
   touchActivity();
-  console.log(JSON.stringify({ source: 'user-event', ...event }));
+  // Spread first so 'source' always wins: a client-supplied "source" field
+  // must not be able to spoof the event origin in the log.
+  const logLine = JSON.stringify({ ...event, source: 'user-event' });
+  const logOutput = Buffer.byteLength(logLine, 'utf8') <= MAX_LOG_EVENT_BYTES
+    ? logLine
+    : JSON.stringify({ source: 'user-event', truncated: true });
+  console.log(logOutput);
   if (event && event.choice) {
-    const eventsFile = path.join(STATE_DIR, 'events');
-    fs.appendFileSync(eventsFile, JSON.stringify(event) + '\n');
+    appendEvent(event);
   }
 }
 
@@ -571,58 +892,134 @@ function touchActivity() {
 // ========== File Watching ==========
 
 const debounceTimers = new Map();
+let watcher = null;
+let watcherRetryTimer = null;
+let knownFiles = new Set();
+let contentDirIno = null;
+
+// Track known files to distinguish new screens from updates.
+// macOS fs.watch reports 'rename' for both new files and overwrites,
+// so we can't rely on eventType alone.
+function rescanKnownFiles() {
+  try {
+    knownFiles = new Set(
+      fs.readdirSync(CONTENT_DIR).filter(f => !f.startsWith('.') && f.endsWith('.html'))
+    );
+  } catch (e) {
+    knownFiles = new Set();
+  }
+}
+
+function currentContentIno() {
+  try {
+    return fs.statSync(CONTENT_DIR).ino;
+  } catch (e) {
+    return null;
+  }
+}
+
+function onContentEvent(eventType, filename) {
+  // The watched directory itself was deleted. On Linux, inotify reports
+  // IN_DELETE_SELF/IN_IGNORED as a plain 'rename' event carrying the dir's
+  // OWN basename and NO error — so the watcher stays non-null while being
+  // dead. Tear it down so ensureContentWatcher can re-arm it once the dir is
+  // recreated. Guard with an inode check: a LATE delete event from an old,
+  // already-replaced watcher can arrive after the new watcher is live, and
+  // we must not kill the healthy new watcher.
+  if (filename === path.basename(CONTENT_DIR)) {
+    const ino = currentContentIno();
+    if (ino === null || ino !== contentDirIno) {
+      stopWatcher();
+    }
+    return;
+  }
+  if (!filename || filename.startsWith('.') || !filename.endsWith('.html')) return;
+
+  if (debounceTimers.has(filename)) clearTimeout(debounceTimers.get(filename));
+  debounceTimers.set(filename, setTimeout(() => {
+    debounceTimers.delete(filename);
+    const filePath = path.join(CONTENT_DIR, filename);
+
+    if (!fs.existsSync(filePath)) return; // file was deleted
+    touchActivity();
+
+    if (!knownFiles.has(filename)) {
+      knownFiles.add(filename);
+      const eventsFile = path.join(STATE_DIR, 'events');
+      try { fs.unlinkSync(eventsFile); } catch (e) { /* missing or raced */ }
+      console.log(JSON.stringify({ type: 'screen-added', file: filePath }));
+      maybeOpenBrowser();
+    } else {
+      console.log(JSON.stringify({ type: 'screen-updated', file: filePath }));
+    }
+
+    broadcast({ type: 'reload' });
+  }, 100));
+}
+
+// (Re-)establish the content-dir watcher. The watcher dies when the content
+// dir is deleted (inotify watches the inode; FSEvents the path), so it must
+// be re-created after the dir comes back — otherwise new screens would never
+// trigger reloads. Two detection paths:
+//   1. onContentEvent sees the dir's own basename → stopWatcher() already ran;
+//   2. the dir was replaced without us noticing (inode mismatch vs the inode
+//      we started watching) → re-arm here.
+function ensureContentWatcher() {
+  if (watcher) {
+    const ino = currentContentIno();
+    if (ino === null || ino === contentDirIno) return;
+    stopWatcher(); // watched dir was deleted and recreated; watch the new one
+  }
+  if (!fs.existsSync(CONTENT_DIR)) return;
+  try {
+    rescanKnownFiles();
+    contentDirIno = currentContentIno();
+    watcher = fs.watch(CONTENT_DIR, onContentEvent);
+    watcher.on('error', (err) => {
+      console.error('fs.watch error:', err.message);
+      watcher = null;
+      if (watcherRetryTimer) clearTimeout(watcherRetryTimer);
+      watcherRetryTimer = setTimeout(() => {
+        watcherRetryTimer = null;
+        ensureContentWatcher();
+      }, 1000);
+    });
+  } catch (e) {
+    watcher = null;
+  }
+}
+
+function stopWatcher() {
+  if (watcherRetryTimer) { clearTimeout(watcherRetryTimer); watcherRetryTimer = null; }
+  if (watcher) {
+    try { watcher.close(); } catch (e) { /* already closed */ }
+    watcher = null;
+  }
+  contentDirIno = null;
+}
 
 // ========== Server Startup ==========
 
 function startServer() {
-  if (!fs.existsSync(CONTENT_DIR)) fs.mkdirSync(CONTENT_DIR, { recursive: true });
-  if (!fs.existsSync(STATE_DIR)) fs.mkdirSync(STATE_DIR, { recursive: true });
-
-  // Track known files to distinguish new screens from updates.
-  // macOS fs.watch reports 'rename' for both new files and overwrites,
-  // so we can't rely on eventType alone.
-  const knownFiles = new Set(
-    fs.readdirSync(CONTENT_DIR).filter(f => !f.startsWith('.') && f.endsWith('.html'))
-  );
+  if (!ensurePrivateDirectory(SESSION_DIR) ||
+      !ensurePrivateDirectory(CONTENT_DIR) ||
+      !ensurePrivateDirectory(STATE_DIR)) {
+    throw new Error('Brainstorm session directories must be private, real directories');
+  }
 
   const server = http.createServer(handleRequest);
   server.on('upgrade', handleUpgrade);
-
-  const watcher = fs.watch(CONTENT_DIR, (eventType, filename) => {
-    if (!filename || filename.startsWith('.') || !filename.endsWith('.html')) return;
-
-    if (debounceTimers.has(filename)) clearTimeout(debounceTimers.get(filename));
-    debounceTimers.set(filename, setTimeout(() => {
-      debounceTimers.delete(filename);
-      const filePath = path.join(CONTENT_DIR, filename);
-
-      if (!fs.existsSync(filePath)) return; // file was deleted
-      touchActivity();
-
-      if (!knownFiles.has(filename)) {
-        knownFiles.add(filename);
-        const eventsFile = path.join(STATE_DIR, 'events');
-        if (fs.existsSync(eventsFile)) fs.unlinkSync(eventsFile);
-        console.log(JSON.stringify({ type: 'screen-added', file: filePath }));
-        maybeOpenBrowser();
-      } else {
-        console.log(JSON.stringify({ type: 'screen-updated', file: filePath }));
-      }
-
-      broadcast({ type: 'reload' });
-    }, 100));
-  });
-  watcher.on('error', (err) => console.error('fs.watch error:', err.message));
+  ensureContentWatcher();
 
   function shutdown(reason) {
     console.log(JSON.stringify({ type: 'server-stopped', reason }));
     const infoFile = path.join(STATE_DIR, 'server-info');
-    if (fs.existsSync(infoFile)) fs.unlinkSync(infoFile);
-    fs.writeFileSync(
+    try { fs.unlinkSync(infoFile); } catch (e) { /* already gone or raced */ }
+    writePrivateFile(
       path.join(STATE_DIR, 'server-stopped'),
       JSON.stringify({ reason, timestamp: Date.now() }) + '\n'
     );
-    watcher.close();
+    stopWatcher();
     clearInterval(lifecycleCheck);
     // Close any upgraded WebSocket sockets so server.close() can complete and
     // the process actually exits instead of lingering on an open connection.
@@ -630,6 +1027,9 @@ function startServer() {
       try { socket.destroy(); } catch (e) { /* already gone */ }
     }
     server.close(() => process.exit(0));
+    // Safety net: an in-flight HTTP connection (e.g. a slow /files/ download)
+    // must not keep a shutting-down server alive indefinitely.
+    setTimeout(() => process.exit(0), 5000).unref();
   }
 
   function ownerAlive() {
@@ -641,6 +1041,7 @@ function startServer() {
   const lifecycleCheck = setInterval(() => {
     if (!ownerAlive()) shutdown('owner process exited');
     else if (Date.now() - lastActivity > IDLE_TIMEOUT_MS) shutdown('idle timeout');
+    else ensureContentWatcher(); // self-heal the watcher if the dir was recreated
   }, LIFECYCLE_CHECK_MS);
   lifecycleCheck.unref();
 
@@ -666,17 +1067,11 @@ function startServer() {
     // one after an EADDRINUSE fallback) so it can't collide with another server's
     // cookie in the shared localhost jar.
     COOKIE_NAME = 'brainstorm-key-' + PORT;
-    // Record the bound port AND token so the next restart of this session reuses
-    // them — but ONLY when we got our preferred port. On a fallback we bound a
-    // *different* port because someone else holds the preferred one; persisting
-    // would overwrite the shared files and strand that other session's open tab.
+    // Record the bound port only when we got our preferred port. Authentication
+    // is deliberately not persisted, so a new logical session gets a new key.
     if (PORT_FILE && !triedFallback) {
-      try { fs.writeFileSync(PORT_FILE, String(PORT)); } catch (e) { /* best effort */ }
-      if (TOKEN_FILE) {
-        try {
-          fs.writeFileSync(TOKEN_FILE, TOKEN, { mode: 0o600 });
-          chmodOwnerOnly(TOKEN_FILE);
-        } catch (e) { /* best effort */ }
+      if (!writePrivateFile(PORT_FILE, String(PORT))) {
+        console.error('Failed to write private port file');
       }
     }
     const info = JSON.stringify({
@@ -686,7 +1081,9 @@ function startServer() {
     });
     console.log(info);
     // server-info embeds the key — keep it owner-only.
-    fs.writeFileSync(path.join(STATE_DIR, 'server-info'), info + '\n', { mode: 0o600 });
+    if (!writePrivateFile(path.join(STATE_DIR, 'server-info'), info + '\n')) {
+      throw new Error('Failed to write private server-info');
+    }
   }
 
   server.on('error', (err) => {
@@ -697,10 +1094,6 @@ function startServer() {
       }
       triedFallback = true;
       PORT = randomPort();
-      if (tokenSource === 'file') {
-        TOKEN = generateToken();
-        tokenSource = 'generated-fallback';
-      }
       server.listen(PORT, HOST, onListen);
     } else {
       console.error('Server failed to bind:', err.message);

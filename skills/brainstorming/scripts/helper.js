@@ -21,25 +21,13 @@
   let everConnected = false;
   let tombstoneShown = false;
 
-  function sessionKey() {
-    try {
-      return window.sessionStorage && window.sessionStorage.getItem('brainstorm-session-key');
-    } catch (e) {}
-    return null;
-  }
-
   function websocketUrl() {
-    const key = sessionKey();
-    return 'ws://' + window.location.host + (key ? '/?key=' + encodeURIComponent(key) : '');
+    const scheme = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    return scheme + window.location.host + '/';
   }
 
   function reloadAfterRecovery() {
-    const key = sessionKey();
-    if (key) {
-      window.location.replace('/?key=' + encodeURIComponent(key));
-    } else {
-      window.location.reload();
-    }
+    window.location.replace('/');
   }
 
   // Reflect connection state in the frame's status pill (absent on full-doc screens).
@@ -130,14 +118,19 @@
       ws.send(JSON.stringify(event));
     } else {
       eventQueue.push(event);
+      // Bound the queue so a long disconnect can't grow memory without limit;
+      // dropping the oldest events is fine — they're user clicks, not state.
+      if (eventQueue.length > 200) eventQueue.shift();
     }
   }
 
   // Capture clicks on choice elements
   document.addEventListener('click', (e) => {
+    if (!(e.target instanceof Element)) return;
     const target = e.target.closest('[data-choice]');
     if (!target) return;
 
+    if (typeof window.toggleSelect === 'function') window.toggleSelect(target);
     sendEvent({
       type: 'click',
       text: target.textContent.trim(),

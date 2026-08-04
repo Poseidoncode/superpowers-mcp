@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.2.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.2.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -128,13 +128,30 @@
 
 ## 🆕 最近更新
 
-### v6.2.1 (最新版)
+### v6.2.3 (最新版)
+
+- **Brainstorm Visual Companion 強化 (`server.cjs`)**：本機 loopback 限定的 HTTP+WebSocket 伺服器可安全處理檔案系統競態（content 目錄被刪除或畫面檔消失時降級為等待頁 / 404）；watcher 在目錄刪除重建後自動自癒（Linux inotify + macOS FSEvents）。WebSocket handshake 依 RFC 6455 驗證，控制訊框上限 125 bytes，並加入 idle/partial-frame deadline，滿額時淘汰最舊連線。套用 nonce CSP、每次啟動輪換金鑰、畫面/技能/事件大小上限與私有 state 檔案。
+- **`/files/` double-`writeHead` 崩潰修復**（subagent review 發現）：改為先讀檔再送 headers，並以 `O_NOFOLLOW` + fd 級 `fstat` + 大小上限關閉 check-then-read 的 TOCTOU。
+- **程序生命週期安全**：`start-server.sh/.ps1` 在送出訊號前先驗證 PID 確實是本 session 的 brainstorm server（server-instance-id + cmdline 檢查，與 stop-server 一致）；`stop-server.sh` 刪除暫存 session 前先做路徑正規化，`/tmp/../` 手法無法逃出暫存根目錄；相對 `--project-dir` 預先解析為絕對路徑；`server-instance-id` 改以無 BOM 寫入，Windows PowerShell 5.1 跨 shell 身份檢查不再失效。
+- **SkillsManager 強化**：POSIX 上以 `O_NOFOLLOW` 讀取技能檔（關閉 symlink 置換的 TOCTOU）；重新掃描失敗時回傳最後良好快取而非污染為空；名稱含連續句點（如 `a..b`）的技能現在可被查詢——查詢純走 Map、永不觸碰檔案系統。
+- **MCP 協定完善**：資源 URI 的畸形百分比跳脫回傳 `InvalidRequest` (-32600)，不再洩漏內部錯誤。
+- **依賴**：以已驗證的 exact override 固定 `hono` 4.13.0、`@hono/node-server` 2.0.11、`fast-uri` 4.1.2（解決相關公告）。`npm audit`：**0 漏洞**。
+- **測試套件**：`npm test` 會先建置，再執行 JavaScript 邊界/安全、MCP 流程與 companion 回歸測試。63 個斷言的 PowerShell 套件改由 `tests/powershell/run-tests.sh` 分開執行；沒有 `pwsh` 時會跳過。
+- **獨立審查**：已以每次啟動輪換認證金鑰、僅限 loopback 的 HTTP、nonce CSP、有界讀取、私有 state 寫入與跨平台確定性測試，處理安全與正確性審查發現。
+
+### v6.2.2
+
+- **Symlink 遍歷防護**：`SkillsManager.readSkillContent()` 現在會先使用 `fs.realpath` 將路徑正規化再檢查邊界，防止透過 symlink 任意讀取檔案；`getSafeSkillsPath` 也會阻擋危險的系統目錄前綴。
+- **相容性與協定**：新增 frontmatter 與技能內容的 UTF-8 BOM 支援，並依 RFC 3986 對包含空格或特殊字元的 resource URI 強制進行編碼與解碼。
+- **正確性與測試**：強制重新載入現在會清除內容快取；併發重新載入的鎖定更安全；多行 YAML 描述同時接受 tab 與空格縮排；新增 `tests/edge_cases_test.js` 覆蓋這些安全性與快取行為。
+
+### v6.2.1
 
 - **PowerShell 腳本測試套件**：新增 `tests/powershell/`，橫跨 `sdd-workspace.ps1`、`task-brief.ps1`、`review-package.ps1`、`find-polluter.ps1` 與 brainstorm `start-server.ps1`/`stop-server.ps1` 生命週期，共 63 個 assertion。使用 `tests/powershell/run-tests.sh` 執行；未安裝 `pwsh` 時會自動跳過。
 - **`stop-server.ps1` 跨平台修正**：`Get-CimInstance Win32_Process` 僅 Windows 可用，腳本現在在 Unix 上改用 `ps` 以正確檢查 server-id，macOS/Linux 不再出錯。
 - **清理**：移除已無用的 `skills/using-superpowers/references/copilot-tools.md`（上游已在 v6.2.0 中刪除，本地也沒有任何引用）。
 
-### v6.2.0 (最新版)
+### v6.2.0
 - **上游同步 obra/superpowers v6.2.0**：同步上游所有技能的改進，同時保留本地的安全性強化與 PowerShell 輔助腳本。
   - **subagent-driven-development 重構**：採用計畫範圍工作區（`.superpowers/sdd/<plan>/`），並行計畫之間的產物再也不會互相讀寫。改為可續接的 review-fix 迴圈，內建五輪熔斷機制，並新增修復後複審專用的 `re-review-prompt.md`。
   - **test-driven-development**：`testing-anti-patterns.md` 由上游的 `writing-good-tests.md` 取代。

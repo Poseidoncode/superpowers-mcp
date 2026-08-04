@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.2.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.2.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -128,7 +128,25 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v6.2.1 (Latest)
+### v6.2.3 (Latest)
+
+- **Hardened Brainstorming Visual Companion (`server.cjs`)**: the local loopback-only HTTP+WebSocket server is crash-resistant against filesystem races (a deleted content dir or a screen vanishing mid-read degrades to the waiting page / 404 instead of killing the process), and its watcher self-heals after the content dir is deleted and recreated (Linux inotify + macOS FSEvents). WebSocket handshakes are validated against RFC 6455 (version/upgrade/connection/key), control-frame payloads are capped at 125 bytes, clients have idle/partial-frame deadlines, and the oldest connection is evicted when the cap is full. Security headers now include `nosniff` and a nonce CSP; generated keys rotate per invocation; screen, skill, event, and user-event reads/logs are size-capped and state files are private.
+- **Companion security defaults**: the server only binds to loopback HTTP, rotates its key on every invocation, stores browser authentication only in an HttpOnly/SameSite cookie after the initial URL, and blocks unnonce'd scripts in screen HTML. Remote browsers must use an authenticated SSH tunnel; a restart requires sharing the new `server-info` URL.
+- **`/files/` double-`writeHead` crash fixed** (found by subagent review): files are read *before* headers are sent, and reads use `O_NOFOLLOW` + fd-based `fstat` + size cap, closing the check-then-read TOCTOU.
+- **Process-lifecycle safety**: `start-server.sh/.ps1` now prove a PID is a live brainstorm server of this session (server-instance-id + cmdline check, same as stop-server) before signalling it; `stop-server.sh` resolves paths canonically before deleting temp sessions so `/tmp/../` tricks can't escape the temp root; relative `--project-dir` is resolved up front; `server-instance-id` is written without BOM so cross-shell identity checks work on Windows PowerShell 5.1.
+- **SkillsManager hardening**: skill reads use `O_NOFOLLOW` on POSIX (symlink-swap TOCTOU); a failed rescan returns the last-good cache instead of poisoning it; skill names containing consecutive dots (e.g. `a..b`) are now findable — lookups are map-only and never touch the filesystem.
+- **MCP protocol polish**: malformed percent-encoding in resource URIs now returns `InvalidRequest` (-32600) instead of leaking an internal error.
+- **Dependencies**: exact verified overrides pin `hono` to 4.13.0, `@hono/node-server` to 2.0.11, and `fast-uri` to 4.1.2 (resolving the relevant advisories). `npm audit`: **0 vulnerabilities**.
+- **Test suite**: `npm test` builds first and runs the JavaScript edge-case/security, MCP server flow, and companion-server regression suites. The 63-assertion PowerShell suite runs separately with `tests/powershell/run-tests.sh` and skips gracefully when `pwsh` is unavailable.
+- **Independent review**: the security and correctness findings were addressed with per-invocation auth rotation, loopback-only HTTP, nonce CSP, bounded reads, private state writes, and deterministic cross-platform tests.
+
+### v6.2.2
+
+- **Symlink Traversal Prevention**: `SkillsManager.readSkillContent()` now canonicalizes paths with `fs.realpath` before checking boundaries, preventing symlink-based arbitrary file reads; `getSafeSkillsPath` also blocks dangerous system-directory prefixes.
+- **Compatibility & Protocol**: Added UTF-8 BOM support for frontmatter and skill content, and enforced RFC 3986 encoding/decoding for resource URIs containing spaces or special characters.
+- **Correctness & Tests**: Force reloads now invalidate the content cache, concurrent reload locking is safer, multiline YAML descriptions accept tab or space indentation, and `tests/edge_cases_test.js` covers these security and cache behaviors.
+
+### v6.2.1
 
 - **PowerShell Script Test Suite**: Added `tests/powershell/` with 63 assertions across 5 suites for `sdd-workspace.ps1`, `task-brief.ps1`, `review-package.ps1`, `find-polluter.ps1`, and the brainstorm `start-server.ps1`/`stop-server.ps1` lifecycle. Run with `tests/powershell/run-tests.sh`; it skips gracefully when `pwsh` is unavailable.
 - **stop-server.ps1 Cross-Platform Fix**: `Get-CimInstance Win32_Process` is Windows-only; the script now uses `ps` on Unix so the server-id check works correctly on macOS/Linux.

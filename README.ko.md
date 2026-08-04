@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.2.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.2.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 원본 Superpowers 스킬 라이브러리를 독립적인 MCP Toolpack으로 패키징하기 위한 정보와 사용 지침을 요약한 것입니다.
@@ -128,7 +128,30 @@
 
 ## 🆕 최근 업데이트
 
-### v6.2.0 (최신)
+### v6.2.3 (최신)
+
+- **Brainstorm Visual Companion 강화 (`server.cjs`)**：로컬 loopback 전용 HTTP+WebSocket 서버가 파일시스템 레이스에 안전하게 대응합니다（content 디렉터리 삭제 또는 화면 파일 소실 시 대기 페이지 / 404로 폴백）。watcher는 디렉터리 삭제·재생성 후 자가 치유됩니다（Linux inotify + macOS FSEvents）。WebSocket 핸드셰이크는 RFC 6455로 검증하고, 제어 프레임은 125바이트, idle/partial-frame deadline을 적용하며, 상한 도달 시 가장 오래된 연결을 제거합니다. nonce CSP, 시작별 키 로테이션, 화면·스킬·이벤트 크기 제한, private state 파일을 적용했습니다.
+- **`/files/` 이중 `writeHead` 크래시 수정**（subagent 리뷰에서 발견）：헤더 전송 전에 파일을 읽고, `O_NOFOLLOW` + fd 기반 `fstat` + 크기 상한으로 check-then-read TOCTOU 차단.
+- **프로세스 수명주기 안전**：`start-server.sh/.ps1`은 시그널 전에 PID가 실제로 이 세션의 brainstorm 서버인지 검증（server-instance-id + cmdline 확인, stop-server와 동일）；`stop-server.sh`는 임시 세션 삭제 전 경로를 정규화하여 `/tmp/../` 트릭으로 임시 루트를 벗어날 수 없음；상대 `--project-dir`는 사전에 절대 경로로 변환；`server-instance-id`는 BOM 없이 기록되어 Windows PowerShell 5.1에서도 셸 간 ID 확인이 동작.
+- **SkillsManager 강화**：POSIX에서 `O_NOFOLLOW`로 스킬 파일 읽기（심링크 교체 TOCTOU 차단）；재스캔 실패 시 마지막 양호 캐시 반환（빈 목록으로 오염되지 않음）；연속 점이 포함된 스킬 이름（예: `a..b`）도 검색 가능 — 조회는 Map 전용이며 파일시스템에 닿지 않음.
+- **MCP 프로토콜 개선**：리소스 URI의 잘못된 퍼센트 인코딩은 `InvalidRequest` (-32600)를 반환하며 내부 오류를 노출하지 않음.
+- **의존성**：검증된 exact override로 `hono` 4.13.0、`@hono/node-server` 2.0.11、`fast-uri` 4.1.2를 고정（관련 권고 해결）。`npm audit`：**0 취약점**.
+- **테스트 스위트**：`npm test`는 빌드 후 JavaScript 엣지/보안, MCP 플로우, companion 회귀 스위트를 실행합니다. 63개 assertion PowerShell 스위트는 `tests/powershell/run-tests.sh`로 별도 실행하며 `pwsh`가 없으면 건너뜁니다.
+- **독립 리뷰**：시작별 인증 키 로테이션, loopback 전용 HTTP, nonce CSP, bounded read, private state 쓰기, 결정적 크로스플랫폼 테스트로 보안·정확성 지적을 모두 반영했습니다.
+
+### v6.2.2
+
+- **심볼릭 링크 트래버설 방지**: `SkillsManager.readSkillContent()`가 `fs.realpath`로 경로를 정규화한 뒤 경계를 확인하여 심볼릭 링크를 통한 임의 파일 읽기를 방지합니다. `getSafeSkillsPath`도 위험한 시스템 디렉터리 접두사를 차단합니다.
+- **호환성 및 프로토콜**: frontmatter와 스킬 콘텐츠의 UTF-8 BOM을 지원하고, 공백이나 특수 문자가 포함된 resource URI에 RFC 3986 인코딩/디코딩을 적용합니다.
+- **정확성 및 테스트**: 강제 reload 시 콘텐츠 캐시를 무효화하고 동시 reload 잠금을 안전하게 했습니다. 여러 줄 YAML 설명에서 탭과 공백 들여쓰기를 모두 허용하며, `tests/edge_cases_test.js`가 이러한 보안 및 캐시 동작을 검증합니다.
+
+### v6.2.1
+
+- **PowerShell 스크립트 테스트 스위트**: `sdd-workspace.ps1`, `task-brief.ps1`, `review-package.ps1`, `find-polluter.ps1`, brainstorm `start-server.ps1`/`stop-server.ps1` 수명주기를 대상으로 63개 assertion의 5개 스위트를 `tests/powershell/`에 추가했습니다. `tests/powershell/run-tests.sh`로 실행하며 `pwsh`가 없으면 자동으로 건너뜁니다.
+- **`stop-server.ps1` 크로스 플랫폼 수정**: `Get-CimInstance Win32_Process`는 Windows 전용이므로 Unix에서는 `ps`를 사용해 server-id를 올바르게 확인합니다.
+- **정리**: 업스트림에서 이미 제거되었고 로컬에서도 참조되지 않던 고아 `skills/using-superpowers/references/copilot-tools.md`를 제거했습니다.
+
+### v6.2.0
 - **업스트림 obra/superpowers v6.2.0 동기화**: 로컬 보안 강화와 PowerShell 헬퍼를 유지하면서 모든 스킬에 업스트림 개선 사항을 동기화했습니다.
   - **subagent-driven-development 재구성**: 플랜 단위 워크스페이스(`.superpowers/sdd/<plan>/`)를 도입하여 동시에 실행되는 플랜 간 산출물이 서로를 읽거나 덮어쓰지 않도록 구조적으로 방지합니다. 재개 가능한 review-fix 루프에 5회 서킷 브레이커를 내장하고, 수정 후 재검토 전용 `re-review-prompt.md`를 추가했습니다.
   - **test-driven-development**: `testing-anti-patterns.md`가 업스트림의 `writing-good-tests.md`로 대체되었습니다.

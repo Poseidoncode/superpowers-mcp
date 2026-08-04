@@ -5,7 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [6.2.3] - 2026-08-05
+
+### Security & Hardening
+- **Brainstorm Server Crash Fix**: request handlers no longer let filesystem races (content dir deleted, screen file vanishing between readdir and read) crash the process with an uncaught ENOENT — screen serving and `/files/*` reads are now guarded and degrade to the waiting page / 404.
+- **stop-server.sh Temp-Deletion Traversal Fix**: `/tmp/*` prefix check now resolves both paths canonically (`cd` + `pwd -P`, matching stop-server.ps1) so a session dir like `/tmp/../home/user/project` can no longer trick it into `rm -rf` on a directory outside the temp root (Linux-real, macOS-accidentally-safe).
+- **Stale PID Signal Hardening (start-server.sh / start-server.ps1)**: restart paths now prove a PID is a live brainstorm server of this session (server-instance-id + cmdline check, same as stop-server) before signalling it, with process-start revalidation to narrow PID-reuse races.
+- **WebSocket Handshake Validation (server.cjs)**: upgrade requests are now verified against RFC 6455 (`Upgrade: websocket`, `Connection: upgrade`, `Sec-WebSocket-Version: 13`, well-formed `Sec-WebSocket-Key`) so non-WS clients cannot enter the frame parser.
+- **WebSocket Control Frame Limit (server.cjs)**: control frames (PING/CLOSE/PONG) with payloads > 125 bytes are rejected per RFC 6455 §5.5, closing the PING-amplification path; sockets are also destroyed after sending CLOSE so scripted peers cannot linger half-open.
+- **MCP Resource URI Validation (src/server.ts)**: malformed percent-encoding in `skill://` resource URIs is now reported as `InvalidRequest` (-32600) instead of leaking a URIError as an internal error.
+- **Symlink Swap Defense (skills-manager)**: skill reads now validate canonical containment twice and compare the opened file descriptor identity; POSIX additionally uses `O_NOFOLLOW`, while Windows rejects reparse-point swaps through the same identity check.
+- **Dependency**: `hono` pinned to >=4.12.34, resolving moderate ReDoS advisory GHSA-8j4g-w8fx-2239 (CORS middleware). `npm audit` is back to 0 vulnerabilities.
+
+### Fixed & Improved
+- **Log Origin Spoofing**: `handleMessage` now spreads the client event first so a client-supplied `source` field cannot spoof the event origin in the server log.
+- **helper.js**: click handler guards `e.target instanceof Element` before calling `closest`; the offline event queue is capped at 200 (drops oldest) so a long disconnect can't grow memory.
+- **Regression Suite**: new `tests/brainstorm_server_test.js` (19 assertions) covering crash survival, `/files` traversal, WS handshake rejection, control-frame limits, auth, event recording, watcher resilience, oversized screens, and security headers; wired into `npm test`.
+- **Watcher Resilience (server.cjs)**: the content-dir watcher now self-heals — it is re-established after the content dir is deleted and recreated (inotify watches the inode), both on demand (next page request) and on a lifecycle interval, so new screens keep triggering reload broadcasts.
+- **Resource Bounds (server.cjs)**: WebSocket clients are capped at 16 with idle/partial-frame timeouts, screens larger than 20 MB are skipped through bounded reads, skill files are capped at 10 MB, the per-session events log is capped at 1 MB, and user-event log lines are capped at 4096 UTF-8 bytes.
+- **Input Validation (server.cjs)**: `BRAINSTORM_PORT` must be an integer in 1024–65535, HTTP binds and displayed URL hosts must be loopback, and the WebSocket upgrade path is restricted to `/`.
+- **Security Headers (server.cjs)**: added `X-Content-Type-Options: nosniff`, nonce-based CSP, and HttpOnly-only browser authentication; screen HTML cannot access the session key through page-readable storage.
+- **Shell Scripts**: `start-server.sh` resolves a relative `--project-dir` against the caller's cwd up front (a relative session path previously resolved against the wrong directory after `cd`); `start/stop-server.ps1` no longer assign to the read-only automatic variable `$IsWindows` (case-insensitive) — they use a separate name with an `OSVersion.Platform` fallback so Windows PowerShell 5.1 takes the correct branch.
+- **SkillsManager**: `findSkill` no longer rejects skill names containing consecutive dots (e.g. `a..b`) — lookups are map-only and never touch the filesystem, so only separators/null/exact `.`/`..` are blocked; a failed rescan (e.g. unreadable directory) now returns the last-good cache instead of poisoning it with an empty list; `parseFrontmatter` accepts empty `name:`/`description:` values (falls back to the directory name).
+
+### Fixed & Improved
+- **`/files/` double-`writeHead` crash (found by subagent review)**: the old catch-then-`writeHead(404)` path threw `ERR_HTTP_HEADERS_SENT` (headers already sent by the 200) and crashed the process — the exact crash class the hardening claims to eliminate. Files are now read *before* headers are sent; reads also use `open` + `O_NOFOLLOW` + fd-`fstat` + size cap, closing the check-then-read TOCTOU.
+- **Watcher self-heal fixed for Linux (found by subagent review)**: inotify reports deletion of the watched dir as a plain `rename` event carrying the dir's own basename (no error), so the watcher stayed non-null-but-dead and was never re-armed. `onContentEvent` now detects the dir's own basename and tears the watcher down — guarded by an inode check so a late event from an old watcher can't kill a freshly re-armed one; `ensureContentWatcher` also re-arms on inode mismatch.
+- **State-dir race hardening**: `appendEvent` and the events-file unlink are wrapped in try/catch so a deleted `state/` dir at runtime can't crash the server from the WS data path.
+- **WS closed-flag**: after sending CLOSE, further frames are no longer parsed or dispatched (RFC 6455 §5.5.1), and the socket is paused before destruction.
+- **`BRAINSTORM_TOKEN` env validation**: the operator-supplied token must match the same `^[0-9a-f]{32,}$` rule as the file source, or a fresh token is generated.
+- **Server-log bound**: user-event log lines are capped at 4096 UTF-8 bytes and oversized lines are replaced with a valid truncated JSON record, so an authenticated client can't grow `server.log` without limit (events file was already capped).
+- **SkillsManager last-good cache**: a missing skills dir (transient move/rename) now returns the last-good cache instead of `[]`, consistent with the readdir-failure path.
+- **start-server.ps1**: `server-instance-id` is written via `[IO.File]::WriteAllText` (UTF-8, no BOM) so Windows PowerShell 5.1's BOM-emitting `Set-Content -Encoding utf8` can't break bash-side identity checks on shared session dirs.
+- **start-server.sh**: a failed `cd` for a relative `--project-dir` falls back to a lexical join against the caller's cwd instead of silently dropping the requested project dir.
+- **Test suite**: `pretest` builds `out/` so `npm test` works on a fresh checkout; the harness can no longer hang if the server child already exited (close-event await raced with a timeout); new regression test: an unreadable `/files/` asset returns 404 without crashing (covers the double-`writeHead` fix).
 
 ## [6.2.2] - 2026-08-05
 

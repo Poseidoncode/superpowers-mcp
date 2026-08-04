@@ -70,17 +70,25 @@ server.stdout.on("data", (data) => {
                         process.exit(1);
                     } else {
                         console.log("✅ read_skill OK (Frontmatter successfully stripped!)");
-                        console.log("--- Sample Content ---");
-                        console.log(text.substring(0, 300));
-                        console.log("----------------------");
-
-                        // Close server
-                        server.kill();
-                        console.log("\n🎉 ALL TESTS PASSED SUCCESSFULLY!");
-                        process.exit(0);
+                        sendRequest({
+                            jsonrpc: "2.0",
+                            id: 4,
+                            method: "resources/read",
+                            params: { uri: "skill://superpowers/%zz" }
+                        });
                     }
                 } else {
                     console.error("❌ read_skill failed", response);
+                    process.exit(1);
+                }
+            } else if (response.id === 4) {
+                if (response.error && response.error.code === -32600) {
+                    console.log("✅ malformed resource URI returns InvalidRequest");
+                    server.kill();
+                    console.log("\n🎉 ALL TESTS PASSED SUCCESSFULLY!");
+                    process.exit(0);
+                } else {
+                    console.error("❌ malformed resource URI was not rejected", response);
                     process.exit(1);
                 }
             }

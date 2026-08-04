@@ -8,9 +8,9 @@
 # Options:
 #   --project-dir <path>  Store session files under <path>/.superpowers/brainstorm/
 #                         instead of /tmp. Files persist after server stops.
-#   --host <bind-host>    Host/interface to bind (default: 127.0.0.1).
-#                         Use 0.0.0.0 in remote/containerized environments.
-#   --url-host <host>     Hostname shown in returned URL JSON.
+#   --host <bind-host>    Loopback host/interface to bind (default: 127.0.0.1).
+#                         Use an SSH tunnel or TLS reverse proxy for remote access.
+#   --url-host <host>     Loopback hostname shown in returned URL JSON.
 #   --idle-timeout-minutes <n>  Shut down after n minutes idle (default 240 = 4h).
 #   --open                Auto-open the browser on the first screen (use only
 #                         after the user approves the visual companion).
@@ -71,6 +71,26 @@ if [[ -z "$URL_HOST" ]]; then
   fi
 fi
 
+# Resolve a relative --project-dir against the caller's cwd up front. Later
+# steps cd into SCRIPT_DIR, and a relative session path would then resolve
+# against the wrong directory (or the server would inherit a relative
+# BRAINSTORM_DIR it can't locate).
+if [[ -n "$PROJECT_DIR" && "$PROJECT_DIR" != /* ]]; then
+  requested_project_dir="$PROJECT_DIR"
+  if [[ -d "$requested_project_dir" ]]; then
+    resolved_project_dir="$(cd "$requested_project_dir" 2>/dev/null && pwd -P || true)"
+    if [[ -n "$resolved_project_dir" ]]; then
+      PROJECT_DIR="$resolved_project_dir"
+    else
+      # cd failed (e.g. permission) — fall back to a lexical join against the
+      # caller's cwd instead of silently dropping the requested project dir.
+      PROJECT_DIR="$(pwd -P 2>/dev/null || pwd)/${requested_project_dir#./}"
+    fi
+  else
+    PROJECT_DIR="$(pwd -P 2>/dev/null || pwd)/$requested_project_dir"
+  fi
+fi
+
 if [[ -n "$IDLE_TIMEOUT_MINUTES" ]]; then
   if ! [[ "$IDLE_TIMEOUT_MINUTES" =~ ^[0-9]+$ ]] || [[ "$IDLE_TIMEOUT_MINUTES" -lt 1 ]]; then
     echo "{\"error\": \"--idle-timeout-minutes must be a positive integer\"}"
@@ -106,8 +126,8 @@ if [[ "$FOREGROUND" != "true" && "$FORCE_BACKGROUND" != "true" ]]; then
   fi
 fi
 
-# Session files (server.log, server-info, .last-token) embed the session key —
-# keep everything this script and the server create owner-only.
+# Session files (server.log and server-info) embed the session key — keep
+# everything this script and the server create owner-only.
 umask 077
 
 # Generate unique session directory
@@ -115,10 +135,9 @@ SESSION_ID="$$-$(date +%s)"
 
 if [[ -n "$PROJECT_DIR" ]]; then
   SESSION_DIR="${PROJECT_DIR}/.superpowers/brainstorm/${SESSION_ID}"
-  # Persist the bound port and key per project so a restart reuses them and an
-  # already-open browser tab reconnects to the same URL with a valid cookie.
+  # Reusing a port is safe because the server rotates its authentication key
+  # for every logical session.
   export BRAINSTORM_PORT_FILE="${PROJECT_DIR}/.superpowers/brainstorm/.last-port"
-  export BRAINSTORM_TOKEN_FILE="${PROJECT_DIR}/.superpowers/brainstorm/.last-token"
 else
   SESSION_DIR="/tmp/brainstorm-${SESSION_ID}"
 fi
@@ -129,7 +148,83 @@ LOG_FILE="${STATE_DIR}/server.log"
 SERVER_ID_FILE="${STATE_DIR}/server-instance-id"
 
 # Create fresh session directory with content and state peers
-mkdir -p "${SESSION_DIR}/content" "$STATE_DIR"
+if ! mkdir -p "${SESSION_DIR}/content" "$STATE_DIR"; then
+  echo '{"error": "Failed to create brainstorm session directory"}'
+  exit 1
+fi
+
+# --- Process identity verification (shared with stop-server.sh) -----------
+# A stale server.pid may point at an unrelated process after a reboot or PID
+# wraparound. Before signalling a PID, prove it is actually a brainstorm
+# server belonging to this session via the per-start server-instance-id.
+
+read_expected_server_id() {
+  [[ -f "$SERVER_ID_FILE" ]] || return 1
+  local id
+  id="$(tr -d '\r\n' < "$SERVER_ID_FILE" 2>/dev/null || true)"
+  [[ "$id" =~ ^[A-Za-z0-9_-]{32,64}$ ]] || return 1
+  printf '%s\n' "$id"
+}
+
+command_has_server_id() {
+  local pid="$1"
+  local expected="$2"
+  local expected_arg="--brainstorm-server-id=$expected"
+  if [[ -r "/proc/$pid/cmdline" ]]; then
+    local arg
+    while IFS= read -r -d '' arg || [[ -n "$arg" ]]; do
+      [[ "$arg" == "$expected_arg" ]] && return 0
+    done < "/proc/$pid/cmdline"
+    return 1
+  fi
+  local command_line
+  command_line="$(ps -ww -p "$pid" -o command= 2>/dev/null || ps -f -p "$pid" 2>/dev/null | sed '1d' || true)"
+  [[ -n "$command_line" ]] || return 1
+  case " $command_line " in
+    *" $expected_arg "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_brainstorm_server() {
+  kill -0 "$1" 2>/dev/null || return 1
+  local expected_id
+  expected_id="$(read_expected_server_id)" || return 1
+  command_has_server_id "$1" "$expected_id" || return 1
+  return 0
+}
+
+process_start_token() {
+  local pid="$1"
+  if [[ -r "/proc/$pid/stat" ]]; then
+    local stat_line
+    stat_line="$(cat "/proc/$pid/stat" 2>/dev/null || true)"
+    # After the comm field, /proc/<pid>/stat field 20 is the process start
+    # time (the original field 22), measured in clock ticks since boot.
+    [[ -n "$stat_line" ]] || return 1
+    printf '%s\n' "${stat_line##*) }" | awk '{print $20}'
+    return 0
+  fi
+  ps -ww -p "$pid" -o lstart= 2>/dev/null | sed 's/^ *//' || true
+}
+
+# Kill any existing server — only after proving the PID and its process start
+# identity are ours. The final identity re-check narrows the PID-reuse window.
+# This must run before the new server-instance-id overwrites SERVER_ID_FILE.
+if [[ -f "$PID_FILE" ]]; then
+  old_pid=$(cat "$PID_FILE")
+  old_start_token=""
+  if [[ "$old_pid" =~ ^[0-9]+$ ]] && is_brainstorm_server "$old_pid"; then
+    old_start_token="$(process_start_token "$old_pid")"
+  fi
+  if [[ -n "$old_start_token" ]] && is_brainstorm_server "$old_pid" &&
+     [[ "$(process_start_token "$old_pid")" == "$old_start_token" ]]; then
+    kill "$old_pid" 2>/dev/null
+  else
+    echo '{"warn": "stale server.pid ignored: PID is not a running brainstorm server"}' >&2
+  fi
+  rm -f "$PID_FILE"
+fi
 
 SERVER_ID=""
 if [[ -r /dev/urandom ]]; then
@@ -140,13 +235,6 @@ if ! [[ "$SERVER_ID" =~ ^[A-Za-z0-9_-]{32,64}$ ]]; then
 fi
 printf '%s\n' "$SERVER_ID" > "$SERVER_ID_FILE"
 chmod 600 "$SERVER_ID_FILE" 2>/dev/null || true
-
-# Kill any existing server
-if [[ -f "$PID_FILE" ]]; then
-  old_pid=$(cat "$PID_FILE")
-  kill "$old_pid" 2>/dev/null
-  rm -f "$PID_FILE"
-fi
 
 cd "$SCRIPT_DIR" || exit 1
 

@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.2.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.2.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、オリジナルの Superpowers スキルライブラリを独立した MCP Toolpack にパッケージ化するための情報と使用手順をまとめたものです。
@@ -128,7 +128,30 @@
 
 ## 🆕 最近の更新
 
-### v6.2.0（最新）
+### v6.2.3（最新）
+
+- **Brainstorm Visual Companion の強化（`server.cjs`）**：ローカル loopback 限定の HTTP+WebSocket サーバーがファイルシステムのレースに耐性を持つようになりました（content ディレクトリの削除や画面ファイルの読み取り中の消失は待機ページ / 404 へフォールバック）。watcher はディレクトリの削除・再作成後に自己修復します（Linux inotify + macOS FSEvents）。WebSocket ハンドシェイクは RFC 6455 に基づき検証され、制御フレームは 125 バイト、idle/partial-frame に期限を設定し、接続上限時は最古の接続を破棄します。nonce CSP、起動ごとのキー更新、画面・スキル・イベントのサイズ上限、private state ファイルを適用しました。
+- **`/files/` の二重 `writeHead` クラッシュ修正**（subagent レビューで発見）：ヘッダー送信の前にファイルを読み取り、`O_NOFOLLOW` + fd ベースの `fstat` + サイズ上限で check-then-read の TOCTOU を閉鎖。
+- **プロセスライフサイクルの安全性**：`start-server.sh/.ps1` はシグナル送信前に PID が本当にこのセッションの brainstorm サーバーであることを検証（server-instance-id + cmdline チェック、stop-server と同一）；`stop-server.sh` は一時セッション削除前にパスを正規化し、`/tmp/../` による一時ルート外への脱出を防止；相対 `--project-dir` は事前に絶対パスへ解決；`server-instance-id` は BOM なしで書き込み、Windows PowerShell 5.1 でもシェル間の ID チェックが機能。
+- **SkillsManager の強化**：POSIX では `O_NOFOLLOW` でスキルファイルを読み取り（シンボリックリンク置換の TOCTOU を閉鎖）；再スキャン失敗時は最後の正常キャッシュを返し、空リストで汚染しない；連続ドットを含むスキル名（例 `a..b`）も検索可能に — ルックアップは Map のみでファイルシステムには触れません。
+- **MCP プロトコルの改善**：リソース URI の不正なパーセントエンコーディングは `InvalidRequest` (-32600) を返し、内部エラーを漏らしません。
+- **依存関係**：検証済みの exact override により `hono` 4.13.0、`@hono/node-server` 2.0.11、`fast-uri` 4.1.2 を固定（関連する勧告を解決）。`npm audit`：**0 脆弱性**。
+- **テストスイート**：`npm test` はビルド後に JavaScript のエッジケース/セキュリティ、MCP フロー、companion 回帰スイートを実行します。63 アサーションの PowerShell スイートは `tests/powershell/run-tests.sh` で別途実行し、`pwsh` がない場合はスキップします。
+- **独立レビュー**：セキュリティと正確性の指摘に対し、起動ごとの認証ローテーション、loopback 限定 HTTP、nonce CSP、上限付き読み取り、private state 書き込み、決定的なクロスプラットフォームテストで対応しました。
+
+### v6.2.2
+
+- **シンボリックリンクトラバーサル防止**：`SkillsManager.readSkillContent()` は `fs.realpath` でパスを正規化してから境界を確認するようになり、シンボリックリンクを利用した任意ファイル読み取りを防止します。`getSafeSkillsPath` も危険なシステムディレクトリのプレフィックスをブロックします。
+- **互換性とプロトコル**：frontmatter とスキルコンテンツで UTF-8 BOM をサポートし、空白や特殊文字を含む resource URI に RFC 3986 準拠のエンコード/デコードを適用します。
+- **正確性とテスト**：強制リロード時にコンテンツキャッシュを無効化し、並行リロードのロックを安全にしました。複数行 YAML の説明ではタブとスペースのインデントを受け付け、`tests/edge_cases_test.js` でこれらのセキュリティとキャッシュ動作を検証します。
+
+### v6.2.1
+
+- **PowerShell スクリプトテストスイート**：`sdd-workspace.ps1`、`task-brief.ps1`、`review-package.ps1`、`find-polluter.ps1`、brainstorm の `start-server.ps1`/`stop-server.ps1` のライフサイクルを対象とする 63 アサーションの 5 スイートを `tests/powershell/` に追加。`tests/powershell/run-tests.sh` で実行でき、`pwsh` がない場合はスキップします。
+- **`stop-server.ps1` のクロスプラットフォーム修正**：`Get-CimInstance Win32_Process` は Windows 専用のため、Unix では `ps` を使って server-id を正しく確認するようにしました。
+- **クリーンアップ**：上流ですでに削除され、ローカルでも参照されていなかった孤立した `skills/using-superpowers/references/copilot-tools.md` を削除しました。
+
+### v6.2.0
 - **上流 obra/superpowers v6.2.0 との同期**：ローカルのセキュリティ強化と PowerShell ヘルパーを保持したまま、全スキルに上流の改善を同期しました。
   - **subagent-driven-development 再構築**：プラン単位のワークスペース（`.superpowers/sdd/<plan>/`）を採用し、並行プラン間で成果物の読み書きが干渉しない構造になりました。再開可能な review-fix ループに 5 ラウンドのサーキットブレーカーを内蔵し、修正後の再レビュー専用の `re-review-prompt.md` を追加。
   - **test-driven-development**：`testing-anti-patterns.md` が上流の `writing-good-tests.md` に置き換わりました。

@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 # Start the brainstorm server and output connection info.
-# Usage: ./start-server.ps1 [--project-dir <path>] [--host <bind-host>] [--url-host <display-host>] [--foreground] [--background]
+# Usage: ./start-server.ps1 [--project-dir <path>] [--host <loopback-host>] [--url-host <loopback-host>] [--foreground] [--background]
 
 $ErrorActionPreference = "Stop"
 
@@ -29,11 +29,15 @@ function Set-ProcessEnvironment {
 
 function Protect-PathForCurrentUser {
     param([string]$Path)
-    if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
-        return
-    }
+    $isWindowsPlatform = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
     try {
         $item = Get-Item -LiteralPath $Path -ErrorAction Stop
+        if (-not $isWindowsPlatform) {
+            $mode = if ($item.PSIsContainer) { "700" } else { "600" }
+            & chmod $mode $item.FullName
+            if ($LASTEXITCODE -ne 0) { throw "chmod failed" }
+            return
+        }
         $acl = Get-Acl -LiteralPath $item.FullName
         $acl.SetAccessRuleProtection($true, $false)
         $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
@@ -112,6 +116,28 @@ if ($urlHost -eq "") {
     }
 }
 
+function Test-LoopbackHost {
+    param([string]$HostValue)
+    $normalized = $HostValue.Trim().TrimStart('[').TrimEnd(']').ToLowerInvariant()
+    if ($normalized -eq "localhost" -or $normalized -eq "::1" -or $normalized.StartsWith("127.")) {
+        return $true
+    }
+    $address = $null
+    if ([System.Net.IPAddress]::TryParse($normalized, [ref]$address)) {
+        return [System.Net.IPAddress]::IsLoopback($address)
+    }
+    return $false
+}
+
+if (-not (Test-LoopbackHost $bindHost)) {
+    Write-JsonError "Refusing insecure non-loopback HTTP bind; use a TLS reverse proxy or tunnel to 127.0.0.1"
+    exit 1
+}
+if (-not (Test-LoopbackHost $urlHost)) {
+    Write-JsonError "--url-host must be a loopback hostname or address"
+    exit 1
+}
+
 if ($idleTimeoutMinutes -ne "") {
     $parsedIdle = 0
     if ((-not [int]::TryParse($idleTimeoutMinutes, [ref]$parsedIdle)) -or $parsedIdle -lt 1) {
@@ -131,7 +157,6 @@ if ($projectDir -ne "") {
     $brainstormRoot = Join-Path $projectDir ".superpowers/brainstorm"
     $sessionDir = Join-Path $brainstormRoot $sessionId
     $env:BRAINSTORM_PORT_FILE = Join-Path $brainstormRoot ".last-port"
-    $env:BRAINSTORM_TOKEN_FILE = Join-Path $brainstormRoot ".last-token"
 } else {
     $sessionDir = Join-Path ([System.IO.Path]::GetTempPath()) "brainstorm-$sessionId"
 }
@@ -151,16 +176,70 @@ Protect-PathForCurrentUser -Path $contentDir
 Protect-PathForCurrentUser -Path $stateDir
 
 $serverId = New-ServerId
-Set-Content -Path $serverIdFile -Value $serverId -NoNewline -Encoding utf8
-Protect-PathForCurrentUser -Path $serverIdFile
 
+function Read-ExpectedServerId {
+    if (-not (Test-Path -LiteralPath $serverIdFile)) { return $null }
+    $id = (Get-Content -LiteralPath $serverIdFile -Raw -ErrorAction SilentlyContinue).Trim()
+    if ($id -match '^[A-Za-z0-9_-]{32,64}$') { return $id }
+    return $null
+}
+
+function Test-BrainstormServer {
+    param([int]$ProcessId)
+    $expected = Read-ExpectedServerId
+    if (-not $expected) { return $false }
+    # $IsWindows is undefined on Windows PowerShell 5.1; fall back to the
+    # OSVersion check so the Windows branch is taken there too.
+    $isWinPlatform = ($IsWindows -or [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)
+    if ($isWinPlatform) {
+        $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
+        if (-not $process) { return $false }
+        return ($process.CommandLine -like "*--brainstorm-server-id=$expected*")
+    }
+    # Unix: ps -p prints the full command line; the id is validated
+    # hex above, so no regex escaping is needed.
+    $cmd = (& ps -p $ProcessId -o command= 2>$null)
+    if (-not $cmd) { return $false }
+    return ($cmd -match "--brainstorm-server-id=$expected")
+}
+
+function Get-ProcessStartToken {
+    param([int]$ProcessId)
+    $isWinPlatform = ($IsWindows -or [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)
+    if ($isWinPlatform) {
+        $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
+        if (-not $process) { return $null }
+        return [string]$process.CreationDate
+    }
+    $start = (& ps -p $ProcessId -o lstart= 2>$null)
+    if (-not $start) { return $null }
+    return (($start | Out-String).Trim())
+}
+
+# Kill any existing server — only after proving the PID and its process start
+# identity are ours. The final identity re-check narrows the PID-reuse window.
+# Must run BEFORE the new server-instance-id below overwrites serverIdFile.
 if (Test-Path -LiteralPath $pidFile) {
-    $oldPid = (Get-Content -LiteralPath $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
-    if ($oldPid) {
-        Stop-Process -Id ([int]$oldPid) -ErrorAction SilentlyContinue
+    $oldPidText = (Get-Content -LiteralPath $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    $oldPid = 0
+    $oldStartToken = $null
+    if ([int]::TryParse($oldPidText, [ref]$oldPid) -and (Test-BrainstormServer -ProcessId $oldPid)) {
+        $oldStartToken = Get-ProcessStartToken -ProcessId $oldPid
+    }
+    if ($oldStartToken -and (Test-BrainstormServer -ProcessId $oldPid) -and
+        ((Get-ProcessStartToken -ProcessId $oldPid) -eq $oldStartToken)) {
+        Stop-Process -Id $oldPid -ErrorAction SilentlyContinue
+    } else {
+        Write-Warning "stale server.pid ignored: PID is not a running brainstorm server"
     }
     Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
 }
+
+# WriteAllText: UTF-8 without BOM on every PowerShell version (PS 5.1's
+# Set-Content -Encoding utf8 emits a BOM, which breaks the bash-side
+# read_expected_server_id regex when a session dir is shared across shells).
+[System.IO.File]::WriteAllText($serverIdFile, $serverId)
+Protect-PathForCurrentUser -Path $serverIdFile
 
 $envValues = @{
     BRAINSTORM_DIR = $sessionDir
@@ -168,7 +247,6 @@ $envValues = @{
     BRAINSTORM_URL_HOST = $urlHost
     BRAINSTORM_OWNER_PID = ""
     BRAINSTORM_PORT_FILE = $env:BRAINSTORM_PORT_FILE
-    BRAINSTORM_TOKEN_FILE = $env:BRAINSTORM_TOKEN_FILE
     BRAINSTORM_IDLE_TIMEOUT_MS = $env:BRAINSTORM_IDLE_TIMEOUT_MS
     BRAINSTORM_OPEN = $env:BRAINSTORM_OPEN
 }
@@ -199,6 +277,9 @@ if ($foreground) {
 
 Set-ProcessEnvironment -Values $envValues
 $errFile = Join-Path $stateDir "server.err"
+New-Item -ItemType File -Force -Path $logFile, $errFile | Out-Null
+Protect-PathForCurrentUser -Path $logFile
+Protect-PathForCurrentUser -Path $errFile
 $process = Start-Process `
     -FilePath "node" `
     -ArgumentList @("server.cjs", "--brainstorm-server-id=$serverId") `

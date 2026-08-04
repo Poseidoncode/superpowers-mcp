@@ -34,7 +34,10 @@ function Test-BrainstormServer {
     param([int]$ProcessId)
     $expected = Read-ExpectedServerId
     if (-not $expected) { return $false }
-    if ($IsWindows) {
+    # $IsWindows is undefined on Windows PowerShell 5.1; fall back to the
+    # OSVersion check so the Windows branch is taken there too.
+    $isWinPlatform = ($IsWindows -or [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)
+    if ($isWinPlatform) {
         $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
         if (-not $process) { return $false }
         return ($process.CommandLine -like "*--brainstorm-server-id=$expected*")
@@ -47,10 +50,38 @@ function Test-BrainstormServer {
     return ($cmd -match "--brainstorm-server-id=$expected")
 }
 
+function Get-ProcessStartToken {
+    param([int]$ProcessId)
+    $isWinPlatform = ($IsWindows -or [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)
+    if ($isWinPlatform) {
+        $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
+        if (-not $process) { return $null }
+        return [string]$process.CreationDate
+    }
+    $start = (& ps -p $ProcessId -o lstart= 2>$null)
+    if (-not $start) { return $null }
+    return (($start | Out-String).Trim())
+}
+
 if (Test-Path -LiteralPath $pidFile) {
     $pidText = (Get-Content -LiteralPath $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
     $serverPid = 0
-    if ((-not [int]::TryParse($pidText, [ref]$serverPid)) -or -not (Test-BrainstormServer -ProcessId $serverPid)) {
+    $startToken = $null
+    if ([int]::TryParse($pidText, [ref]$serverPid) -and (Test-BrainstormServer -ProcessId $serverPid)) {
+        $startToken = Get-ProcessStartToken -ProcessId $serverPid
+    }
+    if (-not $startToken -or -not (Test-BrainstormServer -ProcessId $serverPid) -or
+        ((Get-ProcessStartToken -ProcessId $serverPid) -ne $startToken)) {
+        Remove-Item -LiteralPath $pidFile, $serverIdFile -Force -ErrorAction SilentlyContinue
+        Mark-Stopped "stale_pid"
+        [pscustomobject]@{ status = "stale_pid" } | ConvertTo-Json -Compress
+        exit 0
+    }
+
+    # Re-check identity immediately before signalling to narrow the PID-reuse
+    # window as much as shell-level process management permits.
+    if (-not (Test-BrainstormServer -ProcessId $serverPid) -or
+        ((Get-ProcessStartToken -ProcessId $serverPid) -ne $startToken)) {
         Remove-Item -LiteralPath $pidFile, $serverIdFile -Force -ErrorAction SilentlyContinue
         Mark-Stopped "stale_pid"
         [pscustomobject]@{ status = "stale_pid" } | ConvertTo-Json -Compress

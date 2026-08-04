@@ -25,7 +25,7 @@ try {
     Assert-True (Test-Path -LiteralPath (Join-Path $stateDir "server-info")) "server-info written"
 
     # 2. server is actually listening: unauthenticated requests get 403,
-    #    requests with the session key get the bootstrap page
+    #    and the session key from owner-only server-info redirects to the page.
     $portFile = Join-Path $brainstormRoot ".last-port"
     Assert-True (Test-Path -LiteralPath $portFile) ".last-port written"
     $port = (Get-Content -LiteralPath $portFile -Raw).Trim()
@@ -39,11 +39,17 @@ try {
         Assert-True ($status -eq 403) "unauthenticated request rejected (403, got $status)"
     }
     Assert-True $rejected "unauthenticated request is rejected"
-    $tokenFile = Join-Path $brainstormRoot ".last-token"
-    Assert-True (Test-Path -LiteralPath $tokenFile) ".last-token written"
-    $token = (Get-Content -LiteralPath $tokenFile -Raw).Trim()
-    $response = Invoke-WebRequest -Uri "http://127.0.0.1:$port/?key=$token" -UseBasicParsing -TimeoutSec 5
-    Assert-True ($response.StatusCode -eq 200) "server serves bootstrap page with session key"
+    $info = Get-Content -LiteralPath (Join-Path $stateDir "server-info") -Raw | ConvertFrom-Json
+    $token = ([string]$info.url -split "key=", 2)[1]
+    $redirectStatus = 0
+    try {
+        Invoke-WebRequest -Uri "http://127.0.0.1:$port/?key=$token" -UseBasicParsing -TimeoutSec 5 -MaximumRedirection 0 -ErrorAction Stop | Out-Null
+    }
+    catch {
+        $redirectStatus = if ($_.Exception.Response) { $_.Exception.Response.StatusCode.value__ } else { -1 }
+    }
+    Assert-True ($redirectStatus -eq 303) "server redirects keyed bootstrap without exposing token to page scripts"
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $brainstormRoot ".last-token"))) "legacy project token file is not written"
 
     # 3. stop: reports stopped, removes pid file and session dir
     $out = & $stopScript $sessionDir.FullName

@@ -57,7 +57,7 @@ const skillsManager = new SkillsManager(SKILLS_PATH);
 const server = new Server(
     {
         name: "superpowers-mcp",
-        version: "6.2.2",
+        version: "6.2.3",
     },
     {
         capabilities: {
@@ -92,7 +92,14 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
     }
 
-    const skillName = decodeURIComponent(match[1]);
+    let skillName: string;
+    try {
+        skillName = decodeURIComponent(match[1]);
+    } catch {
+        // Malformed percent-encoding (e.g. %zz) — report as a client error
+        // instead of letting the URIError surface as an internal error.
+        throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
+    }
     const skill = await skillsManager.findSkill(skillName);
 
     if (!skill) {

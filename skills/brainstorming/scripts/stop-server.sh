@@ -70,12 +70,38 @@ is_brainstorm_server() {
   return 0
 }
 
+process_start_token() {
+  local pid="$1"
+  if [[ -r "/proc/$pid/stat" ]]; then
+    local stat_line
+    stat_line="$(cat "/proc/$pid/stat" 2>/dev/null || true)"
+    [[ -n "$stat_line" ]] || return 1
+    printf '%s\n' "${stat_line##*) }" | awk '{print $20}'
+    return 0
+  fi
+  ps -ww -p "$pid" -o lstart= 2>/dev/null | sed 's/^ *//' || true
+}
+
 if [[ -f "$PID_FILE" ]]; then
   pid=$(cat "$PID_FILE")
 
   # Refuse to signal a PID we can't prove is our server. A stale pid file may
   # point at an unrelated process after a reboot/PID wraparound.
-  if ! is_brainstorm_server "$pid"; then
+  start_token=""
+  if is_brainstorm_server "$pid"; then
+    start_token="$(process_start_token "$pid")"
+  fi
+  if [[ -z "$start_token" ]] || ! is_brainstorm_server "$pid" ||
+     [[ "$(process_start_token "$pid")" != "$start_token" ]]; then
+    rm -f "$PID_FILE" "$SERVER_ID_FILE"
+    mark_stopped "stale_pid"
+    echo '{"status": "stale_pid"}'
+    exit 0
+  fi
+
+  # Re-check identity immediately before signalling to narrow the PID-reuse
+  # window as much as shell-level process management permits.
+  if ! is_brainstorm_server "$pid" || [[ "$(process_start_token "$pid")" != "$start_token" ]]; then
     rm -f "$PID_FILE" "$SERVER_ID_FILE"
     mark_stopped "stale_pid"
     echo '{"status": "stale_pid"}'
@@ -109,9 +135,15 @@ if [[ -f "$PID_FILE" ]]; then
   rm -f "$PID_FILE" "$SERVER_ID_FILE" "${STATE_DIR}/server.log"
   mark_stopped "stop-server.sh"
 
-  # Only delete ephemeral /tmp directories
-  if [[ "$SESSION_DIR" == /tmp/* ]]; then
-    rm -rf "$SESSION_DIR"
+  # Only delete ephemeral /tmp directories. Resolve both paths canonically
+  # (cd + pwd -P, like stop-server.ps1) so a session dir such as
+  # "/tmp/../home/user/project" can't trick the prefix check into deleting
+  # a directory outside the temp root. (Plain variables: this code runs at
+  # top level, where `local` is a syntax error on bash 3.2 / macOS.)
+  tmp_root="$(cd /tmp 2>/dev/null && pwd -P || true)"
+  resolved="$(cd "$SESSION_DIR" 2>/dev/null && pwd -P || true)"
+  if [[ -n "$tmp_root" && -n "$resolved" && "$resolved" == "$tmp_root/"* ]]; then
+    rm -rf "$resolved"
   fi
 
   echo '{"status": "stopped"}'

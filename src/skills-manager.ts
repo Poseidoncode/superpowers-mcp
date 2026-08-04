@@ -7,6 +7,8 @@ export interface SkillMeta {
     skillPath: string;
 }
 
+const MAX_SKILL_FILE_BYTES = 10 * 1024 * 1024;
+
 export class SkillsManager {
     private skillsPath: string;
     private cachedSkills: SkillMeta[] | null = null;
@@ -56,14 +58,15 @@ export class SkillsManager {
         let inDescription = false;
 
         for (const line of yamlLines) {
-            const nameMatch = line.match(/^name:\s*(.+?)\s*$/);
+            // (.*?) 允許空值："name:" 沒有值時回退到目錄名，而非忽略整行
+            const nameMatch = line.match(/^name:\s*(.*?)\s*$/);
             if (nameMatch) {
                 name = this.stripQuotes(nameMatch[1]);
                 inDescription = false;
                 continue;
             }
 
-            const descStartMatch = line.match(/^description:\s*(.+?)\s*$/);
+            const descStartMatch = line.match(/^description:\s*(.*?)\s*$/);
             if (descStartMatch) {
                 description = this.stripQuotes(descStartMatch[1]);
                 inDescription = true;
@@ -119,72 +122,75 @@ export class SkillsManager {
 
     private async internalListSkills(): Promise<SkillMeta[]> {
         if (!(await this.exists(this.skillsPath))) {
-            return [];
+            // 目錄暫時被移走：回傳最後良好快取（若無則為空），不要用空
+            // 列表污染快取，也不要讓呼叫端誤以為技能真的消失。
+            return this.cachedSkills ?? [];
         }
 
         const skills: SkillMeta[] = [];
         const newSkillMap = new Map<string, SkillMeta>();
+        let scanned = false;
 
         try {
             const entries = await fs.readdir(this.skillsPath, { withFileTypes: true });
 
-            const promises = entries
-                .filter((entry) => entry.isDirectory())
-                .map(async (entry) => {
-                    const skillDir = path.join(this.skillsPath, entry.name);
-                    const skillFile = path.join(skillDir, "SKILL.md");
+            for (const entry of entries) {
+                if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+                const skillDir = path.join(this.skillsPath, entry.name);
+                const skillFile = path.join(skillDir, "SKILL.md");
 
-                    if (!(await this.exists(skillFile))) {
-                        return null;
-                    }
+                if (!(await this.exists(skillFile))) {
+                    continue;
+                }
 
-                    try {
-                        const content = await fs.readFile(skillFile, "utf-8");
-                        const { name, description } = this.parseFrontmatter(content);
-                        const finalName = name || entry.name;
-
-                        return {
-                            name: finalName,
-                            description,
-                            skillPath: skillFile,
-                        };
-                    } catch (_fileErr) {
-                        process.stderr.write(`Warning: Failed to read skill file in directory "${entry.name}"\n`);
-                        return null;
-                    }
-                });
-
-            const results = await Promise.all(promises);
-            for (const item of results) {
-                if (item) {
+                try {
+                    const content = await this.readFileNoFollow(skillFile, this.skillsPath);
+                    const { name, description } = this.parseFrontmatter(content);
+                    const finalName = name || entry.name;
+                    const item = {
+                        name: finalName,
+                        description,
+                        skillPath: skillFile,
+                    };
                     skills.push(item);
                     // O(1) 雙向大小寫不敏感匹配
                     newSkillMap.set(item.name.toLowerCase(), item);
                     const dirName = path.basename(path.dirname(item.skillPath)).toLowerCase();
                     newSkillMap.set(dirName, item);
+                } catch (_fileErr) {
+                    process.stderr.write(`Warning: Failed to read skill file in directory "${entry.name}"\n`);
                 }
             }
+            scanned = true;
         } catch (_dirErr) {
             process.stderr.write(`Error reading skills directory: ${String(_dirErr)}\n`);
-            return [];
         }
 
-        this.skillMap = newSkillMap;
-        this.cachedSkills = skills.sort((a, b) => a.name.localeCompare(b.name));
-        return this.cachedSkills;
+        // 只在掃描成功時更新快取：暫時性錯誤（目錄被移走等）若寫入空快取，
+        // 會讓後續 listSkills() 永遠回傳 []，直到下次 forceReload 才恢復。
+        if (scanned) {
+            this.skillMap = newSkillMap;
+            this.cachedSkills = skills.sort((a, b) => a.name.localeCompare(b.name));
+        }
+        return this.cachedSkills ?? [];
     }
 
     /**
      * O(1) 快速查詢技能 (防範路徑遍歷及 Windows/Unix 路徑分隔符號)
+     *
+     * 查詢結果只會用於 Map 索引查找（skillPath 一律來自磁碟掃描結果，
+     * 使用者輸入不會進入檔案系統路徑），因此僅需拒絕分隔符號與精確的
+     * "."/".."，不必連名稱內含連續句點（如 "a..b"）都一併封鎖。
      */
     public async findSkill(skillName: string): Promise<SkillMeta | undefined> {
+        const trimmed = typeof skillName === "string" ? skillName.trim() : "";
         if (
-            typeof skillName !== "string" ||
-            !skillName.trim() ||
-            skillName.includes("/") ||
-            skillName.includes("\\") ||
-            skillName.includes("..") ||
-            skillName.includes("\0")
+            !trimmed ||
+            trimmed === "." ||
+            trimmed === ".." ||
+            trimmed.includes("/") ||
+            trimmed.includes("\\") ||
+            trimmed.includes("\0")
         ) {
             return undefined;
         }
@@ -192,7 +198,79 @@ export class SkillsManager {
         if (!this.cachedSkills) {
             await this.listSkills();
         }
-        return this.skillMap.get(skillName.trim().toLowerCase());
+        return this.skillMap.get(trimmed.toLowerCase());
+    }
+
+    /**
+     * 以檔案描述元讀取檔案，並在開檔前後比對 canonical path 與 inode，
+     * 防止 realpath 檢查與 readFile 之間的 symlink/rename TOCTOU。
+     * POSIX 額外使用 O_NOFOLLOW；Windows 以開啟後的檔案識別比對防止
+     * reparse point 在檢查後被替換。
+     */
+    private async readFileNoFollow(filePath: string, rootPath: string): Promise<string> {
+        const resolvedFilePath = path.resolve(filePath);
+        const resolvedRootPath = path.resolve(rootPath);
+        const resolveAndStat = async () => {
+            const realFilePath = await fs.realpath(resolvedFilePath);
+            const realRootPath = await fs.realpath(resolvedRootPath);
+            const rootStat = await fs.stat(realRootPath);
+            if (!rootStat.isDirectory()) {
+                throw new Error("Skills directory must be a directory");
+            }
+            const relative = path.relative(realRootPath, realFilePath);
+            if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+                throw new Error("File is outside skills directory");
+            }
+
+            const stat = await fs.stat(realFilePath);
+            if (!stat.isFile() || stat.nlink !== 1) throw new Error("Skill path is not a regular file");
+            if (stat.size > MAX_SKILL_FILE_BYTES) throw new Error("Skill file exceeds size limit");
+            return { realFilePath, stat };
+        };
+
+        const expected = await resolveAndStat();
+        const confirmed = await resolveAndStat();
+        if (
+            expected.realFilePath !== confirmed.realFilePath ||
+            expected.stat.dev !== confirmed.stat.dev ||
+            expected.stat.ino !== confirmed.stat.ino
+        ) {
+            throw new Error("File changed while validating its path");
+        }
+
+        const noFollow = process.platform === "win32" ? 0 : fs.constants.O_NOFOLLOW;
+        const fd = await fs.open(confirmed.realFilePath, fs.constants.O_RDONLY | noFollow);
+        try {
+            const actual = await fd.stat();
+            if (
+                !actual.isFile() ||
+                actual.nlink !== 1 ||
+                actual.dev !== confirmed.stat.dev ||
+                actual.ino !== confirmed.stat.ino ||
+                actual.size > MAX_SKILL_FILE_BYTES
+            ) {
+                throw new Error("File changed while opening");
+            }
+
+            const chunks: Buffer[] = [];
+            const chunkSize = 64 * 1024;
+            let total = 0;
+            while (total <= MAX_SKILL_FILE_BYTES) {
+                const buffer = Buffer.allocUnsafe(Math.min(chunkSize, MAX_SKILL_FILE_BYTES + 1 - total));
+                const { bytesRead } = await fd.read(buffer, 0, buffer.length, null);
+                if (bytesRead === 0) break;
+                total += bytesRead;
+                chunks.push(buffer.subarray(0, bytesRead));
+                if (total > MAX_SKILL_FILE_BYTES) throw new Error("Skill file exceeds size limit");
+            }
+            const after = await fd.stat();
+            if (after.size > MAX_SKILL_FILE_BYTES || after.dev !== confirmed.stat.dev || after.ino !== confirmed.stat.ino) {
+                throw new Error("File changed while reading");
+            }
+            return Buffer.concat(chunks, total).toString("utf-8");
+        } finally {
+            await fd.close();
+        }
     }
 
     /**
@@ -223,7 +301,7 @@ export class SkillsManager {
         }
 
         try {
-            let raw = await fs.readFile(realSkillPath, "utf-8");
+            let raw = await this.readFileNoFollow(skillPath, this.skillsPath);
             if (raw.charCodeAt(0) === 0xfeff) {
                 raw = raw.slice(1);
             }

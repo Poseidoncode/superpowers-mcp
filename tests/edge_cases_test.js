@@ -43,6 +43,20 @@ async function runEdgeCaseTests() {
             // Symlinks may require elevated privileges on Windows, test conditionally
         }
 
+        // An in-root symlink remains supported after canonical containment checks.
+        const inRootLinkDir = path.join(tmpSkillsDir, "in-root-link");
+        const inRootLink = path.join(inRootLinkDir, "SKILL.md");
+        fs.mkdirSync(inRootLinkDir);
+        try {
+            fs.symlinkSync(path.join(bomDir, "SKILL.md"), inRootLink);
+        } catch {
+            // Symlinks may require elevated privileges on Windows, test conditionally
+        }
+
+        const hugeSkillDir = path.join(tmpSkillsDir, "huge-skill");
+        fs.mkdirSync(hugeSkillDir);
+        fs.writeFileSync(path.join(hugeSkillDir, "SKILL.md"), Buffer.alloc(10 * 1024 * 1024 + 1, 0x78));
+
         const manager = new SkillsManager(tmpSkillsDir);
 
         // Test 1: UTF-8 BOM Parsing & Frontmatter Stripping
@@ -50,7 +64,12 @@ async function runEdgeCaseTests() {
         const skills = await manager.listSkills();
         const bomSkill = skills.find((s) => s.name === "bom-skill");
         assert.ok(bomSkill, "BOM skill should be found in listSkills()");
+        assert.ok(!skills.some((s) => s.name === "huge-skill"), "oversized skill files should be skipped");
         assert.strictEqual(bomSkill.description, "Skill with UTF-8 BOM");
+        if (fs.existsSync(inRootLink) && fs.lstatSync(inRootLink).isSymbolicLink()) {
+            const linkedContent = await manager.readSkillContent(inRootLink);
+            assert.ok(linkedContent.includes("This is content with BOM."), "in-root symlink should remain readable");
+        }
 
         const bomContent = await manager.readSkillContent(bomSkill.skillPath);
         assert.ok(!bomContent.includes("---"), "Frontmatter should be stripped even with BOM");
@@ -108,6 +127,46 @@ async function runEdgeCaseTests() {
         await manager.readSkillContent(bomSkill.skillPath);
         await manager.listSkills(true); // forceReload
         console.log("  ✅ Test 5 Passed!");
+
+        // Test 6: Skill names containing ".." are findable (map-only lookup —
+        // user input never reaches the filesystem, so consecutive dots are safe)
+        console.log("\nTest 6: Skill names with consecutive dots are findable...");
+        const dotDir = path.join(tmpSkillsDir, "dot..skill");
+        fs.mkdirSync(dotDir);
+        fs.writeFileSync(
+            path.join(dotDir, "SKILL.md"),
+            "---\nname: dot..skill\ndescription: Name with consecutive dots\n---\n# Dots\nContent.",
+            "utf-8"
+        );
+        const mgr2 = new SkillsManager(tmpSkillsDir);
+        const dotSkill = await mgr2.findSkill("dot..skill");
+        assert.ok(dotSkill, "Skill names containing '..' should be findable");
+        assert.strictEqual(dotSkill.name, "dot..skill");
+        // Exact "." / ".." are still rejected
+        assert.strictEqual(await mgr2.findSkill(".."), undefined, "Exact '..' must still be rejected");
+        assert.strictEqual(await mgr2.findSkill("."), undefined, "Exact '.' must still be rejected");
+        assert.strictEqual(await mgr2.findSkill("a/b"), undefined, "Separators must still be rejected");
+        console.log("  ✅ Test 6 Passed!");
+
+        // Test 7: A transient rescan failure must not poison the cache — the
+        // last-good list is returned instead of an empty one, and scanning
+        // recovers as soon as the directory is readable again.
+        console.log("\nTest 7: Transient rescan failure keeps last-good cache...");
+        const mgr3 = new SkillsManager(tmpSkillsDir);
+        const warm = await mgr3.listSkills();
+        assert.ok(warm.length >= 2, "warm cache populated");
+        const movedSkillsDir = `${tmpSkillsDir}.moved`;
+        fs.renameSync(tmpSkillsDir, movedSkillsDir);
+        let during = [];
+        try {
+            during = await mgr3.listSkills(true);
+        } finally {
+            fs.renameSync(movedSkillsDir, tmpSkillsDir);
+        }
+        assert.ok(during.length >= 2, "failed rescan returns last-good cache, not empty");
+        const recovered = await mgr3.listSkills(true);
+        assert.ok(recovered.length >= 2, "rescan recovers once the directory is readable again");
+        console.log("  ✅ Test 7 Passed!");
 
         console.log("\n🎉 ALL EDGE CASE & SECURITY UNIT TESTS PASSED!");
     } finally {

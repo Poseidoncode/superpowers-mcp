@@ -31,31 +31,46 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
+## v6.2.3 Security & Hardening Notes
+
+- **Crash-Proof Request Handling**: the brainstorm companion server no longer crashes when the content directory is deleted at runtime or a screen file vanishes between readdir and read — screen serving and `/files/*` degrade to the waiting page / 404. Files are read *before* response headers are sent, eliminating the `ERR_HTTP_HEADERS_SENT` double-`writeHead` crash in the old catch path.
+- **O_NOFOLLOW + fd-based reads**: screen and `/files/*` reads open with `O_NOFOLLOW` (POSIX) and `fstat` the open descriptor, closing the check-then-read TOCTOU; `SkillsManager.readSkillContent` applies the same defense for skill files.
+- **WebSocket Hardening**: handshakes are validated against RFC 6455 (`Upgrade`/`Connection`/`Sec-WebSocket-Version: 13`/well-formed `Sec-WebSocket-Key`), the upgrade path is restricted to `/`, control-frame payloads are capped at 125 bytes (RFC 6455 §5.5), the frame payload cap is 10 MB, concurrent clients are capped at 16, idle and partial-frame timeouts prevent slot starvation, and sockets are paused and destroyed after CLOSE so scripted peers cannot linger or keep dispatching events (RFC 6455 §5.5.1).
+- **Watcher Self-Healing**: the content-dir watcher re-arms itself after the directory is deleted and recreated (Linux inotify reports deletion as a `rename` event with the dir's own basename; handled via basename detection + inode comparison, guarded so late events from an old watcher cannot kill a freshly re-armed one).
+- **Input Validation**: `BRAINSTORM_TOKEN` must match `^[0-9a-f]{32,}$` (weak operator-supplied tokens are rejected and regenerated); `BRAINSTORM_PORT` must be an integer in 1024–65535; `BRAINSTORM_HOST` and `BRAINSTORM_URL_HOST` must be loopback values.
+- **Resource Bounds**: screens larger than 20 MB are skipped and read through a bounded fd loop, skill files larger than 10 MB are rejected, the per-session events log is capped at 1 MB, user-event log lines are capped at 4096 UTF-8 bytes, and WebSocket connections have idle and partial-frame timeouts.
+- **Security Headers**: `X-Content-Type-Options: nosniff` and a per-response nonce CSP are applied; screen HTML cannot execute unnonce'd scripts and the auth key is never placed in page-readable storage.
+- **Process-Lifecycle Safety**: `start-server.sh/.ps1` verify a PID is a live brainstorm server of this session (server-instance-id + cmdline match, same as stop-server) before signalling it, with process-start revalidation to narrow PID-reuse races; `stop-server.sh` canonicalizes paths before deleting temp sessions so `/tmp/../` tricks cannot escape the temp root. Each server invocation rotates its key, and the companion refuses non-loopback plain HTTP binds.
+- **SkillsManager Cache & Lookup**: a failed rescan returns the last-good cache instead of poisoning it with an empty list; bounded reads and canonical containment allow safe in-root symlinks; skill names containing consecutive dots (e.g. `a..b`) are map-only lookups.
+- **Dependency**: `hono` is overridden to the verified exact version 4.13.0, with exact overrides for `@hono/node-server` 2.0.11 and `fast-uri` 4.1.2. `npm audit` reports **0 vulnerabilities**.
+- **Regression Coverage**: `npm test` (builds first) runs the JavaScript edge-case, MCP flow, and companion-server suites. The 63-assertion PowerShell suite is run separately with `tests/powershell/run-tests.sh` and skips when `pwsh` is unavailable.
+
 ## v6.2.2 Security & Quality Hardening Notes
 
-- **Symlink Traversal Protection**: Integrated `fs.realpath` in `readSkillContent` before executing relative boundary checks, neutralizing symlink-based arbitrary file read attempts targeting system files outside `SKILLS_PATH`.
-- **UTF-8 BOM Compatibility**: Implemented byte-order-mark (`\uFEFF`) detection and stripping in `parseFrontmatter` and `readSkillContent`, preventing frontmatter parsing failures or unstripped YAML headers on files created/saved with UTF-8 BOM on Windows or VS Code.
-- **System Directory Prefix Filtering**: Upgraded `getSafeSkillsPath` in `src/server.ts` from exact string matching to prefix-based filtering (`unsafePrefixes`), preventing `SKILLS_PATH` injection attacks aimed at system subdirectories like `/etc/ssh` or `C:\Windows\System32`.
-- **Concurrency Lock Safety**: Reinforced `loadingPromise` release logic in `SkillsManager.listSkills()` with strict instance reference comparison (`if (this.loadingPromise === currentPromise)`), eliminating race condition lock clearing when concurrent `forceReload = true` calls occur.
-- **RFC 3986 Resource URI Compliance**: Applied `encodeURIComponent` for generated resource URIs in `ListResourcesRequestSchema` and `decodeURIComponent` in `ReadResourceRequestSchema`, avoiding client-side URI parsing failures for skill names containing spaces or special characters.
-- **Edge-Case Unit Test Suite**: Added `tests/edge_cases_test.js` to continuously validate UTF-8 BOM parsing, path traversal, symlink resolution, concurrency lock behavior, and cache invalidation.
+- **Symlink Traversal Protection**: `fs.realpath` in `readSkillContent` before relative boundary checks neutralizes symlink-based arbitrary file reads targeting system files outside `SKILLS_PATH`.
+- **UTF-8 BOM Compatibility**: `\uFEFF` detection and stripping in `parseFrontmatter` and `readSkillContent` prevents frontmatter parsing failures on files saved with a BOM.
+- **System Directory Prefix Filtering**: `getSafeSkillsPath` blocks `SKILLS_PATH` pointing at system subdirectories (e.g. `/etc/ssh` or `C:\Windows\System32`).
+- **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
+- **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.2.2)
+## Current Security Status (v6.2.3)
 
 | Check | Status |
 | ----- | ------ |
-| npm audit vulnerabilities | :zero: Zero — all prior advisories resolved |
+| npm audit vulnerabilities | :zero: Zero — exact verified overrides for `hono`, `@hono/node-server`, and `fast-uri` |
 | `innerHTML` usage | :zero: Zero — entire codebase uses safe DOM APIs |
 | `eval` / `new Function` / `document.write` | :zero: Zero occurrences |
 | Hardcoded secrets in tracked files | :zero: Zero — `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*` |
 | World-writable files | :zero: Zero |
-| Symlink / Path Traversal Defense | :white_check_mark: Secured — skill name validation & canonical `fs.realpath` verification in v6.2.2 |
-| UTF-8 BOM & Frontmatter Parser | :white_check_mark: Secured — `\uFEFF` stripping & line-by-line parser in v6.2.2 |
-| Environment Path Injection (`SKILLS_PATH`) | :white_check_mark: Secured — system root & subdirectory prefix check in v6.2.2 |
-| Concurrency & Cache Safety | :white_check_mark: Secured — instance-checked promise lock & cache invalidation in v6.2.2 |
-| XSS vectors (brainstorming Visual Companion & server) | :white_check_mark: Patched — DOM XSS fixed in v5.1.1, remaining `innerHTML` eliminated in v6.0.0, reflected server-side XSS fixed in v6.0.1 |
-| Shell Command Injection (`BRAINSTORM_OPEN_CMD`) | :white_check_mark: Patched — `cp.exec` with string concatenation replaced by `cp.execFile` with argv array in v6.0.3 |
-| CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — upgraded to v4.12.32 in v6.0.3 (body-parser also upgraded to v2.3.0) |
+| Symlink / Path Traversal Defense | :white_check_mark: Secured — bounded `O_NOFOLLOW`/fd reads, `realpath` containment, private state files, and canonical temp-deletion guard in v6.2.3 |
+| WebSocket Protocol Validation | :white_check_mark: Secured — RFC 6455 handshake check, 125-byte control-frame cap, 10 MB frame cap, 16-client cap, idle timeout, and partial-frame deadline in v6.2.3 |
+| Filesystem Race / Crash Resilience | :white_check_mark: Secured — read-before-headers, try/catch fs paths, watcher self-heal in v6.2.3 |
+| Process Lifecycle (stale PID) | :white_check_mark: Secured — server-instance-id + cmdline identity proof before signalling in v6.2.3 |
+| Environment Input Validation (`SKILLS_PATH`, `BRAINSTORM_TOKEN`, `BRAINSTORM_PORT`) | :white_check_mark: Secured — system-dir prefix check + token format + port range in v6.2.3 |
+| Concurrency & Cache Safety | :white_check_mark: Secured — instance-checked promise lock, last-good cache on transient failure in v6.2.3 |
+| XSS vectors (brainstorming Visual Companion & server) | :white_check_mark: Patched — DOM XSS fixed in v5.1.1, remaining `innerHTML` eliminated in v6.0.0, reflected server-side XSS fixed in v6.0.1, nonce CSP + `nosniff` + HttpOnly-only auth in v6.2.3 |
+| Shell Command Injection (`BRAINSTORM_OPEN_CMD`) | :white_check_mark: Patched — `cp.execFile` with argv array in v6.0.3 |
+| CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — exact `hono` 4.13.0 override (GHSA-8j4g-w8fx-2239) in v6.2.3 |
 
 ## Security Best Practices
 
@@ -64,4 +79,5 @@ When using Superpowers MCP:
 - Keep the package updated to the latest version (`npm update -g superpowers-mcp` or `npx superpowers-mcp@latest`)
 - Review skill files before execution in sensitive environments
 - Report any suspicious behavior immediately
-- The brainstorming Visual Companion starts a local HTTP server on an ephemeral port — only accessible from localhost
+- The brainstorming Visual Companion starts a local HTTP+WebSocket server bound to `127.0.0.1` on an ephemeral port. Access is gated by a fresh per-invocation 256-bit key (transmitted only in the initial URL, then held in an `HttpOnly`/`SameSite=Strict` cookie and compared in constant time) plus a WebSocket Origin check. Do not set `BRAINSTORM_HOST` or `BRAINSTORM_URL_HOST` to a non-loopback value; use an authenticated SSH tunnel or TLS reverse proxy for remote browser access, and never share the companion URL with others.
+- Server-generated files (`server-info`, session state, and launcher logs) are written with owner-only permissions (`0o600` / `umask 077` / ACL-restricted on Windows)

@@ -28,7 +28,7 @@ A question *about* a UI topic is not automatically a visual question. "What kind
 
 The server watches a directory for HTML files and serves the newest one to the browser. You write HTML content to `screen_dir`, the user sees it in their browser and can click to select options. Selections are recorded to `state_dir/events` that you read on your next turn.
 
-**Content fragments vs full documents:** If your HTML file starts with `<!DOCTYPE` or `<html`, the server serves it as-is (just injects the helper script). Otherwise, the server automatically wraps your content in the frame template — adding the header, CSS theme, connection status, and all interactive infrastructure. **Write content fragments by default.** Only write full documents when you need complete control over the page.
+**Content fragments vs full documents:** If your HTML file starts with `<!DOCTYPE` or `<html`, the server serves it as-is (just injects the helper script). Otherwise, the server automatically wraps your content in the frame template — adding the header, CSS theme, connection status, and all interactive infrastructure. **Write content fragments by default.** Only write full documents when you need complete control over the page. Screen scripts are blocked by the server's nonce CSP; use `data-choice` elements and the injected helper instead of inline scripts or event handlers.
 
 ## Starting a Session
 
@@ -49,12 +49,12 @@ scripts/start-server.ps1 --project-dir C:\path\to\project --open
 Save `screen_dir` and `state_dir` from the response. With `--open`, the browser opens itself when you push the first screen — you don't need to ask the user to open it, but still share the URL as a fallback (headless/remote setups won't auto-open).
 
 **The URL contains a session key (`?key=…`).** The server rejects any request
-without it, so always give the user the **complete** URL from the `url` field —
-never strip the query string, and never hand out a bare `http://host:port`. The
-key gates HTTP and WebSocket access so a stray browser tab or another machine on
-the network can't read the screens or inject events. After the first load the
-browser remembers the key via a cookie, so reloads and `/files/*` assets work
-without repeating it.
+without it, so always give the user the **complete** URL from the `url` field for
+the first load — never strip the query string. The key gates HTTP access, then
+moves into an `HttpOnly`/`SameSite=Strict` cookie; the browser's same-origin
+WebSocket automatically sends that cookie. The key is never stored in
+page-readable storage. A new server invocation rotates the key, so a restarted
+server requires the new URL.
 
 **Finding connection info:** The server writes its startup JSON to `$STATE_DIR/server-info`. If you launched the server in the background and didn't capture stdout, read that file to get the URL and port. When using `--project-dir`, check `<project>/.superpowers/brainstorm/` for the session directory.
 
@@ -96,21 +96,15 @@ scripts/start-server.sh --project-dir /path/to/project --open --foreground
 
 **Other environments:** The server must keep running in the background across conversation turns. If your environment reaps detached processes, use `--foreground` and launch the command with your platform's background execution mechanism.
 
-If the URL is unreachable from your browser (common in remote/containerized setups), bind a non-loopback host:
-
-```bash
-scripts/start-server.sh \
-  --project-dir /path/to/project \
-  --host 0.0.0.0 \
-  --url-host localhost
-```
-
-Use `--url-host` to control what hostname is printed in the returned URL JSON.
+The server only permits loopback HTTP binds. For a remote browser, keep the
+server on `127.0.0.1` and use an authenticated SSH tunnel; do not expose the
+companion's plain HTTP port directly to a network interface.
+The `--url-host` value must also be a loopback hostname or address.
 
 ## The Loop
 
 1. **Check server is alive**, then **write HTML** to a new file in `screen_dir`:
-   - **Required: confirm the server is alive before referring to the URL or pushing a screen.** Check that `$STATE_DIR/server-info` exists and `$STATE_DIR/server-stopped` does not. If it has shut down, restart it with `start-server.sh` using the **same `--project-dir`** — it reuses the same port, so the user's open tab reconnects on its own (it shows a "paused" overlay while the server is down) and you don't need to send a new URL. The server auto-exits after 4 hours idle (configurable with `--idle-timeout-minutes`).
+   - **Required: confirm the server is alive before referring to the URL or pushing a screen.** Check that `$STATE_DIR/server-info` exists and `$STATE_DIR/server-stopped` does not. If it has shut down, restart it with `start-server.sh` using the **same `--project-dir`** — it may reuse the same port, but the authentication key rotates, so share the new URL from `server-info` with the user. The server auto-exits after 4 hours idle (configurable with `--idle-timeout-minutes`).
    - Use semantic filenames: `platform.html`, `visual-style.html`, `layout.html`
    - **Never reuse filenames** — each screen gets a fresh file
    - Use your file-creation tool — **never use cat/heredoc** (dumps noise into terminal)
@@ -152,14 +146,14 @@ Write just the content that goes inside the page. The server wraps it in the fra
 <p class="subtitle">Consider readability and visual hierarchy</p>
 
 <div class="options">
-  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+  <div class="option" data-choice="a">
     <div class="letter">A</div>
     <div class="content">
       <h3>Single Column</h3>
       <p>Clean, focused reading experience</p>
     </div>
   </div>
-  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+  <div class="option" data-choice="b">
     <div class="letter">B</div>
     <div class="content">
       <h3>Two Column</h3>
@@ -179,7 +173,7 @@ The frame template provides these CSS classes for your content:
 
 ```html
 <div class="options">
-  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+  <div class="option" data-choice="a">
     <div class="letter">A</div>
     <div class="content">
       <h3>Title</h3>
@@ -201,7 +195,7 @@ The frame template provides these CSS classes for your content:
 
 ```html
 <div class="cards">
-  <div class="card" data-choice="design1" onclick="toggleSelect(this)">
+  <div class="card" data-choice="design1">
     <div class="card-image"><!-- mockup content --></div>
     <div class="card-body">
       <h3>Name</h3>
