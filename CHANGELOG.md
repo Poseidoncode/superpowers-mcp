@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.2.1] - 2026-08-04
+
 ### Fixed
 - **stop-server.ps1**: `Get-CimInstance Win32_Process` is Windows-only and crashed on macOS/Linux; the process identity check now uses `ps` on Unix platforms.
 

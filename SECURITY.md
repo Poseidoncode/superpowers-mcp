@@ -31,7 +31,13 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
-## Current Security Status (v6.2.0)
+## v6.2.1 Security & Quality Notes
+
+- **PowerShell Test Suite**: Added 63 cross-platform assertions in `tests/powershell/` covering `sdd-workspace.ps1`, `task-brief.ps1`, `review-package.ps1`, `find-polluter.ps1`, and the brainstorm `start-server.ps1`/`stop-server.ps1` lifecycle. The test runner `tests/powershell/run-tests.sh` skips gracefully when `pwsh` is not installed.
+- **Cross-Platform Stop-Server Fix**: `stop-server.ps1` no longer depends on the Windows-only `Get-CimInstance Win32_Process` cmdlet; it now uses `ps` on Unix, ensuring the brainstorm Visual Companion shutdown check works on macOS/Linux.
+- **Orphaned Reference Cleanup**: Removed `skills/using-superpowers/references/copilot-tools.md` (already pruned upstream in v6.2.0; nothing referenced it locally).
+
+## Current Security Status (v6.2.1)
 
 | Check | Status |
 | ----- | ------ |

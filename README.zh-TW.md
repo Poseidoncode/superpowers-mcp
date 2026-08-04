@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.2.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.2.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -127,6 +127,12 @@
 ---
 
 ## 🆕 最近更新
+
+### v6.2.1 (最新版)
+
+- **PowerShell 腳本測試套件**：新增 `tests/powershell/`，橫跨 `sdd-workspace.ps1`、`task-brief.ps1`、`review-package.ps1`、`find-polluter.ps1` 與 brainstorm `start-server.ps1`/`stop-server.ps1` 生命週期，共 63 個 assertion。使用 `tests/powershell/run-tests.sh` 執行；未安裝 `pwsh` 時會自動跳過。
+- **`stop-server.ps1` 跨平台修正**：`Get-CimInstance Win32_Process` 僅 Windows 可用，腳本現在在 Unix 上改用 `ps` 以正確檢查 server-id，macOS/Linux 不再出錯。
+- **清理**：移除已無用的 `skills/using-superpowers/references/copilot-tools.md`（上游已在 v6.2.0 中刪除，本地也沒有任何引用）。
 
 ### v6.2.0 (最新版)
 - **上游同步 obra/superpowers v6.2.0**：同步上游所有技能的改進，同時保留本地的安全性強化與 PowerShell 輔助腳本。

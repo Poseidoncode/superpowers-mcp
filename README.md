@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.2.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.2.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -128,7 +128,13 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v6.2.0 (Latest)
+### v6.2.1 (Latest)
+
+- **PowerShell Script Test Suite**: Added `tests/powershell/` with 63 assertions across 5 suites for `sdd-workspace.ps1`, `task-brief.ps1`, `review-package.ps1`, `find-polluter.ps1`, and the brainstorm `start-server.ps1`/`stop-server.ps1` lifecycle. Run with `tests/powershell/run-tests.sh`; it skips gracefully when `pwsh` is unavailable.
+- **stop-server.ps1 Cross-Platform Fix**: `Get-CimInstance Win32_Process` is Windows-only; the script now uses `ps` on Unix so the server-id check works correctly on macOS/Linux.
+- **Cleanup**: Removed `skills/using-superpowers/references/copilot-tools.md`, an orphaned reference file already pruned upstream.
+
+### v6.2.0
 - **Upstream Sync with obra/superpowers v6.2.0**: Synchronized upstream improvements across all skills while preserving local security enhancements and PowerShell helpers.
   - **subagent-driven-development Restructure**: Plan-scoped workspaces (`.superpowers/sdd/<plan>/`) so concurrent plans can never read or overwrite each other's artifacts. Resume-based review-fix loop with a five-round circuit breaker, plus a new scoped `re-review-prompt.md` for re-reviews after fixes.
   - **test-driven-development**: `testing-anti-patterns.md` replaced by upstream `writing-good-tests.md`.
