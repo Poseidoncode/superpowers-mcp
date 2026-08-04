@@ -22,8 +22,21 @@ function getSafeSkillsPath(): string {
     const envPath = process.env.SKILLS_PATH;
     if (envPath) {
         const resolved = path.resolve(envPath);
-        const unsafeRoots = ["/", "/etc", "/var", "/bin", "/sbin", "C:\\", "C:\\Windows"];
-        if (unsafeRoots.includes(resolved) || resolved === path.parse(resolved).root) {
+        const normalized = path.normalize(resolved).toLowerCase();
+        const root = path.parse(resolved).root.toLowerCase();
+
+        const unsafePrefixes = [
+            "/etc", "/var", "/bin", "/sbin", "/usr", "/root", "/sys", "/proc", "/dev",
+            "c:\\windows", "c:\\program files", "c:\\program files (x86)"
+        ];
+
+        const isUnsafe =
+            normalized === root ||
+            unsafePrefixes.some(
+                (p) => normalized === p || normalized.startsWith(p + path.sep)
+            );
+
+        if (isUnsafe) {
             process.stderr.write(`Warning: Potentially unsafe SKILLS_PATH: "${envPath}". Fallback to default.\n`);
         } else {
             return resolved;
@@ -44,7 +57,7 @@ const skillsManager = new SkillsManager(SKILLS_PATH);
 const server = new Server(
     {
         name: "superpowers-mcp",
-        version: "6.2.1",
+        version: "6.2.2",
     },
     {
         capabilities: {
@@ -63,7 +76,7 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
     const skills = await skillsManager.listSkills();
     return {
         resources: skills.map((skill) => ({
-            uri: `skill://superpowers/${skill.name}`,
+            uri: `skill://superpowers/${encodeURIComponent(skill.name)}`,
             name: skill.name,
             description: skill.description,
             mimeType: "text/markdown",
@@ -79,7 +92,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
     }
 
-    const skillName = match[1];
+    const skillName = decodeURIComponent(match[1]);
     const skill = await skillsManager.findSkill(skillName);
 
     if (!skill) {
@@ -122,13 +135,21 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
         throw new McpError(ErrorCode.InvalidRequest, `Unknown prompt: ${request.params.name}`);
     }
 
-    const usingSuperpowersPath = path.join(SKILLS_PATH, "using-superpowers", "SKILL.md");
-
+    const skill = await skillsManager.findSkill("using-superpowers");
     let skillContent = "";
-    try {
-        skillContent = await skillsManager.readSkillContent(usingSuperpowersPath);
-    } catch {
-        skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
+    if (skill) {
+        try {
+            skillContent = await skillsManager.readSkillContent(skill.skillPath);
+        } catch {
+            skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
+        }
+    } else {
+        const usingSuperpowersPath = path.join(SKILLS_PATH, "using-superpowers", "SKILL.md");
+        try {
+            skillContent = await skillsManager.readSkillContent(usingSuperpowersPath);
+        } catch {
+            skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
+        }
     }
 
     const sessionContext = `<EXTREMELY_IMPORTANT>

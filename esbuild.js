@@ -29,6 +29,13 @@ const serverConfig = {
     },
 };
 
+const managerConfig = {
+    ...baseConfig,
+    entryPoints: ["src/skills-manager.ts"],
+    outfile: "out/skills-manager.js",
+    format: "cjs",
+};
+
 async function build() {
     if (isWatch) {
         const srvCtx = await esbuild.context(serverConfig);
@@ -36,6 +43,7 @@ async function build() {
         console.log("Watching for changes...");
     } else {
         await esbuild.build(serverConfig);
+        await esbuild.build(managerConfig);
 
         // Make server.js executable safely across platforms
         const serverPath = path.join(__dirname, "out", "server.js");

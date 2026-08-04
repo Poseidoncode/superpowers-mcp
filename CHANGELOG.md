@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.2.2] - 2026-08-05
+
+### Security & Hardening
+- **Symlink Traversal Prevention**: `SkillsManager.readSkillContent()` now uses `fs.realpath` to resolve canonical file paths before checking relative boundaries, neutralizing symlink-based arbitrary file read vectors.
+- **UTF-8 BOM Compatibility**: `parseFrontmatter` and `readSkillContent` detect and strip `\uFEFF` (Byte Order Mark), preventing parsing failures or unstripped headers on files saved with UTF-8 BOM.
+- **System Directory Prefix Filtering**: `getSafeSkillsPath` in `src/server.ts` upgraded to prefix-based filtering (`unsafePrefixes`), preventing `SKILLS_PATH` injection into system subdirectories (e.g. `/etc/ssh` or `C:\Windows\System32`).
+- **Resource URI Compliance**: Enforced `encodeURIComponent` for resource URIs in `ListResourcesRequestSchema` and `decodeURIComponent` in `ReadResourceRequestSchema` for RFC 3986 compliance with skill names containing spaces or special characters.
+
+### Fixed & Improved
+- **Concurrency Lock Parity**: `SkillsManager.listSkills()` verifies `if (this.loadingPromise === currentPromise)` in its `finally` block, avoiding premature lock clearing when concurrent `forceReload = true` requests occur.
+- **Cache Invalidation**: `listSkills(forceReload = true)` now automatically clears `contentCache`, ensuring skill file updates take immediate effect.
+- **YAML Indentation Parity**: `parseFrontmatter` now handles both tab (`\t`) and space indentation for multiline description fields.
+- **Edge-Case Unit Test Suite**: Added `tests/edge_cases_test.js` to continuously validate BOM handling, path traversal, symlink defense, concurrency lock behavior, and cache invalidation.
+
 ## [6.2.1] - 2026-08-04
 
 ### Fixed
