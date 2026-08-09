@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.2.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.2.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 원본 Superpowers 스킬 라이브러리를 독립적인 MCP Toolpack으로 패키징하기 위한 정보와 사용 지침을 요약한 것입니다.
@@ -127,6 +127,14 @@
 ---
 
 ## 🆕 최근 업데이트
+
+### v6.2.4 (최신)
+
+- **업스트림 정렬 — brainstorm 세션 영속화**: `--project-dir` 사용 시 companion이 세션 키를 `.superpowers/brainstorm/.last-token`(소유자 전용, .gitignore 적용)에 저장하고 `.last-port`와 함께 재시작 후에도 재사용합니다 — 이미 열린 브라우저 탭은 재시작 후에도 연결이 유지되며 URL을 다시 공유할 필요가 없습니다. 임시 `/tmp` 세션은 기존처럼 호출마다 키를 교체하며, 명시적 `BRAINSTORM_TOKEN` 환경 변수는 항상 우선하고 파일에 기록되지 않습니다. 강제 교체를 원하면 서버 중지 후 `.last-token`을 삭제하세요.
+- **토큰 파일 읽기 경로 강화** (`readPrivateFile`): 심볼릭 링크 또는 다중 링크 `.last-token`은 거부되어 세션 키로 채택되지 않습니다. 읽기는 `O_NOFOLLOW` fd를 통해 수행되고 identity를 재검증하며 0600으로 강화됩니다 — 이미 강화된 쓰기 경로와의 비대칭을 해소했습니다(독립 보안 리뷰에서 발견).
+- **진단 가능성**: 토큰 파일 쓰기 실패 시 `Failed to write private token file:`을 로그로 남겨 조용한 키 교체로의 퇴화를 방지합니다.
+- **start-server.ps1 환경 위생**: `--project-dir` 없는 임시 실행에서 호출한 pwsh 세션의 잔여 프로젝트 키/포트를 상속하지 않습니다.
+- **테스트**: companion 스위트가 31개 assertion으로 — 재시작 간 키 영속화, 사전 시드 파일 준수, 심볼릭 링크 토큰 파일 거부, 토큰 파일 없이도 키 교체 유지. 테스트 정리는 실패 안전(try/finally). PowerShell 스위트는 `.last-token`이 제공된 키와 일치함을 검증합니다.
 
 ### v6.2.3 (최신)
 

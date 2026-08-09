@@ -53,8 +53,11 @@ without it, so always give the user the **complete** URL from the `url` field fo
 the first load — never strip the query string. The key gates HTTP access, then
 moves into an `HttpOnly`/`SameSite=Strict` cookie; the browser's same-origin
 WebSocket automatically sends that cookie. The key is never stored in
-page-readable storage. A new server invocation rotates the key, so a restarted
-server requires the new URL.
+page-readable storage. With `--project-dir`, the key is persisted to
+`.superpowers/brainstorm/.last-token` and reused across restarts, so an
+already-open tab stays connected; delete that file (with the server stopped)
+to force a fresh key. Without it, a new server invocation rotates the key and
+a restarted server requires the new URL.
 
 **Finding connection info:** The server writes its startup JSON to `$STATE_DIR/server-info`. If you launched the server in the background and didn't capture stdout, read that file to get the URL and port. When using `--project-dir`, check `<project>/.superpowers/brainstorm/` for the session directory.
 
@@ -104,7 +107,7 @@ The `--url-host` value must also be a loopback hostname or address.
 ## The Loop
 
 1. **Check server is alive**, then **write HTML** to a new file in `screen_dir`:
-   - **Required: confirm the server is alive before referring to the URL or pushing a screen.** Check that `$STATE_DIR/server-info` exists and `$STATE_DIR/server-stopped` does not. If it has shut down, restart it with `start-server.sh` using the **same `--project-dir`** — it may reuse the same port, but the authentication key rotates, so share the new URL from `server-info` with the user. The server auto-exits after 4 hours idle (configurable with `--idle-timeout-minutes`).
+   - **Required: confirm the server is alive before referring to the URL or pushing a screen.** Check that `$STATE_DIR/server-info` exists and `$STATE_DIR/server-stopped` does not. If it has shut down, restart it with `start-server.sh` using the **same `--project-dir`** — it reuses the same port and session key (from `.last-token`), so an already-open tab keeps working; without `--project-dir` the key rotates, so share the new URL from `server-info` with the user. The server auto-exits after 4 hours idle (configurable with `--idle-timeout-minutes`).
    - Use semantic filenames: `platform.html`, `visual-style.html`, `layout.html`
    - **Never reuse filenames** — each screen gets a fresh file
    - Use your file-creation tool — **never use cat/heredoc** (dumps noise into terminal)

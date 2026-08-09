@@ -253,6 +253,14 @@ async function run() {
         const asset = await getWithCookie(port, key, "/files/asset.png");
         report("/files serves in-dir asset", asset.status === 200);
 
+        // 5b. Brand logo is served locally — no third-party URL strings
+        const logo = await getWithCookie(port, key, "/brand-logo.svg");
+        report("brand logo served same-origin", logo.status === 200 && (logo.headers["content-type"] || "").includes("image/svg+xml"));
+        report("brand logo has no external URL", logo.body.includes("SUPERPOWERS") && !logo.body.includes("primeradiant") && !logo.body.includes("https://"));
+        const indexCsp = cookieRes.headers["content-security-policy"] || "";
+        report("CSP restricts images to same-origin", indexCsp.includes("img-src 'self'") && !indexCsp.includes("primeradiant"));
+        report("brand markup uses the local logo path", cookieRes.body.includes("/brand-logo.svg"));
+
         // 6. WebSocket handshake validation
         const wsOk = await wsUpgrade(port, key);
         report("valid WS handshake accepted", wsOk.ok === true);
@@ -384,27 +392,90 @@ async function run() {
     report("non-loopback HTTP bind rejected", remoteCode !== null && remoteCode !== 0);
     fs.rmSync(remoteDir, { recursive: true, force: true });
 
-    // 13. A token-file value from an older launcher cannot be reused by a new
-    // logical session; the current server always generates a fresh key.
+    // 13. BRAINSTORM_TOKEN_FILE persists the session key across restarts so an
+    // already-open browser tab's cookie keeps validating; a pre-seeded file is
+    // honored; a symlinked file is rejected (read-path hardening); and without
+    // a token file, each logical session still rotates.
     const tokenDir = fs.mkdtempSync(path.join(os.tmpdir(), "bstoken."));
-    const tokenFile = path.join(tokenDir, "legacy-token");
-    fs.writeFileSync(tokenFile, "a".repeat(64));
+    const tokenFile = path.join(tokenDir, "persisted-token");
     const firstDir = fs.mkdtempSync(path.join(os.tmpdir(), "bsfirst."));
-    const first = startServer(firstDir, { BRAINSTORM_TOKEN_FILE: tokenFile });
-    const firstInfo = await waitForServerInfo(firstDir);
-    first.kill();
-    await waitForClose(first);
     const secondDir = fs.mkdtempSync(path.join(os.tmpdir(), "bssecond."));
-    const second = startServer(secondDir, { BRAINSTORM_TOKEN_FILE: tokenFile });
-    const secondInfo = await waitForServerInfo(secondDir);
-    second.kill();
-    await waitForClose(second);
-    const firstKey = firstInfo.url.split("key=")[1];
-    const secondKey = secondInfo.url.split("key=")[1];
-    report("new logical session rotates authentication key", firstKey !== secondKey);
-    fs.rmSync(tokenDir, { recursive: true, force: true });
-    fs.rmSync(firstDir, { recursive: true, force: true });
-    fs.rmSync(secondDir, { recursive: true, force: true });
+    const thirdDir = fs.mkdtempSync(path.join(os.tmpdir(), "bsseeded."));
+    const rotA = fs.mkdtempSync(path.join(os.tmpdir(), "bsrota."));
+    const rotB = fs.mkdtempSync(path.join(os.tmpdir(), "bsrotb."));
+    const linkDir = fs.mkdtempSync(path.join(os.tmpdir(), "bslink."));
+    const liveServers = [];
+    const allDirs = [tokenDir, firstDir, secondDir, thirdDir, rotA, rotB, linkDir];
+    const track = (child) => { liveServers.push(child); return child; };
+    try {
+      const first = track(startServer(firstDir, { BRAINSTORM_TOKEN_FILE: tokenFile }));
+      const firstInfo = await waitForServerInfo(firstDir);
+      first.kill();
+      await waitForClose(first);
+      // The first launch generated a fresh key and persisted it to the file.
+      const persisted = fs.readFileSync(tokenFile, "utf-8").trim();
+      const second = track(startServer(secondDir, { BRAINSTORM_TOKEN_FILE: tokenFile }));
+      const secondInfo = await waitForServerInfo(secondDir);
+      second.kill();
+      await waitForClose(second);
+      const firstKey = firstInfo.url.split("key=")[1];
+      const secondKey = secondInfo.url.split("key=")[1];
+      report("token file persists the key across restarts",
+          /^[0-9a-f]{64}$/.test(persisted) &&
+          firstKey === persisted && secondKey === persisted);
+      // A pre-seeded token file is reused as-is (no regeneration).
+      const seeded = "b".repeat(64);
+      fs.writeFileSync(tokenFile, seeded);
+      const third = track(startServer(thirdDir, { BRAINSTORM_TOKEN_FILE: tokenFile }));
+      const thirdInfo = await waitForServerInfo(thirdDir);
+      third.kill();
+      await waitForClose(third);
+      report("pre-seeded token file is honored",
+          thirdInfo.url.split("key=")[1] === seeded);
+      // A symlinked token file must NOT be adopted as the session key: the
+      // server generates a fresh key instead, and the link target is never
+      // written (the O_NOFOLLOW write path rejects the symlink).
+      const linkFile = path.join(tokenDir, "link-token");
+      const targetFile = path.join(tokenDir, "target-token");
+      const evil = "c".repeat(64);
+      fs.writeFileSync(targetFile, evil);
+      let symlinkOk = true;
+      try {
+        fs.symlinkSync(targetFile, linkFile);
+      } catch (e) {
+        symlinkOk = false; // no symlink privilege (Windows without dev mode)
+      }
+      if (symlinkOk) {
+        const linkServer = track(startServer(linkDir, { BRAINSTORM_TOKEN_FILE: linkFile }));
+        const linkInfo = await waitForServerInfo(linkDir);
+        linkServer.kill();
+        await waitForClose(linkServer);
+        const linkKey = linkInfo.url.split("key=")[1];
+        const targetAfter = fs.readFileSync(targetFile, "utf-8");
+        report("symlinked token file rejected",
+            /^[0-9a-f]{64}$/.test(linkKey) && linkKey !== evil &&
+            targetAfter === evil && fs.lstatSync(linkFile).isSymbolicLink());
+      } else {
+        report("symlinked token file rejected (skipped: no symlink privilege)", true);
+      }
+      // Without a token file, keys still rotate per logical session.
+      const ra = track(startServer(rotA, {}));
+      const raInfo = await waitForServerInfo(rotA);
+      ra.kill();
+      await waitForClose(ra);
+      const rb = track(startServer(rotB, {}));
+      const rbInfo = await waitForServerInfo(rotB);
+      rb.kill();
+      await waitForClose(rb);
+      report("key rotates without a token file",
+          raInfo.url.split("key=")[1] !== rbInfo.url.split("key=")[1]);
+    } finally {
+      // Never orphan servers or leak temp dirs on any failure path.
+      for (const c of liveServers) {
+        try { c.kill(); } catch (e) { /* already gone */ }
+      }
+      for (const d of allDirs) fs.rmSync(d, { recursive: true, force: true });
+    }
 
     if (serverStderr.trim()) {
         console.log("\n[server stderr]\n" + serverStderr.trim());

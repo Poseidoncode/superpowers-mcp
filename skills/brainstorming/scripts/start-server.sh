@@ -135,9 +135,10 @@ SESSION_ID="$$-$(date +%s)"
 
 if [[ -n "$PROJECT_DIR" ]]; then
   SESSION_DIR="${PROJECT_DIR}/.superpowers/brainstorm/${SESSION_ID}"
-  # Reusing a port is safe because the server rotates its authentication key
-  # for every logical session.
+  # Reuse the last bound port and session key so a restart keeps an
+  # already-open browser tab connected to the same URL with a valid cookie.
   export BRAINSTORM_PORT_FILE="${PROJECT_DIR}/.superpowers/brainstorm/.last-port"
+  export BRAINSTORM_TOKEN_FILE="${PROJECT_DIR}/.superpowers/brainstorm/.last-token"
 else
   SESSION_DIR="/tmp/brainstorm-${SESSION_ID}"
 fi

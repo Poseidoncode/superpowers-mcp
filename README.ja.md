@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.2.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.2.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、オリジナルの Superpowers スキルライブラリを独立した MCP Toolpack にパッケージ化するための情報と使用手順をまとめたものです。
@@ -127,6 +127,14 @@
 ---
 
 ## 🆕 最近の更新
+
+### v6.2.4（最新）
+
+- **上流に合わせた brainstorm セッションの永続化**：`--project-dir` 指定時、companion はセッションキーを `.superpowers/brainstorm/.last-token`（オーナーのみ読み取り可、.gitignore 済み）に保存し、`.last-port` と並んで再起動後も再利用します——開いたままのブラウザタブは再起動後も接続を維持し、URL の再共有は不要です。一時 `/tmp` セッションでは従来どおり起動ごとにキーをローテーションします。明示的な `BRAINSTORM_TOKEN` 環境変数は常に優先され、ファイルには書き込まれません。強制的にローテーションするには、サーバー停止後に `.last-token` を削除してください。
+- **トークンファイル読み取り経路の強化**（`readPrivateFile`）：シンボリックリンクや複数リンクの `.last-token` は拒否され、セッションキーとして採用されなくなります。読み取りは `O_NOFOLLOW` 付き fd 経由で行い、identity を再検証し 0600 に締め付けます——既に強化済みの書き込み経路との非対称性を解消しました（独立したセキュリティレビューで発見）。
+- **診断性**：トークンファイルの書き込み失敗時に `Failed to write private token file:` をログ出力し、起動ごとのローテーションへの静かな縮退を防ぎます。
+- **start-server.ps1 の環境衛生**：`--project-dir` なしの一時起動で、呼び出し元 pwsh セッションに残ったプロジェクトキー/ポートを継承しなくなります。
+- **テスト**：companion スイートは 31 アサーションに——再起動をまたぐキー永続化、事前シード済みファイルの尊重、シンボリックリンクされたトークンファイルの拒否、トークンファイルなしでのローテーション維持。テスト後処理は障害安全（try/finally）。PowerShell スイートは `.last-token` が提供キーと一致することを検証します。
 
 ### v6.2.3（最新）
 

@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.2.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.2.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -128,7 +128,15 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v6.2.3 (Latest)
+### v6.2.4 (Latest)
+
+- **Upstream alignment — persistent brainstorm sessions**: with `--project-dir`, the companion now persists its session key to `.superpowers/brainstorm/.last-token` (owner-only, gitignored) alongside `.last-port` and reuses it across restarts — an already-open browser tab stays connected after a restart, no URL re-sharing needed. Ephemeral `/tmp` sessions keep rotating the key per invocation, and an explicit `BRAINSTORM_TOKEN` env var still wins and is never persisted. Delete `.last-token` (server stopped) to force a fresh key.
+- **Token-file read path hardened** (`readPrivateFile`): symlinked or multi-link `.last-token` files are rejected instead of being adopted as the session key, with the read performed through an `O_NOFOLLOW` fd whose identity is re-checked and tightened to 0600 — closing the asymmetry with the already-hardened write path (found by independent security review).
+- **Diagnosability**: a failed token-file write now logs `Failed to write private token file:` instead of silently degrading to per-start key rotation.
+- **start-server.ps1 env hygiene**: an ephemeral (no `--project-dir`) launch no longer inherits a stale project key/port from the invoking pwsh session.
+- **Tests**: companion suite now 31 assertions — token persistence across restarts, pre-seeded file honored, symlinked token file rejected, rotation preserved without a token file; test cleanup is failure-safe (try/finally). PowerShell suite asserts `.last-token` matches the served key.
+
+### v6.2.3
 
 - **Hardened Brainstorming Visual Companion (`server.cjs`)**: the local loopback-only HTTP+WebSocket server is crash-resistant against filesystem races (a deleted content dir or a screen vanishing mid-read degrades to the waiting page / 404 instead of killing the process), and its watcher self-heals after the content dir is deleted and recreated (Linux inotify + macOS FSEvents). WebSocket handshakes are validated against RFC 6455 (version/upgrade/connection/key), control-frame payloads are capped at 125 bytes, clients have idle/partial-frame deadlines, and the oldest connection is evicted when the cap is full. Security headers now include `nosniff` and a nonce CSP; generated keys rotate per invocation; screen, skill, event, and user-event reads/logs are size-capped and state files are private.
 - **Companion security defaults**: the server only binds to loopback HTTP, rotates its key on every invocation, stores browser authentication only in an HttpOnly/SameSite cookie after the initial URL, and blocks unnonce'd scripts in screen HTML. Remote browsers must use an authenticated SSH tunnel; a restart requires sharing the new `server-info` URL.

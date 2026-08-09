@@ -156,9 +156,17 @@ $brainstormRoot = ""
 if ($projectDir -ne "") {
     $brainstormRoot = Join-Path $projectDir ".superpowers/brainstorm"
     $sessionDir = Join-Path $brainstormRoot $sessionId
+    # Reuse the last bound port and session key so a restart keeps an
+    # already-open browser tab connected to the same URL with a valid cookie.
     $env:BRAINSTORM_PORT_FILE = Join-Path $brainstormRoot ".last-port"
+    $env:BRAINSTORM_TOKEN_FILE = Join-Path $brainstormRoot ".last-token"
 } else {
     $sessionDir = Join-Path ([System.IO.Path]::GetTempPath()) "brainstorm-$sessionId"
+    # $env: assignments persist in the invoking pwsh session; a stale project
+    # token/port file from an earlier --project-dir run must not leak into an
+    # ephemeral session (it would defeat key rotation and could overwrite the
+    # project's .last-token).
+    Remove-Item Env:BRAINSTORM_TOKEN_FILE, Env:BRAINSTORM_PORT_FILE -ErrorAction SilentlyContinue
 }
 
 $stateDir = Join-Path $sessionDir "state"
@@ -247,6 +255,7 @@ $envValues = @{
     BRAINSTORM_URL_HOST = $urlHost
     BRAINSTORM_OWNER_PID = ""
     BRAINSTORM_PORT_FILE = $env:BRAINSTORM_PORT_FILE
+    BRAINSTORM_TOKEN_FILE = $env:BRAINSTORM_TOKEN_FILE
     BRAINSTORM_IDLE_TIMEOUT_MS = $env:BRAINSTORM_IDLE_TIMEOUT_MS
     BRAINSTORM_OPEN = $env:BRAINSTORM_OPEN
 }

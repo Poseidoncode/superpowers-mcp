@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.2.4] - 2026-08-09
+
+### Upstream Alignment: Brainstorm Session-Key Persistence
+- **`--project-dir` sessions now persist the session key** (`server.cjs` / `start-server.sh` / `start-server.ps1`): the key is written to `.superpowers/brainstorm/.last-token` (0o600, owner-only dir) alongside `.last-port` and reused across restarts, so an already-open browser tab's HttpOnly cookie keeps validating — restart no longer requires re-sharing the URL. Ephemeral `/tmp` sessions keep rotating the key per invocation; setting `BRAINSTORM_TOKEN` (env) still wins over the file and is never persisted.
+- **Token-file read path hardened** (`readPrivateFile`): mirrors `writePrivateFile` — lstat rejects symlinks / non-regular / multi-link files, the fd is opened with `O_NOFOLLOW` and identity re-checked via `fstat`, and permissions are tightened to 0600 through the fd (never a path-based chmod, which would follow a symlink). A symlinked `.last-token` is now rejected instead of adopted as the session key (was HIGH, found by independent security review).
+- **Persistence failures are now logged**: a failed token-file write emits `Failed to write private token file:` so silent per-start rotation is diagnosable (matches the port-file behavior).
+- **`BRAINSTORM_TOKEN_FILE` validation**: the env value must be an absolute path; relative paths are ignored.
+- **start-server.ps1 env hygiene**: the ephemeral branch now clears stale `BRAINSTORM_TOKEN_FILE`/`BRAINSTORM_PORT_FILE` from the invoking pwsh session so a prior `--project-dir` run can't leak a project key into a `/tmp` session.
+- **Docs**: `visual-companion.md` documents the persistence tradeoff and the remediation path (delete `.last-token` with the server stopped to force a fresh key).
+
+### Tests
+- **`tests/brainstorm_server_test.js` (31 assertions)**: token-file persistence across restarts, pre-seeded file honored, symlinked token file rejected (skip when symlinks are unsupported), rotation preserved without a token file; test 13 wrapped in try/finally so failures can't orphan server processes or temp dirs.
+- **PowerShell suite**: `.last-token` now asserted to exist and match the served key; `start-server.ps1` env-hygiene change covered by the 17-assertion brainstorming server suite.
+- All suites pass: JavaScript edge-case/security, MCP flow, companion-server, and PowerShell (`tests/powershell/run-tests.sh`).
+
 ## [6.2.3] - 2026-08-05
 
 ### Security & Hardening

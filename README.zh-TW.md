@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.2.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.2.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -127,6 +127,14 @@
 ---
 
 ## 🆕 最近更新
+
+### v6.2.4 (最新版)
+
+- **對齊上游 — brainstorm 持久化 session**：搭配 `--project-dir` 時，companion 現在會把 session 金鑰持久化到 `.superpowers/brainstorm/.last-token`（僅擁有者可讀、已列入 .gitignore），與 `.last-port` 並存並在重啟後重用——已開啟的瀏覽器分頁在重啟後依然保持連線，無需重新分享 URL。暫存 `/tmp` session 仍維持每次啟動輪換金鑰；明確設定的 `BRAINSTORM_TOKEN` env 依然優先且永不寫入檔案。若要強制輪換，請在停止伺服器後刪除 `.last-token`。
+- **Token 檔讀取路徑加固**（`readPrivateFile`）：symlink 或多重連結的 `.last-token` 現在會被拒絕，不再被採納為 session 金鑰；讀取透過 `O_NOFOLLOW` fd 進行，身份複查並收緊為 0600——補上與已加固寫入路徑之間的不對稱（由獨立資安審查發現）。
+- **可診斷性**：token 檔寫入失敗現在會記錄 `Failed to write private token file:`，不再靜默退化為每次啟動輪換金鑰。
+- **start-server.ps1 環境衛生**：無 `--project-dir` 的暫存啟動不再繼承呼叫端 pwsh session 中殘留的專案金鑰/埠號。
+- **測試**：companion 套件現為 31 個斷言——重啟後金鑰持久化、預置檔原樣採用、symlink token 檔被拒絕、無 token 檔時仍輪換；測試清理具失敗安全性（try/finally）。PowerShell 套件斷言 `.last-token` 與伺服器提供之金鑰一致。
 
 ### v6.2.3 (最新版)
 

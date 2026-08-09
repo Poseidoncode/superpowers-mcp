@@ -101,9 +101,17 @@ function decodeFrame(buffer) {
 // ========== Configuration ==========
 
 const PORT_FILE = process.env.BRAINSTORM_PORT_FILE || null;
+// Per-session secret key. The companion is reachable by any local browser tab.
+// The key authenticates the client, rides the served URL as ?key=, and is
+// mirrored into a HttpOnly cookie on first load so the WebSocket and /files/*
+// subresources authenticate for free. When BRAINSTORM_TOKEN_FILE is set (the
+// persistent --project-dir launcher mode), the key is persisted alongside the
+// port so a restart reuses it and an already-open browser tab's cookie keeps
+// validating. Without a token file the key is rotated on every server start.
+const TOKEN_FILE = process.env.BRAINSTORM_TOKEN_FILE || null;
 const randomPort = () => 49152 + Math.floor(Math.random() * 16383);
 // Prefer an explicit port, else the port this session last bound, else a random
-// high port. Authentication is intentionally rotated on every server start.
+// high port.
 function preferredPort() {
   if (process.env.BRAINSTORM_PORT) {
     const p = Number(process.env.BRAINSTORM_PORT);
@@ -137,7 +145,10 @@ const SESSION_DIR = process.env.BRAINSTORM_DIR || '/tmp/brainstorm';
 const CONTENT_DIR = path.join(SESSION_DIR, 'content');
 const STATE_DIR = path.join(SESSION_DIR, 'state');
 const SUPERPOWERS_VERSION = readSuperpowersVersion();
-const SUPERPOWERS_BRAND_IMAGE_URL = 'https://primeradiant.com/brand/superpowers-visual-brainstorming-logo.png';
+// The brand mark is served locally from /brand-logo.svg so the page never
+// contacts a third-party host; the SVG payload is generated inline below.
+const SUPERPOWERS_BRAND_IMAGE_URL = '/brand-logo.svg';
+const BRAND_LOGO_SVG = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 24' role='img' aria-label='Superpowers'><g fill='#fff'><path d='M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21z' transform='translate(0 2.5) scale(0.62)'/><text x='24' y='17.5' font-family='system-ui, sans-serif' font-size='15' font-weight='700' letter-spacing='2.5'>SUPERPOWERS</text></g></svg>";
 const TELEMETRY_DISABLE_ENV_VARS = [
   'SUPERPOWERS_DISABLE_TELEMETRY',
   'DISABLE_TELEMETRY',
@@ -146,21 +157,68 @@ const TELEMETRY_DISABLE_ENV_VARS = [
 const SUPERPOWERS_TELEMETRY_DISABLED = TELEMETRY_DISABLE_ENV_VARS.some(name => isTruthyEnv(process.env[name]));
 let ownerPid = process.env.BRAINSTORM_OWNER_PID ? Number(process.env.BRAINSTORM_OWNER_PID) : null;
 
-// Each server invocation gets a fresh 256-bit secret. An explicitly supplied
-// BRAINSTORM_TOKEN is retained for controlled integrations, but launchers never
-// persist it across logical sessions.
+// A 256-bit secret. An explicitly supplied BRAINSTORM_TOKEN is retained for
+// controlled integrations. In persistent launcher mode (BRAINSTORM_TOKEN_FILE)
+// the key is reused across restarts so already-open tabs stay authenticated;
+// otherwise each server invocation gets a fresh key. Persistence is best effort:
+// a write failure must never prevent the server from starting.
 function generateToken() {
   return crypto.randomBytes(32).toString('hex');
+}
+
+// Mirror of writePrivateFile for the read path: the token file must be a
+// regular, single-link, non-symlink file. The fd is opened with O_NOFOLLOW and
+// its identity re-checked, and it is tightened to 0600 via the fd — never a
+// path-based chmod, which would follow a symlink to an attacker-chosen target.
+// Returns the file content or null on any violation/error.
+function readPrivateFile(filePath) {
+  const noFollow = fs.constants.O_NOFOLLOW || 0;
+  try {
+    const before = fs.lstatSync(filePath);
+    if (before.isSymbolicLink() || !before.isFile() || before.nlink !== 1) return null;
+    const fd = fs.openSync(filePath, fs.constants.O_RDONLY | noFollow);
+    try {
+      const stat = fs.fstatSync(fd);
+      if (!stat.isFile() || stat.nlink !== 1 || !sameFileIdentity(before, stat)) return null;
+      fs.fchmodSync(fd, 0o600);
+      return fs.readFileSync(fd, 'utf-8');
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch (e) {
+    return null;
+  }
 }
 
 function initialToken() {
   if (process.env.BRAINSTORM_TOKEN) {
     const t = String(process.env.BRAINSTORM_TOKEN).trim();
     if (/^[0-9a-f]{32,}$/i.test(t)) {
+      // A file path is not touched when the env token wins: the env value is a
+      // transient override for controlled integrations, and persisting it would
+      // turn a one-off secret into a durable one. Note the interaction: a later
+      // launch without the env var falls back to whatever .last-token holds.
       return { value: t, source: 'env' };
     }
   }
-  return { value: generateToken(), source: 'generated' };
+  if (TOKEN_FILE && path.isAbsolute(TOKEN_FILE)) {
+    // No prior token recorded (or the file fails the regular-file checks below)
+    // — either way, fall through to generating a fresh key.
+    const t = readPrivateFile(TOKEN_FILE);
+    if (t !== null && /^[0-9a-f]{32,}$/i.test(t.trim())) {
+      return { value: t.trim(), source: 'file' };
+    }
+  }
+  const generated = { value: generateToken(), source: 'generated' };
+  if (TOKEN_FILE && path.isAbsolute(TOKEN_FILE)) {
+    // Persist the key so a restart reuses it; best effort only — a write
+    // failure must never prevent the server from starting, but it silently
+    // degrades "restart keeps the tab alive" into per-start rotation.
+    if (!writePrivateFile(TOKEN_FILE, generated.value + '\n')) {
+      console.error('Failed to write private token file:', TOKEN_FILE);
+    }
+  }
+  return generated;
 }
 
 const tokenInfo = initialToken();
@@ -252,7 +310,7 @@ function brandMarkup() {
     : 'Superpowers v' + version;
   const logo = SUPERPOWERS_TELEMETRY_DISABLED
     ? ''
-    : '<img class="brand-logo" src="' + SUPERPOWERS_BRAND_IMAGE_URL + '?v=' + encodeURIComponent(SUPERPOWERS_VERSION) + '" alt="Prime Radiant" referrerpolicy="no-referrer" decoding="async">';
+    : '<img class="brand-logo" src="' + SUPERPOWERS_BRAND_IMAGE_URL + '" alt="Prime Radiant" referrerpolicy="no-referrer" decoding="async">';
 
   return '<div class="brand"><a href="https://github.com/obra/superpowers">' + logo + '<span class="brand-copy">' + text + '</span></a></div>';
 }
@@ -571,7 +629,7 @@ function securityHeaders(headers = {}, scriptNonce = null) {
     'Cache-Control': 'no-store',
     'X-Frame-Options': 'DENY',
     'X-Content-Type-Options': 'nosniff',
-    'Content-Security-Policy': "default-src 'none'; script-src " + scriptSource + "; style-src 'unsafe-inline'; img-src 'self' https://primeradiant.com data:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'",
+    'Content-Security-Policy': "default-src 'none'; script-src " + scriptSource + "; style-src 'unsafe-inline'; img-src 'self'; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'",
     'Cross-Origin-Resource-Policy': 'same-origin',
     ...headers
   };
@@ -619,6 +677,10 @@ function handleRequest(req, res) {
 
     res.writeHead(200, securityHeaders({ 'Content-Type': 'text/html; charset=utf-8' }, nonce));
     res.end(html);
+  } else if (req.method === 'GET' && pathname === '/brand-logo.svg') {
+    // Locally-generated brand mark; same-origin so img-src 'self' suffices.
+    res.writeHead(200, securityHeaders({ 'Content-Type': 'image/svg+xml; charset=utf-8' }));
+    res.end(BRAND_LOGO_SVG);
   } else if (req.method === 'GET' && pathname.startsWith('/files/')) {
     const fileName = path.basename(pathname.slice(7));
     const filePath = path.join(CONTENT_DIR, fileName);
@@ -1067,8 +1129,11 @@ function startServer() {
     // one after an EADDRINUSE fallback) so it can't collide with another server's
     // cookie in the shared localhost jar.
     COOKIE_NAME = 'brainstorm-key-' + PORT;
-    // Record the bound port only when we got our preferred port. Authentication
-    // is deliberately not persisted, so a new logical session gets a new key.
+    // Record the bound port only when we got our preferred port, so a stale
+    // port file from a crashed fallback can't pin a future session to a port
+    // another server owns. The session key, by contrast, is persisted whenever
+    // BRAINSTORM_TOKEN_FILE is set (see initialToken) — the pair is what keeps
+    // an already-open tab's cookie valid across a restart.
     if (PORT_FILE && !triedFallback) {
       if (!writePrivateFile(PORT_FILE, String(PORT))) {
         console.error('Failed to write private port file');

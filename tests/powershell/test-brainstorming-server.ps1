@@ -49,7 +49,9 @@ try {
         $redirectStatus = if ($_.Exception.Response) { $_.Exception.Response.StatusCode.value__ } else { -1 }
     }
     Assert-True ($redirectStatus -eq 303) "server redirects keyed bootstrap without exposing token to page scripts"
-    Assert-True (-not (Test-Path -LiteralPath (Join-Path $brainstormRoot ".last-token"))) "legacy project token file is not written"
+    $tokenFile = Join-Path $brainstormRoot ".last-token"
+    Assert-True (Test-Path -LiteralPath $tokenFile) "session key persisted to .last-token"
+    Assert-True (((Get-Content -LiteralPath $tokenFile -Raw).Trim()) -eq $token) ".last-token holds the served session key"
 
     # 3. stop: reports stopped, removes pid file and session dir
     $out = & $stopScript $sessionDir.FullName
