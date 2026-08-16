@@ -22,7 +22,7 @@ if (-not (Test-Path -LiteralPath $plan -PathType Leaf)) {
     exit 2
 }
 
-$slug = [System.IO.Path]::GetFileName($plan) -replace '\.md$', ''
+$slug = [System.IO.Path]::GetFileName($plan) -creplace '\.md$', ''
 if ([string]::IsNullOrEmpty($slug) -or $slug -eq "." -or $slug -eq "..") {
     [Console]::Error.WriteLine("cannot derive a workspace name from: $plan")
     exit 2
