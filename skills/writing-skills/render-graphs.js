@@ -107,9 +107,10 @@ function main() {
     process.exit(1);
   }
 
-  // Check if dot is available
+  // Check if dot is available. Run the binary directly rather than probing
+  // with `which`, which is not a command on Windows.
   try {
-    execSync('which dot', { encoding: 'utf-8' });
+    execSync('dot -V', { stdio: 'ignore', encoding: 'utf-8' });
   } catch {
     console.error('Error: graphviz (dot) not found. Install with:');
     console.error('  brew install graphviz    # macOS');
