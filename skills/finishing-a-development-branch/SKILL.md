@@ -197,6 +197,12 @@ Which?
 
 Carry out the choice, then remove the worktree.
 
+**If you chose "Commit them to <branch>" after a merge (Option 1):** the
+new commit sits on top of the merge, so `git branch -d <feature-branch>`
+will refuse ("not fully merged"). Merge the branch into the base branch
+again — or cherry-pick the new commit there — before cleanup, so the
+saved files survive the branch deletion.
+
 **Otherwise:** The host environment owns this workspace — leave it in
 place. If your platform provides a workspace-exit tool, use it.
 
