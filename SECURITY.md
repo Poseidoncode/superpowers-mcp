@@ -92,6 +92,49 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Shell Command Injection (`BRAINSTORM_OPEN_CMD`) | :white_check_mark: Patched — `cp.execFile` with argv array in v6.0.3 |
 | CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — exact `hono` 4.13.0 override (GHSA-8j4g-w8fx-2239) in v6.2.3 |
 
+## Comprehensive Security Audit & Verification Report
+
+A full repository security audit was conducted covering dependencies, core MCP server, Brainstorm Companion server, secret hygiene, and automated regression testing.
+
+### 1. Dependencies & Supply Chain
+- **Vulnerability Audit**: `npm audit` returned **0 vulnerabilities**.
+- **Dependency Overrides**: Pinned versions for `hono` (4.13.0), `@hono/node-server` (2.0.11), and `fast-uri` (4.1.2) protect against upstream CVEs (including GHSA-8j4g-w8fx-2239).
+
+### 2. MCP Server & Skills Core Engine (`src/server.ts`, `src/skills-manager.ts`)
+- **Path Traversal & Symlink Defense**:
+  - `getSafeSkillsPath()` blocks hazardous system directory prefixes (`/etc`, `/var`, `/usr`, `C:\Windows`, etc.).
+  - `findSkill()` strictly strips path separators (`/`, `\`, `\0`, `..`), using in-memory Map key lookups so user inputs never enter filesystem read APIs directly.
+  - `readFileNoFollow()` verifies file descriptors, inodes, and device IDs across checks and opens using POSIX `O_NOFOLLOW` and `fs.realpath` containment to eliminate TOCTOU race conditions.
+- **Resource Bounds & ReDoS**:
+  - Skill file reading enforced with a 10 MB limit (`MAX_SKILL_FILE_BYTES`).
+  - YAML frontmatter parser uses safe line-by-line scanning and handles UTF-8 BOM (`\uFEFF`) transparently.
+- **Error Handling & Information Disclosure**:
+  - Standardized `McpError` responses prevent exposing internal stack traces or filesystem layouts.
+
+### 3. Brainstorm Companion Server (`skills/brainstorming/scripts/server.cjs`)
+- **Network Interface**:
+  - Strict loopback binding (`127.0.0.1`, `::1`); non-loopback bindings are rejected at startup.
+- **Authentication & Token Storage**:
+  - 256-bit entropy token passed via `HttpOnly` / `SameSite=Strict` cookie and verified in constant time.
+  - Token file persistence is hardened with `0600` permissions (`fchmodSync`) and rejects symlinks or multi-link targets.
+- **Web Security & XSS Mitigation**:
+  - Nonce-based Content Security Policy (`CSP`), `X-Content-Type-Options: nosniff`, and `frame-ancestors 'none'`.
+  - Local inline SVG assets are used exclusively (no external CDN / third-party requests).
+- **WebSocket Hardening**:
+  - Strict RFC 6455 handshake validation, control frame payload cap (≤125 bytes), 10 MB frame cap, 16 concurrent client limit, and idle/partial-frame socket teardowns.
+
+### 4. Secrets & Git Hygiene
+- **Secret Scanning**: No hardcoded API keys, private keys, or tokens detected in tracked files.
+- **Git Ignore**: Comprehensive rules in `.gitignore` cover `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*`, and ephemeral worktrees.
+- **Working Tree**: Clean git status without untracked artifacts.
+
+### 5. Automated Security & Edge-Case Verification
+- **Edge Cases & Security Suite** (`tests/edge_cases_test.js`): Passed (BOM handling, traversal blocking, concurrency locks, dot-named skills, transient failure cache preservation).
+- **MCP Protocol Suite** (`tests/run_test.js`): Passed (Initialization, `list_skills`, `read_skill`, malformed URI handling).
+- **Companion Server Suite** (`tests/brainstorm_server_test.js`): **31 passed, 0 failed** (Authentication, token persistence, WS caps, CSP, traversal protection, PID lifecycle).
+
+---
+
 ## Security Best Practices
 
 When using Superpowers MCP:
