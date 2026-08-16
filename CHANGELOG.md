@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.0] - 2026-08-16
+
+### Upstream Sync: obra/superpowers v6.3.0
+
+Adopted the applicable upstream v6.3.0 changes while preserving all fork-specific security hardening and PowerShell support.
+
+- **brainstorming — three-path router**: the skill now classifies every request as `spike` / `bounded` / `architectural` before asking anything, announces the path, and scales the ceremony to the path — the approval gate applies to every path, and hidden complexity upgrades the path mid-task (never downgrades). New flow graph and red-flag table.
+- **subagent-driven-development — rulings, not stalls**: a running plan no longer waits on a human for conflicts, ambiguities, or plan defects — the controller rules on each, records `Ruling:` entries in the ledger, and continues; only four named conditions stop execution (irreversible/destructive operations, security-sensitive actions, out-of-worktree side effects, a plan so broken every path is a guess). Pre-flight conflict scan now produces a ledgered table; small same-shape tasks are batched into a single dispatch; subagent waits use bounded 5–10-minute stretches with reconciliation. All three prompts (implementer / task-reviewer / re-review) gain the no-subagents contract.
+- **Hermes Agent support**: new `using-superpowers/references/hermes-tools.md` maps skill actions to Hermes tools (`delegate_task`, `skill_view`, …); the harness table in `using-superpowers/SKILL.md` lists it.
+- **Codex guidance update**: `codex-tools.md` documents V1/V2 multi-agent differences, `fork_turns: "none"` spawns, `followup_task` fix-round resume, event-subscription `wait_agent` semantics, and a `default_subagent_model` backstop.
+- **writing-plans**: plan template gains a `Spec:` field so the spec travels with the plan.
+- **finishing-a-development-branch**: worktree removal-refused procedure (never `--force` on your own initiative; show the human the stakes and ask).
+- **requesting-code-review**: `code-reviewer.md` gains the no-subagents contract.
+- **writing-skills**: `render-graphs.js` probes `dot -V` instead of `which` (Windows-compatible); upstream test suite `tests/writing-skills/test-render-graphs.sh` (8 assertions) added.
+
+### Fixes from dual-agent code review
+
+- **finishing-a-development-branch**: in the merged path, choosing "Commit them to <branch>" from the removal-refused menu left the new commit on top of the merge, so `git branch -d` refused ("not fully merged") and agents could reach for `-D`, destroying the files just chosen to preserve. The procedure now instructs re-merging (or cherry-picking) into the base branch before cleanup.
+- **sdd-workspace.ps1**: slug derivation switched to case-sensitive `-creplace` so `PLAN.MD` derives the same workspace name on PowerShell as `basename` does on POSIX.
+
+### Not Adopted (deliberate deviations)
+
+- Upstream v6.3.0 removed several brainstorming-server security controls (loopback-only bind enforcement, `O_NOFOLLOW`/fd-identity token-file reads, nonce CSP, local brand SVG, WS control-frame caps). This fork keeps its hardened v6.2.4 server and its visual-companion docs.
+- Upstream deleted the `.ps1` launcher/helper scripts; this fork keeps all of them and the Windows PowerShell references in SDD docs (covered by the 64-assertion PowerShell suite).
+- Upstream restructured into a plugin-only layout (hooks/, `.devin`/`.hermes`/`.kimi`/… plugin manifests, `.opencode` entry point, `src/` removal). This fork remains an MCP server for VSCode/Antigravity/Cursor and did not adopt those.
+
+### Tests
+
+- All suites pass: MCP flow (`tests/run_test.js`), render-graphs (8 assertions), and the PowerShell suite (64 assertions across 5 files, `tests/powershell/run-tests.sh`).
+
 ## [6.2.4] - 2026-08-09
 
 ### Upstream Alignment: Brainstorm Session-Key Persistence

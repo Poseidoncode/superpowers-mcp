@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.2.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.3.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -112,7 +112,7 @@
 這是特別針對在支援多重代理 (Multi-Agent) 協作或具備強大推論能力的 IDE（如 Antigravity 或 Cursor）中所設計的高階操作技巧。
 
 - **`subagent-driven-development`**: 驅動子代理執行複雜任務
-  - **具體用法**：適用於「執行已規劃好的詳細計畫」。針對每一個小任務，AI 會派發全新的「實作代理」去寫 Code，完成後啟動合併的 **task reviewer**（規格 + 品質一次審查），並在最後執行 **whole-branch final review**（全分支最終審查）。在執行前還會進行 **Pre-Flight Plan Review**，掃描任務之間的潛在衝突。
+  - **具體用法**：適用於「執行已規劃好的詳細計畫」。針對每一個小任務，AI 會派發全新的「實作代理」去寫 Code，完成後啟動合併的 **task reviewer**（規格 + 品質一次審查），並在最後執行 **whole-branch final review**（全分支最終審查）。在執行前還會進行 **Pre-Flight Plan Review**，掃描任務之間的潛在衝突。計畫在 plan-scoped 工作區（`.superpowers/sdd/<plan>/`）執行；控制器對衝突直接裁決並記錄於 ledger（rulings），不再停擺等待；相同形狀的小任務會批次合併為單次派發。
   - **模型選擇**：根據任務複雜度選擇子代理模型 — 機械性工作用低成本模型，架構設計與細微併發變更需要強大模型。
   - **指令範例**：「用 read_skill 讀取 subagent-driven-development 技能，然後依照 docs/plans/feature-plan.md 的內容逐一派發子代理實作。」
 - **`dispatching-parallel-agents`**: 派發平行代理同步執行任務
@@ -128,7 +128,20 @@
 
 ## 🆕 最近更新
 
-### v6.2.4 (最新版)
+### v6.3.0 (最新版)
+
+- **對齊上游 obra/superpowers v6.3.0** — 採用所有適用改進，保留本 fork 的安全強化與 PowerShell 支援。
+  - **brainstorming — 三路分類流程（three-path router）**：每個請求先分類為 `spike` / `bounded` / `architectural`；流程深度隨任務規模調整，但審批門檻永遠不變。隱藏複雜度會在執行途中升級路徑——絕不降級。
+  - **subagent-driven-development — 裁決而非停擺（rulings, not stalls）**：衝突、歧義與計畫缺陷由控制器直接裁決並記錄於 ledger（`Ruling: ...`），不再等待人類；僅四種明列情況會停止執行。Pre-flight 衝突掃描產出 ledger 表格，相同形狀的小任務批次合併為單次派發，子代理等待改用有界區間，三個 prompt 都帶有 no-subagents 契約。
+  - **Hermes Agent 支援**：新增 `hermes-tools.md` 參考檔，將技能動作對應到 Hermes 工具（`delegate_task`、`skill_view` 等）。
+  - **Codex**：V1/V2 多代理差異、`followup_task` 修復輪恢復、事件訂閱式 `wait_agent` 指引。
+  - **writing-plans**：計畫範本新增 `Spec:` 欄位。
+  - **finishing-a-development-branch**：worktree 移除被拒時的處理程序——絕不擅自 `--force`。
+- **雙代理 code review 修復**：merged path 下「Commit them to \<branch\>」不再讓檔案遺留在 base branch 之外（finishing-a-development-branch）；`sdd-workspace.ps1` 的 slug 推導在所有平台與 `basename` 一致（`PLAN.MD` 維持 `PLAN.MD`）。
+- **刻意未採用**：上游 v6.3.0 的 server 簡化（移除 loopback-only 綁定、`O_NOFOLLOW` 讀取、nonce CSP、本地品牌 SVG）——本套件保留加固版 server；上游刪除 `.ps1` 及轉為 plugin-only 架構亦不適用於本 MCP server 佈局。
+- **測試**：MCP 流程、render-graphs（8 斷言）、完整 PowerShell 套件（64 斷言）全部通過。
+
+### v6.2.4
 
 - **對齊上游 — brainstorm 持久化 session**：搭配 `--project-dir` 時，companion 現在會把 session 金鑰持久化到 `.superpowers/brainstorm/.last-token`（僅擁有者可讀、已列入 .gitignore），與 `.last-port` 並存並在重啟後重用——已開啟的瀏覽器分頁在重啟後依然保持連線，無需重新分享 URL。暫存 `/tmp` session 仍維持每次啟動輪換金鑰；明確設定的 `BRAINSTORM_TOKEN` env 依然優先且永不寫入檔案。若要強制輪換，請在停止伺服器後刪除 `.last-token`。
 - **Token 檔讀取路徑加固**（`readPrivateFile`）：symlink 或多重連結的 `.last-token` 現在會被拒絕，不再被採納為 session 金鑰；讀取透過 `O_NOFOLLOW` fd 進行，身份複查並收緊為 0600——補上與已加固寫入路徑之間的不對稱（由獨立資安審查發現）。

@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.2.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 원본 Superpowers 스킬 라이브러리를 독립적인 MCP Toolpack으로 패키징하기 위한 정보와 사용 지침을 요약한 것입니다.
@@ -112,7 +112,7 @@
 이러한 스킬은 지원되는 IDE(Antigravity 또는 Cursor 등) 내에서 복잡한 메타 실행 패턴을 오케스트레이션하기 위해 설계되었습니다.
 
 - **`subagent-driven-development`**: 서브에이전트를 구동하여 작업 실행
-  - **사용법**: 미리 정의된 계획을 작업별로 실행합니다. 시스템은 각 작업마다 새로운 "구현" 서브에이전트를 생성한 후, 통합된 **작업 리뷰어**(명세 준수 + 코드 품질) 서브에이전트와 마지막에 **전체 브랜치 최종 리뷰**를 실행합니다. **Pre-Flight Plan Review**는 실행 시작 전 작업 충돌을 스캔합니다.
+  - **사용법**: 미리 정의된 계획을 작업별로 실행합니다. 시스템은 각 작업마다 새로운 "구현" 서브에이전트를 생성한 후, 통합된 **작업 리뷰어**(명세 준수 + 코드 품질) 서브에이전트와 마지막에 **전체 브랜치 최종 리뷰**를 실행합니다. **Pre-Flight Plan Review**는 실행 시작 전 작업 충돌을 스캔합니다. 계획은 plan-scoped 워크스페이스(`.superpowers/sdd/<plan>/`)에서 실행되며, 컨트롤러는 멈추지 않고 충돌을 재결정하여 레저(ledger)에 기록(rulings)하고, 같은 형태의 작은 작업은 단일 디스패치로 배치 처리됩니다.
   - **모델 선택**: 작업 복잡성에 따라 서브에이전트 모델 선택 — 기계적인 작업에는 저비용 모델, 아키텍처 및 미묘한 동시성 변경에는 고성능 모델
   - **예시**: "subagent-driven-development 스킬을 읽고 docs/plans/feature-plan.md에 나열된 작업을 하나씩 실행해줘"
 - **`dispatching-parallel-agents`**: 작업을 병렬 에이전트에 할당
@@ -128,7 +128,20 @@
 
 ## 🆕 최근 업데이트
 
-### v6.2.4 (최신)
+### v6.3.0 (최신)
+
+- **상류 obra/superpowers v6.3.0 동기화** — 적용 가능한 개선 사항을 모두 채택하고, 포크 고유의 보안 강화와 PowerShell 지원은 유지.
+  - **brainstorming — 3경로 라우터**: 모든 요청을 사전에 `spike` / `bounded` / `architectural`로 분류하며, 절차의 양은 작업 규모에 맞춰 조정됩니다. 단 승인 게이트는 모든 경로에 동일하게 적용됩니다. 실행 중 숨은 복잡성이 발견되면 경로를 업그레이드 — 다운그레이드는 없습니다.
+  - **subagent-driven-development — 멈추지 않고 재결정(rulings, not stalls)**: 충돌·모호성·계획 결함은 컨트롤러가 직접 재결정하고 레저에 기록(`Ruling: ...`). 명시된 4가지 조건에서만 실행을 중지합니다. Pre-flight 충돌 스캔은 레저 테이블을 산출하고, 같은 형태의 소규모 작업은 단일 디스패치로 배치되며, 서브에이전트 대기는 경계 있는 구간(bounded stretches)을 사용합니다. 세 프롬프트 모두 no-subagents 계약 추가.
+  - **Hermes Agent 지원**: 새 `hermes-tools.md` 참조 파일이 스킬 액션을 Hermes 도구(`delegate_task`, `skill_view` 등)에 매핑.
+  - **Codex**: V1/V2 멀티에이전트 차이, `followup_task` 수정 라운드 재개, 이벤트 구독형 `wait_agent` 가이드.
+  - **writing-plans**: 계획 템플릿에 `Spec:` 필드 추가.
+  - **finishing-a-development-branch**: worktree 제거 거부 시 절차 — 임의로 `--force`하지 않음.
+- **이중 에이전트 code review 수정**: 병합 경로에서 "Commit them to \<branch\>"를 선택해도 파일이 베이스 브랜치 밖에 남지 않음(finishing-a-development-branch). `sdd-workspace.ps1`의 슬러그 도출은 모든 플랫폼에서 `basename`과 일치(`PLAN.MD`는 `PLAN.MD` 유지).
+- **의도적으로 미채택**: 상류 v6.3.0의 서버 단순화(loopback-only 바인딩, `O_NOFOLLOW` 읽기, nonce CSP, 로컬 브랜드 SVG 제거) — 본 패키지는 강화된 서버를 유지합니다. 상류의 `.ps1` 삭제와 plugin-only 재구성도 이 MCP 서버 구성에는 적용되지 않습니다.
+- **테스트**: MCP 플로우, render-graphs(8개 어서션), PowerShell 전체 스위트(64개 어서션) 모두 통과.
+
+### v6.2.4
 
 - **업스트림 정렬 — brainstorm 세션 영속화**: `--project-dir` 사용 시 companion이 세션 키를 `.superpowers/brainstorm/.last-token`(소유자 전용, .gitignore 적용)에 저장하고 `.last-port`와 함께 재시작 후에도 재사용합니다 — 이미 열린 브라우저 탭은 재시작 후에도 연결이 유지되며 URL을 다시 공유할 필요가 없습니다. 임시 `/tmp` 세션은 기존처럼 호출마다 키를 교체하며, 명시적 `BRAINSTORM_TOKEN` 환경 변수는 항상 우선하고 파일에 기록되지 않습니다. 강제 교체를 원하면 서버 중지 후 `.last-token`을 삭제하세요.
 - **토큰 파일 읽기 경로 강화** (`readPrivateFile`): 심볼릭 링크 또는 다중 링크 `.last-token`은 거부되어 세션 키로 채택되지 않습니다. 읽기는 `O_NOFOLLOW` fd를 통해 수행되고 identity를 재검증하며 0600으로 강화됩니다 — 이미 강화된 쓰기 경로와의 비대칭을 해소했습니다(독립 보안 리뷰에서 발견).

@@ -6,6 +6,7 @@ The following versions of Superpowers MCP are currently supported with security 
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 6.3.x   | :white_check_mark: |
 | 6.2.x   | :white_check_mark: |
 | 6.0.x   | :white_check_mark: |
 | 5.1.x   | :white_check_mark: |
@@ -30,6 +31,16 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Acknowledgment**: Within 48 hours
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
+
+## v6.3.0 Security & Hardening Notes
+
+- **No server code changed — hardening fully retained**: this release synchronizes upstream skill documentation (obra/superpowers v6.3.0) only; the brainstorm companion server (`server.cjs`, `helper.js`, launchers) is byte-for-byte the hardened v6.2.4 implementation. All v6.2.2–v6.2.4 controls remain in force: loopback-only HTTP binds (non-loopback `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST` refused at startup), per-invocation key rotation with `--project-dir` persistence to an owner-only `.last-token` (`O_NOFOLLOW` fd reads, symlink/multi-link rejection, 0600 via fd), nonce CSP + `nosniff` headers, local inline brand SVG (no third-party requests from the companion page), RFC 6455 WebSocket validation with control-frame/`MAX_FRAME_PAYLOAD_BYTES` caps, bounded reads/logs, and the canonical temp-deletion guard.
+- **Deliberately NOT adopted from upstream v6.3.0**: upstream's companion server simplification removed several of the above controls (loopback bind enforcement, `O_NOFOLLOW`/fd-identity token-file reads, nonce CSP, local brand SVG in favor of a remote image URL, WS control-frame caps, `BRAINSTORM_TOKEN`/`BRAINSTORM_PORT` validation). This package keeps its hardened server and its visual-companion documentation; adopting upstream's version would have reintroduced the XSS surface (remote image load), removed the symlink-swap defense on `.last-token`, and allowed non-loopback plain-HTTP binds.
+- **Documentation consistency**: `visual-companion.md` still documents the fork's actual behavior (HttpOnly/SameSite cookie auth, `.last-token` persistence + rotation remediation, loopback-only binding with SSH-tunnel guidance, local brand SVG). Adopted skill docs contain no instructions for upstream-only features (`0.0.0.0` binds, sessionStorage key handoff, remote brand image) — verified by dual-agent code review.
+- **Data-loss risk fixed (finishing-a-development-branch)**: in the merged path, the removal-refused menu's "Commit them to <branch>" option could leave the new commit outside the base branch, causing `git branch -d` to refuse and tempting agents to force-delete (`-D`) — destroying the files the user just chose to preserve. The procedure now instructs re-merging (or cherry-picking) into the base branch before cleanup.
+- **Cross-platform consistency (sdd-workspace.ps1)**: slug derivation uses case-sensitive `-creplace` so `PLAN.MD` yields the same workspace name as POSIX `basename` — a plan file resolves to one directory on every platform.
+- **render-graphs.js**: probes `dot -V` instead of `which dot` (not a command on Windows). No behavioral change on POSIX; exit-code behavior covered by the new 8-assertion test suite.
+- **Regression coverage**: all suites pass — MCP flow (`tests/run_test.js`), render-graphs (8 assertions), and the PowerShell suite (64 assertions across 5 files, including the brainstorm server lifecycle).
 
 ## v6.2.4 Security & Hardening Notes
 
@@ -62,7 +73,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.2.4)
+## Current Security Status (v6.3.0)
 
 | Check | Status |
 | ----- | ------ |
@@ -71,13 +82,13 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | `eval` / `new Function` / `document.write` | :zero: Zero occurrences |
 | Hardcoded secrets in tracked files | :zero: Zero — `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*` |
 | World-writable files | :zero: Zero |
-| Symlink / Path Traversal Defense | :white_check_mark: Secured — bounded `O_NOFOLLOW`/fd reads, `realpath` containment, private state files, canonical temp-deletion guard in v6.2.3, and hardened token-file read (`readPrivateFile`) rejecting symlinked/multi-link `.last-token` in v6.2.4 |
-| WebSocket Protocol Validation | :white_check_mark: Secured — RFC 6455 handshake check, 125-byte control-frame cap, 10 MB frame cap, 16-client cap, idle timeout, and partial-frame deadline in v6.2.3 |
+| Symlink / Path Traversal Defense | :white_check_mark: Secured — bounded `O_NOFOLLOW`/fd reads, `realpath` containment, private state files, canonical temp-deletion guard in v6.2.3, and hardened token-file read (`readPrivateFile`) rejecting symlinked/multi-link `.last-token` in v6.2.4; **unchanged in v6.3.0** (upstream's removal of these controls was deliberately not adopted) |
+| WebSocket Protocol Validation | :white_check_mark: Secured — RFC 6455 handshake check, 125-byte control-frame cap, 10 MB frame cap, 16-client cap, idle timeout, and partial-frame deadline in v6.2.3; unchanged in v6.3.0 |
 | Filesystem Race / Crash Resilience | :white_check_mark: Secured — read-before-headers, try/catch fs paths, watcher self-heal in v6.2.3 |
 | Process Lifecycle (stale PID) | :white_check_mark: Secured — server-instance-id + cmdline identity proof before signalling in v6.2.3 |
 | Environment Input Validation (`SKILLS_PATH`, `BRAINSTORM_TOKEN`, `BRAINSTORM_PORT`) | :white_check_mark: Secured — system-dir prefix check + token format + port range in v6.2.3; `BRAINSTORM_TOKEN_FILE` must be an absolute path in v6.2.4 |
 | Concurrency & Cache Safety | :white_check_mark: Secured — instance-checked promise lock, last-good cache on transient failure in v6.2.3 |
-| XSS vectors (brainstorming Visual Companion & server) | :white_check_mark: Patched — DOM XSS fixed in v5.1.1, remaining `innerHTML` eliminated in v6.0.0, reflected server-side XSS fixed in v6.0.1, nonce CSP + `nosniff` + HttpOnly-only auth in v6.2.3 |
+| XSS vectors (brainstorming Visual Companion & server) | :white_check_mark: Patched — DOM XSS fixed in v5.1.1, remaining `innerHTML` eliminated in v6.0.0, reflected server-side XSS fixed in v6.0.1, nonce CSP + `nosniff` + HttpOnly-only auth in v6.2.3; remote brand image from upstream v6.3.0 **not adopted** (keeps the local inline SVG, no third-party request) |
 | Shell Command Injection (`BRAINSTORM_OPEN_CMD`) | :white_check_mark: Patched — `cp.execFile` with argv array in v6.0.3 |
 | CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — exact `hono` 4.13.0 override (GHSA-8j4g-w8fx-2239) in v6.2.3 |
 

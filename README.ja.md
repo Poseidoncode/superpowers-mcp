@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.2.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、オリジナルの Superpowers スキルライブラリを独立した MCP Toolpack にパッケージ化するための情報と使用手順をまとめたものです。
@@ -112,7 +112,7 @@
 これらのスキルは、サポートされている IDE（Antigravity や Cursor など）内で複雑なメタ実行パターンをオーケストレーションするために設計されています。
 
 - **`subagent-driven-development`**: サブエージェントを駆動してタスクを実行
-  - **使用方法**: 定義済みの計画をタスクごとに実行します。システムはタスクごとに新しい「実装」サブエージェントを生成し、その後、統合された **タスクレビューアー**（仕様準拠 + コード品質）サブエージェントと、最後に **全ブランチ最終レビュー** を実行します。**Pre-Flight Plan Review** は、実行開始前のタスク競合をスキャンします。
+  - **使用方法**: 定義済みの計画をタスクごとに実行します。システムはタスクごとに新しい「実装」サブエージェントを生成し、その後、統合された **タスクレビューアー**（仕様準拠 + コード品質）サブエージェントと、最後に **全ブランチ最終レビュー** を実行します。**Pre-Flight Plan Review** は、実行開始前のタスク競合をスキャンします。計画は plan-scoped ワークスペース（`.superpowers/sdd/<plan>/`）で実行され、コントローラーは停止せずに衝突を裁定してレジャーに記録（rulings）し、同じ形の小タスクは 1 回のディスパッチにまとめられます。
   - **モデル選択**: タスクの複雑さに基づいてサブエージェントモデルを選択 — 機械的な作業には低コストモデル、アーキテクチャや微妙な並行性変更には高性能モデル。
   - **例**: 「subagent-driven-development スキルを読み込んで、docs/plans/feature-plan.md にリストされているタスクを 1 つずつ実行して」
 - **`dispatching-parallel-agents`**: タスクを並列エージェントに派遣
@@ -128,7 +128,20 @@
 
 ## 🆕 最近の更新
 
-### v6.2.4（最新）
+### v6.3.0（最新）
+
+- **上流 obra/superpowers v6.3.0 との同期** — 適用可能な改善をすべて採用し、フォーク固有のセキュリティ強化と PowerShell サポートは維持。
+  - **brainstorming — 3 パスルーター**: すべてのリクエストを事前に `spike` / `bounded` / `architectural` に分類し、プロセス量をタスクに合わせて調整。ただし承認ゲートは常に全パスに適用されます。実行中に隠れた複雑さが判明した場合はパスをアップグレード — ダウングレードはありません。
+  - **subagent-driven-development — 裁定、停止しない（rulings, not stalls）**: 衝突・曖昧さ・計画の欠陥はコントローラーが直接裁定しレジャーに記録（`Ruling: ...`）。停止するのは明示された 4 条件のみ。Pre-flight 競合スキャンはレジャー表を出力し、同形状の小タスクは単一ディスパッチにバッチ化され、子エージェント待機は境界付きストレッチを使用。3 つのプロンプトすべてに no-subagents 契約を追加。
+  - **Hermes Agent サポート**: 新しい `hermes-tools.md` リファレンスがスキルアクションを Hermes ツール（`delegate_task`、`skill_view` など）にマッピング。
+  - **Codex**: V1/V2 マルチエージェントの違い、`followup_task` による修正ラウンド再開、イベント購読型 `wait_agent` のガイダンス。
+  - **writing-plans**: プランテンプレートに `Spec:` フィールドを追加。
+  - **finishing-a-development-branch**: worktree 削除拒否時の手順 — 自分の判断で `--force` しない。
+- **デュアルエージェント code review による修正**: merged パスで「Commit them to \<branch\>」を選んでもファイルがベースブランチの外に取り残されない（finishing-a-development-branch）。`sdd-workspace.ps1` のスラッグ導出は全プラットフォームで `basename` と一致（`PLAN.MD` は `PLAN.MD` のまま）。
+- **意図的に未採用**: 上流 v6.3.0 のサーバー簡素化（loopback-only バインド、`O_NOFOLLOW` 読み取り、nonce CSP、ローカルブランド SVG の削除）— 本パッケージは強化版サーバーを維持。上流の `.ps1` 削除と plugin-only 再構成もこの MCP サーバー構成には適用されません。
+- **テスト**: MCP フロー、render-graphs（8 アサーション）、PowerShell 完全スイート（64 アサーション）すべて合格。
+
+### v6.2.4
 
 - **上流に合わせた brainstorm セッションの永続化**：`--project-dir` 指定時、companion はセッションキーを `.superpowers/brainstorm/.last-token`（オーナーのみ読み取り可、.gitignore 済み）に保存し、`.last-port` と並んで再起動後も再利用します——開いたままのブラウザタブは再起動後も接続を維持し、URL の再共有は不要です。一時 `/tmp` セッションでは従来どおり起動ごとにキーをローテーションします。明示的な `BRAINSTORM_TOKEN` 環境変数は常に優先され、ファイルには書き込まれません。強制的にローテーションするには、サーバー停止後に `.last-token` を削除してください。
 - **トークンファイル読み取り経路の強化**（`readPrivateFile`）：シンボリックリンクや複数リンクの `.last-token` は拒否され、セッションキーとして採用されなくなります。読み取りは `O_NOFOLLOW` 付き fd 経由で行い、identity を再検証し 0600 に締め付けます——既に強化済みの書き込み経路との非対称性を解消しました（独立したセキュリティレビューで発見）。

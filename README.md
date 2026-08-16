@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.2.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -112,7 +112,7 @@ To help you choose the right skill, we've categorized them into 6 logical phases
 These skills are designed for orchestrating complex meta-execution patterns within supported IDEs (like Antigravity or Cursor).
 
 - **`subagent-driven-development`**: Driving sub-agents to execute tasks
-  - **Usage**: Used to execute a predefined plan task-by-task. The system spawns a fresh "implementer" sub-agent per task, followed by a consolidated **task reviewer** (spec compliance + code quality) sub-agent, plus a **whole-branch final review** at the end. A **Pre-Flight Plan Review** scans for task conflicts before execution begins.
+  - **Usage**: Used to execute a predefined plan task-by-task. The system spawns a fresh "implementer" sub-agent per task, followed by a consolidated **task reviewer** (spec compliance + code quality) sub-agent, plus a **whole-branch final review** at the end. A **Pre-Flight Plan Review** scans for task conflicts before execution begins. Plans run in plan-scoped workspaces (`.superpowers/sdd/<plan>/`), the controller rules on conflicts and records them in the ledger instead of stopping, and small same-shape tasks are batched into a single dispatch.
   - **Model Selection**: Choose sub-agent models based on task complexity — cheaper models for mechanical work, capable models for architecture and subtle concurrency changes.
   - **Example**: "Read the subagent-driven-development skill, then execute the tasks listed in docs/plans/feature-plan.md one by one."
 - **`dispatching-parallel-agents`**: Dispatching tasks to parallel agents
@@ -128,7 +128,20 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v6.2.4 (Latest)
+### v6.3.0 (Latest)
+
+- **Upstream sync with obra/superpowers v6.3.0** — all applicable improvements adopted, fork-specific security hardening and PowerShell support preserved.
+  - **brainstorming — three-path router**: every request is classified `spike` / `bounded` / `architectural` up front; the ceremony scales with the task but the approval gate never does. Hidden complexity upgrades the path mid-task — never downgrades.
+  - **subagent-driven-development — rulings, not stalls**: conflicts, ambiguities, and plan defects are ruled on and ledgered (`Ruling: ...`) instead of parking the session on a human; only four named conditions stop execution. Pre-flight conflict scans produce a ledgered table, small same-shape tasks batch into one dispatch, subagent waits use bounded stretches, and all three prompts carry the no-subagents contract.
+  - **Hermes Agent support**: new `hermes-tools.md` reference maps skill actions to Hermes tools (`delegate_task`, `skill_view`, …).
+  - **Codex**: V1/V2 multi-agent differences, `followup_task` fix-round resume, and event-subscription `wait_agent` guidance.
+  - **writing-plans**: plan template now carries a `Spec:` field.
+  - **finishing-a-development-branch**: worktree removal-refused procedure — never `--force` on your own initiative.
+- **Fixes from dual-agent code review**: merged-path "commit them to \<branch\>" no longer strands files outside the base branch (finishing-a-development-branch); `sdd-workspace.ps1` slug derivation matches `basename` on all platforms (`PLAN.MD` stays `PLAN.MD`).
+- **Not adopted (deliberate)**: upstream's v6.3.0 server simplification (it removed loopback-only enforcement, `O_NOFOLLOW` reads, nonce CSP, and the local brand SVG) — this package keeps its hardened server; upstream's `.ps1` deletions and plugin-only restructuring also don't apply to this MCP server layout.
+- **Tests**: MCP flow, render-graphs (8 assertions), and the full PowerShell suite (64 assertions) all pass.
+
+### v6.2.4
 
 - **Upstream alignment — persistent brainstorm sessions**: with `--project-dir`, the companion now persists its session key to `.superpowers/brainstorm/.last-token` (owner-only, gitignored) alongside `.last-port` and reuses it across restarts — an already-open browser tab stays connected after a restart, no URL re-sharing needed. Ephemeral `/tmp` sessions keep rotating the key per invocation, and an explicit `BRAINSTORM_TOKEN` env var still wins and is never persisted. Delete `.last-token` (server stopped) to force a fresh key.
 - **Token-file read path hardened** (`readPrivateFile`): symlinked or multi-link `.last-token` files are rejected instead of being adopted as the session key, with the read performed through an `O_NOFOLLOW` fd whose identity is re-checked and tightened to 0600 — closing the asymmetry with the already-hardened write path (found by independent security review).
