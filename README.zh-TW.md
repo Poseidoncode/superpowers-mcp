@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.3.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.3.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -128,7 +128,17 @@
 
 ## 🆕 最近更新
 
-### v6.3.0 (最新版)
+### v6.3.1 (最新版)
+
+- **SDD 工作區歸屬標記與實體路徑正規化**：`sdd-workspace`（Bash）與 `sdd-workspace.ps1`（PowerShell）改用 `plan-path` 歸屬標記與標準化實體路徑（`pwd -P` 與動態 `pwd` 偵測）。同名 plan（如 `docs/alpha/plan.md` 與 `docs/beta/plan.md`）會自動解析為獨立的 `.superpowers/sdd/` 工作區，杜絕產物與進度覆蓋。
+- **SDD 審查包範圍機械守衛**：`review-package` 與 `review-package.ps1` 強制校驗 `git merge-base --is-ancestor BASE HEAD` 與 commit 數量大於 0（錯誤時 exit 3），防止空範圍或倒置範圍造成審查假綠燈。
+- **執行權限剝離韌性**：`task-brief` 與 `review-package` 改以 `"${BASH:-bash}"` 調用，在解壓縮或跨系統搬移丟失 `+x` 權限時依然能穩定執行。
+- **TDD 全套件驗證下限**：`skills/test-driven-development/SKILL.md` 明確規定任務完成前必須跑過全專案測試指令（如 `npm test`、`pytest`、`cargo test`）。
+- **Code Review 防幽靈變更**：`skills/requesting-code-review/SKILL.md` 將多 commit 審查起點錨定為 `git merge-base origin/main HEAD`，消除 main 推進引發的幽靈刪除。
+- **Brainstorming 工具鏈決策門禁**：`skills/brainstorming/SKILL.md` 在設計展示階段主動詢問工具鏈配置並記錄於 `Global Constraints`。
+- **測試擴充**：新增 `tests/sdd/test-sdd-workspace.sh`（11 項斷言）並擴充 PowerShell 套件（70 項斷言）。
+
+### v6.3.0
 
 - **對齊上游 obra/superpowers v6.3.0** — 採用所有適用改進，保留本 fork 的安全強化與 PowerShell 支援。
   - **brainstorming — 三路分類流程（three-path router）**：每個請求先分類為 `spike` / `bounded` / `architectural`；流程深度隨任務規模調整，但審批門檻永遠不變。隱藏複雜度會在執行途中升級路徑——絕不降級。

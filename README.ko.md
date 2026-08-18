@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 원본 Superpowers 스킬 라이브러리를 독립적인 MCP Toolpack으로 패키징하기 위한 정보와 사용 지침을 요약한 것입니다.
@@ -128,7 +128,17 @@
 
 ## 🆕 최근 업데이트
 
-### v6.3.0 (최신)
+### v6.3.1 (최신)
+
+- **SDD 워크스페이스 소유권 마커 및 물리 경로 정규화**: `sdd-workspace`(Bash) 및 `sdd-workspace.ps1`(PowerShell)은 `plan-path` 마커와 물리 경로 정규화(`pwd -P` 및 동적 `pwd` 감지)를 사용. 동일한 이름의 계획 파일(`docs/alpha/plan.md` 및 `docs/beta/plan.md` 등)이 충돌 없이 별도의 `.superpowers/sdd/` 워크스페이스로 격리됩니다.
+- **SDD 리뷰 패키지 범위 가드**: `review-package` 및 `review-package.ps1`은 `git merge-base --is-ancestor BASE HEAD`와 커밋 수를 검증하여 비어 있거나 역전된 범위로 인한 오탐(false-pass)을 방지합니다.
+- **실행 권한 상실에 대한 복원력**: `task-brief`와 `review-package`는 `"${BASH:-bash}"`로 명시적 호출하여 아카이브 압축 해제 등으로 `+x` 권限이 손실되어도 정상 동작합니다.
+- **TDD 프로젝트 스위트 검증 하한선**: `skills/test-driven-development/SKILL.md`는 작업 완료 선언 전 프로젝트 전체 테스트 명령(`npm test`, `pytest` 등) 실행을 의무화합니다.
+- **Code Review 유령 변경 방지**: `skills/requesting-code-review/SKILL.md`에서 다중 커밋의 리뷰 기준점을 `git merge-base origin/main HEAD`로 고정합니다.
+- **Brainstorming 툴체인 결정 게이트**: `skills/brainstorming/SKILL.md`의 설계 제시 단계에서 툴체인 설정을 사전에 확인하고 `Global Constraints`에 기록합니다.
+- **테스트 확장**: `tests/sdd/test-sdd-workspace.sh`(11개 어서션) 추가 및 PowerShell 스위트(70개 어서션) 확장.
+
+### v6.3.0
 
 - **상류 obra/superpowers v6.3.0 동기화** — 적용 가능한 개선 사항을 모두 채택하고, 포크 고유의 보안 강화와 PowerShell 지원은 유지.
   - **brainstorming — 3경로 라우터**: 모든 요청을 사전에 `spike` / `bounded` / `architectural`로 분류하며, 절차의 양은 작업 규모에 맞춰 조정됩니다. 단 승인 게이트는 모든 경로에 동일하게 적용됩니다. 실행 중 숨은 복잡성이 발견되면 경로를 업그레이드 — 다운그레이드는 없습니다.

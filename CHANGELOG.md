@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.1] - 2026-08-18
+
+### Upstream Enhancements & Robustness Hardening
+
+Adopted post-v6.3.0 upstream improvements across SDD, TDD, Code Review, and Brainstorming workflows with cross-platform (Bash & PowerShell) support:
+
+- **subagent-driven-development (SDD) — Ownership Markers & Path Normalization**: `sdd-workspace` and `sdd-workspace.ps1` now write and check `plan-path` ownership markers in `.superpowers/sdd/` workspaces. Plans with identical basenames across different directories (e.g. `docs/alpha/plan.md` vs `docs/beta/plan.md`) resolve to distinct, non-colliding workspaces with parent directory or counter suffixes, eliminating artifact and ledger overwrites.
+- **SDD — Review Package Range Mechanical Guards**: `review-package` and `review-package.ps1` now enforce `git merge-base --is-ancestor BASE HEAD` and `git rev-list --count BASE..HEAD > 0` (exiting with code 3 on error) to reject invalid or empty commit ranges and prevent false-pass review approvals.
+- **SDD — Helper Execution Resilience**: `task-brief` and `review-package` now invoke `sdd-workspace` via explicit `"${BASH:-bash}"` so helpers execute cleanly even if executable bits (`+x`) are lost during archive extraction or cross-environment migration.
+- **test-driven-development (TDD) — Project Suite Verification Floor**: `skills/test-driven-development/SKILL.md` explicitly defines "green" as passing the entire repository test suite (e.g., bare `npm test`, `pytest`, `cargo test`) before declaring a task complete, preventing omissions of broken existing tests.
+- **requesting-code-review — Merge-Base Anchoring**: `skills/requesting-code-review/SKILL.md` now anchors multi-commit review `BASE_SHA` to `git merge-base origin/main HEAD` to prevent phantom deletions when `origin/main` advances.
+- **brainstorming — Tooling Decision Gate**: `skills/brainstorming/SKILL.md` adds a proactive tooling inquiry (linter, formatting, unit/e2e tests, fuzzing) during the Design Presentation phase for new projects, recording choices into the spec's `Global Constraints`.
+
+### Tests
+- Added `tests/sdd/test-sdd-workspace.sh` (5 assertions for bash ownership, range guards, stripped exec bit).
+- Expanded `tests/powershell/test-sdd-workspace.ps1` (13 assertions) and `tests/powershell/test-review-package.ps1` (17 assertions).
+- Full suites passing 100% across MCP, Security, PowerShell, SDD Bash, and Graphviz render-graphs.
+
 ## [6.3.0] - 2026-08-16
 
 ### Upstream Sync: obra/superpowers v6.3.0

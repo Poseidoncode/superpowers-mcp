@@ -31,6 +31,18 @@ if ($LASTEXITCODE -ne 0) {
     exit 2
 }
 
+& git merge-base --is-ancestor $base $head *> $null
+if ($LASTEXITCODE -ne 0) {
+    [Console]::Error.WriteLine("HEAD ($head) is not a descendant of BASE ($base)")
+    exit 3
+}
+
+$commitCount = (& git rev-list --count "${base}..${head}").Trim()
+if ([int]$commitCount -eq 0) {
+    [Console]::Error.WriteLine("empty commit range: ${base}..${head}")
+    exit 3
+}
+
 if ($args.Count -eq 4) {
     $out = $args[3]
 } else {
@@ -53,7 +65,7 @@ $content.Add("")
 $content.Add("## Diff")
 (& git diff -U10 "${base}..${head}") | ForEach-Object { $content.Add($_) }
 
-Set-Content -Path $out -Value $content -Encoding utf8
+Set-Content -LiteralPath $out -Value $content -Encoding utf8
 $commits = (& git rev-list --count "${base}..${head}").Trim()
 $bytes = (Get-Item -LiteralPath $out).Length
 Write-Output "wrote ${out}: $commits commit(s), $bytes bytes"

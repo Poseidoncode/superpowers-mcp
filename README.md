@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -128,7 +128,17 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v6.3.0 (Latest)
+### v6.3.1 (Latest)
+
+- **SDD Ownership Markers & Path Normalization**: `sdd-workspace` (Bash) and `sdd-workspace.ps1` (PowerShell) now manage plan-scoped workspaces using `plan-path` markers with canonical physical path normalization (`pwd -P` and dynamic `pwd` detection). Same-basename plans (e.g. `docs/alpha/plan.md` vs `docs/beta/plan.md`) safely disambiguate into distinct `.superpowers/sdd/` workspaces, preventing artifact and ledger overwrites.
+- **SDD Review Package Range Mechanical Guards**: `review-package` and `review-package.ps1` now enforce `git merge-base --is-ancestor BASE HEAD` and `git rev-list --count BASE..HEAD > 0` (exiting with code 3 on error) to reject invalid or empty commit ranges and prevent false-pass review approvals.
+- **SDD Helper Resilience on Stripped Permissions**: `task-brief` and `review-package` invoke `sdd-workspace` via explicit `"${BASH:-bash}"`, surviving environments where execution bits (`+x`) are stripped during archive extraction.
+- **TDD Verification Floor**: `skills/test-driven-development/SKILL.md` explicitly defines "green" as passing the entire repository test suite (e.g., bare `npm test`, `pytest`, `cargo test`) before declaring a task complete.
+- **Code Review Merge-Base Anchoring**: `skills/requesting-code-review/SKILL.md` now anchors multi-commit review `BASE_SHA` to `git merge-base origin/main HEAD` to prevent phantom deletions when `origin/main` advances.
+- **Brainstorming Tooling Decision Gate**: `skills/brainstorming/SKILL.md` adds a proactive tooling inquiry (linter, formatting, unit/e2e tests, fuzzing) during the Design Presentation phase for new projects, recording choices into the spec's `Global Constraints`.
+- **Tests & Coverage**: Added `tests/sdd/test-sdd-workspace.sh` (11 assertions) and expanded PowerShell suites (70 assertions across 5 files). Full test suites passing 100%.
+
+### v6.3.0
 
 - **Upstream sync with obra/superpowers v6.3.0** — all applicable improvements adopted, fork-specific security hardening and PowerShell support preserved.
   - **brainstorming — three-path router**: every request is classified `spike` / `bounded` / `architectural` up front; the ceremony scales with the task but the approval gate never does. Hidden complexity upgrades the path mid-task — never downgrades.

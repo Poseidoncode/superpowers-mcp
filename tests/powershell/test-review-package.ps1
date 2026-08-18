@@ -34,6 +34,14 @@ try {
     & $scriptPath $plan $base "deadbeef" > $null 2>&1
     Assert-ExitCode $LASTEXITCODE 2 "bad HEAD exits 2"
 
+    # 5. empty commit range exits 3
+    & $scriptPath $plan $head $head > $null 2>&1
+    Assert-ExitCode $LASTEXITCODE 3 "empty range exits 3"
+
+    # 6. HEAD is not descendant of BASE exits 3
+    & $scriptPath $plan $head $base > $null 2>&1
+    Assert-ExitCode $LASTEXITCODE 3 "non-descendant HEAD exits 3"
+
     # 5. happy path: default outfile lands in the plan-scoped workspace
     $out = & $scriptPath $plan $base $head
     Assert-ExitCode $LASTEXITCODE 0 "happy path exits 0"

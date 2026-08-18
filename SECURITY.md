@@ -32,6 +32,15 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
+## v6.3.1 Security & Hardening Notes
+
+- **SDD Ownership Markers & Path Normalization**: `sdd-workspace` (Bash) and `sdd-workspace.ps1` (PowerShell) now manage plan-scoped workspaces using `plan-path` markers with canonical physical path normalization (`pwd -P` and dynamic `pwd` detection). Same-basename plans (e.g. `docs/alpha/plan.md` vs `docs/beta/plan.md`) safely disambiguate into distinct `.superpowers/sdd/` workspaces, preventing artifact and ledger overwrites.
+- **SDD Review Package Range Guards**: `review-package` and `review-package.ps1` enforce mechanical range integrity (`git merge-base --is-ancestor BASE HEAD` and `git rev-list --count BASE..HEAD > 0`, exiting with code 3) to prevent false-pass approvals on invalid or empty commit ranges.
+- **PowerShell Wildcard Injection Defense**: `sdd-workspace.ps1`, `review-package.ps1`, and `task-brief.ps1` now strictly use `-LiteralPath` for all `Set-Content` and `Resolve-Path` calls, preventing wildcard interpretation errors when directory or plan names contain brackets (e.g. `[v1]`).
+- **Execution Resilience on Stripped Permissions**: `task-brief` and `review-package` invoke `sdd-workspace` via explicit `"${BASH:-bash}"`, surviving environments where execution bits (`+x`) are stripped during archive extraction.
+- **TDD Verification Floor & Code Review Anchoring**: TDD mandates project-wide suite execution before marking tasks complete; code review anchors multi-commit `BASE_SHA` to `git merge-base origin/main HEAD` to prevent phantom deletions.
+- **Zero Vulnerabilities Retained**: Full regression tests pass across MCP protocol, Security, PowerShell suite (70 assertions), SDD bash suite (11 assertions), and Graphviz rendering.
+
 ## v6.3.0 Security & Hardening Notes
 
 - **No server code changed — hardening fully retained**: this release synchronizes upstream skill documentation (obra/superpowers v6.3.0) only; the brainstorm companion server (`server.cjs`, `helper.js`, launchers) is byte-for-byte the hardened v6.2.4 implementation. All v6.2.2–v6.2.4 controls remain in force: loopback-only HTTP binds (non-loopback `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST` refused at startup), per-invocation key rotation with `--project-dir` persistence to an owner-only `.last-token` (`O_NOFOLLOW` fd reads, symlink/multi-link rejection, 0600 via fd), nonce CSP + `nosniff` headers, local inline brand SVG (no third-party requests from the companion page), RFC 6455 WebSocket validation with control-frame/`MAX_FRAME_PAYLOAD_BYTES` caps, bounded reads/logs, and the canonical temp-deletion guard.
@@ -73,7 +82,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.3.0)
+## Current Security Status (v6.3.1)
 
 | Check | Status |
 | ----- | ------ |

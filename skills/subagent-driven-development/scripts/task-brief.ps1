@@ -42,7 +42,7 @@ foreach ($line in [System.IO.File]::ReadLines((Resolve-Path -LiteralPath $plan).
     }
 }
 
-Set-Content -Path $out -Value $selected -Encoding utf8
+Set-Content -LiteralPath $out -Value $selected -Encoding utf8
 if ((-not (Test-Path -LiteralPath $out)) -or ((Get-Item -LiteralPath $out).Length -eq 0)) {
     [Console]::Error.WriteLine("task $taskNumber not found in $plan (no heading matching 'Task $taskNumber')")
     exit 3

@@ -30,7 +30,69 @@ if ([string]::IsNullOrEmpty($slug) -or $slug -eq "." -or $slug -eq "..") {
 
 $root = (& git rev-parse --show-toplevel).Trim()
 $base = Join-Path $root ".superpowers/sdd"
+
+function Get-PhysicalDirectoryPath($path) {
+    if (-not (Test-Path -LiteralPath $path)) { return $path }
+    if ($IsWindows) {
+        return (Resolve-Path -LiteralPath $path).Path
+    }
+    $orig = Get-Location
+    try {
+        Set-Location -LiteralPath $path
+        $pwdCmd = (Get-Command -Type Application pwd -ErrorAction SilentlyContinue).Source
+        if ($pwdCmd) {
+            return (& $pwdCmd -P).Trim()
+        } else {
+            return (Resolve-Path -LiteralPath $path).Path
+        }
+    } finally {
+        Set-Location $orig
+    }
+}
+
+# Normalize the plan path (physical directory, so relative/absolute/../
+# spellings of one plan compare equal) and express it as the marker value:
+# repo-relative when the plan lives under the repo root, absolute otherwise.
+$planLeaf = Split-Path -Leaf $plan
+$planParent = Split-Path -Parent $plan
+if ([string]::IsNullOrEmpty($planParent)) { $planParent = "." }
+
+$planDir = Get-PhysicalDirectoryPath $planParent
+$rootPhys = Get-PhysicalDirectoryPath $root
+
+$planAbs = (Join-Path $planDir $planLeaf) -replace '\\', '/'
+$rootNorm = $rootPhys -replace '\\', '/'
+
+if ($planAbs.StartsWith($rootNorm + "/", [System.StringComparison]::OrdinalIgnoreCase)) {
+    $planId = $planAbs.Substring($rootNorm.Length + 1)
+} else {
+    $planId = $planAbs
+}
+
+function Test-And-Claim-Workspace($targetDir, $id) {
+    $markerPath = Join-Path $targetDir "plan-path"
+    if (Test-Path -LiteralPath $markerPath -PathType Leaf) {
+        $existingId = (Get-Content -LiteralPath $markerPath -Raw).Trim()
+        return ($existingId -eq $id)
+    } else {
+        New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+        Set-Content -LiteralPath $markerPath -Value $id -Encoding ascii
+        return $true
+    }
+}
+
 $dir = Join-Path $base $slug
-New-Item -ItemType Directory -Force -Path $dir | Out-Null
-Set-Content -Path (Join-Path $base ".gitignore") -Value "*" -NoNewline -Encoding ascii
-(Resolve-Path $dir).Path
+if (-not (Test-And-Claim-Workspace $dir $planId)) {
+    $parent = Split-Path -Leaf $planDir
+    $dir = Join-Path $base "$slug-$parent"
+    if (-not (Test-And-Claim-Workspace $dir $planId)) {
+        $n = 2
+        while (-not (Test-And-Claim-Workspace (Join-Path $base "$slug-$parent-$n") $planId)) {
+            $n++
+        }
+        $dir = Join-Path $base "$slug-$parent-$n"
+    }
+}
+
+Set-Content -LiteralPath (Join-Path $base ".gitignore") -Value "*" -NoNewline -Encoding ascii
+(Resolve-Path -LiteralPath $dir).Path
