@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 원본 Superpowers 스킬 라이브러리를 독립적인 MCP Toolpack으로 패키징하기 위한 정보와 사용 지침을 요약한 것입니다.
@@ -128,7 +128,22 @@
 
 ## 🆕 최근 업데이트
 
-### v6.3.1 (최신)
+### v6.3.2 (최신)
+
+- **writing-plans — 2가지 계획 형태(Two Plan Shapes)와 스켈레톤 우선(Skeleton-First)**:
+  - `skills/writing-plans/SKILL.md`에 **Two Plan Shapes** 라우터를 추가(`task-by-task` 기본값 vs `skeleton-first` 대안).
+  - 새 [`skills/writing-plans/skeleton-first-plans.md`](skills/writing-plans/skeleton-first-plans.md)에서 Walking Skeleton(Task 1에서 전체 하위 시스템을 얇게 관통하는 실행 슬라이스 구축), 계약 기반 작업(Task Contracts, 코드 스크립트 대신 엄격한 Consumes/Produces 인터페이스 및 관찰 가능한 성공 기준 명시), `Tier: mechanical | judgment` 태그 정의.
+- **subagent-driven-development (SDD) — 웨이브 디스패치(Wave Dispatch) 및 병렬 Worktree 프로토콜**:
+  - skeleton-first 계획에 대해 **DISPATCH PLAN**을 생성하여 파일 충돌이 없는 작업을 웨이브 단위로 병렬 디스패치.
+  - **병렬 Worktree 프로토콜(Parallel Worktree Protocol)**: 독립된 `.worktrees/task-<N>`에서 동시 작업을 실행하고 계획 순서대로 순차 병합. 충돌 시 자동 rebase 후 implementer를 재개하여 자체 해결.
+  - Step 5에 완료 후 `Plan holds` / `Amendment:` 점검 라인을 추가하여 진행 중인 작업의 무결성을 유지하면서 후속 작업에 변경된 계약 전파.
+- **SDD — Tier 기반 모델 디스패치**:
+  - SDD 디스패처 및 `implementer-prompt.md`가 `Tier:` 지정(`mechanical` → 경제적인 경량 모델, `judgment` → 표준 모델)을 즉시 적용하여 토큰 낭비 방지.
+- **writing-skills — 바이너리 실행 보안 강화(`render-graphs.js`)**:
+  - `execSync` 대신 `execFileSync('dot', ['-Tsvg'], ...)`로 전환하여 쉘 인젝션 위험 근절. 10MB 버퍼 제한, Windows CRLF(`\r?\n`) 호환 및 `winget` 설치 안내 추가.
+- **테스트 및 검증**: MCP 프로토콜, 보안, SDD Bash(11개 어서션), PowerShell(70개 어서션), Graphviz 렌더링 테스트 100% 통과.
+
+### v6.3.1
 
 - **SDD 워크스페이스 소유권 마커 및 물리 경로 정규화**: `sdd-workspace`(Bash) 및 `sdd-workspace.ps1`(PowerShell)은 `plan-path` 마커와 물리 경로 정규화(`pwd -P` 및 동적 `pwd` 감지)를 사용. 동일한 이름의 계획 파일(`docs/alpha/plan.md` 및 `docs/beta/plan.md` 등)이 충돌 없이 별도의 `.superpowers/sdd/` 워크스페이스로 격리됩니다.
 - **SDD 리뷰 패키지 범위 가드**: `review-package` 및 `review-package.ps1`은 `git merge-base --is-ancestor BASE HEAD`와 커밋 수를 검증하여 비어 있거나 역전된 범위로 인한 오탐(false-pass)을 방지합니다.

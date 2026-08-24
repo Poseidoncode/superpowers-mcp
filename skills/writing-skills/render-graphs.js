@@ -15,11 +15,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 function extractDotBlocks(markdown) {
   const blocks = [];
-  const regex = /```dot\n([\s\S]*?)```/g;
+  const regex = /```dot\r?\n([\s\S]*?)```/g;
   let match;
 
   while ((match = regex.exec(markdown)) !== null) {
@@ -69,7 +69,7 @@ ${bodies.join('\n\n')}
 
 function renderToSvg(dotContent) {
   try {
-    return execSync('dot -Tsvg', {
+    return execFileSync('dot', ['-Tsvg'], {
       input: dotContent,
       encoding: 'utf-8',
       maxBuffer: 10 * 1024 * 1024
@@ -110,11 +110,12 @@ function main() {
   // Check if dot is available. Run the binary directly rather than probing
   // with `which`, which is not a command on Windows.
   try {
-    execSync('dot -V', { stdio: 'ignore', encoding: 'utf-8' });
+    execFileSync('dot', ['-V'], { stdio: 'ignore' });
   } catch {
     console.error('Error: graphviz (dot) not found. Install with:');
-    console.error('  brew install graphviz    # macOS');
-    console.error('  apt install graphviz     # Linux');
+    console.error('  brew install graphviz         # macOS');
+    console.error('  apt install graphviz          # Linux');
+    console.error('  winget install Graphviz.Graphviz # Windows');
     process.exit(1);
   }
 

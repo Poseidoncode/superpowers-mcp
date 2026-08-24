@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.3.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、オリジナルの Superpowers スキルライブラリを独立した MCP Toolpack にパッケージ化するための情報と使用手順をまとめたものです。
@@ -128,7 +128,22 @@
 
 ## 🆕 最近の更新
 
-### v6.3.1（最新）
+### v6.3.2（最新）
+
+- **writing-plans — 2 つのプラン形状（Two Plan Shapes）と骨格優先（Skeleton-First）**：
+  - `skills/writing-plans/SKILL.md` に **Two Plan Shapes** ルーターを追加（`task-by-task` デフォルト vs `skeleton-first` 代替案）。
+  - 新規 [`skills/writing-plans/skeleton-first-plans.md`](skills/writing-plans/skeleton-first-plans.md) で Walking Skeleton（Task 1 で全サブシステムを貫通する最小稼働スライスを作成）、契約型タスク（Task Contracts、コードを直接書かずに厳密な Consumes/Produces インターフェースと観察可能な検証基準を定義）、`Tier: mechanical | judgment` タグを定義。
+- **subagent-driven-development (SDD) — ウェーブディスパッチ（Wave Dispatch）と並列 Worktree プロトコル**：
+  - skeleton-first プランに対して **DISPATCH PLAN** を生成し、ファイルの競合がないタスクをウェーブとして並列ディスパッチ。
+  - **並列 Worktree プロトコル（Parallel Worktree Protocol）**：独立した `.worktrees/task-<N>` で並行タスクを実行し、プラン順序で順次統合。競合時は自動 rebase と implementer 再開で修正。
+  - Step 5 に完了後の `Plan holds` / `Amendment:` チェック行を追加し、進行中タスクの整合性を保ちながら後続タスクに更新された契約を伝播。
+- **SDD — Tier 駆動モデルディスパッチ**：
+  - SDD ディスパッチャーと `implementer-prompt.md` が `Tier:` 指定（`mechanical` → 経済的な軽量モデル、`judgment` → 標準モデル）を直接適用し、トークンを節約。
+- **writing-skills — バイナリ実行セキュリティ強化（`render-graphs.js`）**：
+  - `execSync` から `execFileSync('dot', ['-Tsvg'], ...)` に移行してシェルインジェクションを根絶。10MB バッファ上限、Windows CRLF 対応（`\r?\n`）、`winget` インストール案内を追加。
+- **テストと検証**：MCP プロトコル、セキュリティ、SDD Bash（11 アサーション）、PowerShell（70 アサーション）、Graphviz レンダリングテストのすべてが 100% 合格。
+
+### v6.3.1
 
 - **SDD ワークスペース所有権マーカーと物理パス正規化**：`sdd-workspace`（Bash）と `sdd-workspace.ps1`（PowerShell）は `plan-path` マーカーと物理パス正規化（`pwd -P` および動的 `pwd` 検出）を使用。同名のプラン（`docs/alpha/plan.md` と `docs/beta/plan.md` など）が衝突せず個別の `.superpowers/sdd/` ワークスペースに分離されます。
 - **SDD レビューパッケージ範囲ガード**：`review-package` および `review-package.ps1` は `git merge-base --is-ancestor BASE HEAD` とコミット数を検証し、空や逆転した範囲による誤判定（false-pass）を防止。

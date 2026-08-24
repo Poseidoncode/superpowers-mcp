@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.3.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
@@ -128,7 +128,22 @@
 
 ## 🆕 最近更新
 
-### v6.3.1 (最新版)
+### v6.3.2 (最新版)
+
+- **writing-plans — 雙計畫形態（Two Plan Shapes）與骨架優先（Skeleton-First）**：
+  - `skills/writing-plans/SKILL.md` 加入 **Two Plan Shapes** 路由機制（`task-by-task` 預設模式 vs `skeleton-first` 骨架優先），在撰寫計畫前提早決定架構模型。
+  - 新增 [`skills/writing-plans/skeleton-first-plans.md`](skills/writing-plans/skeleton-first-plans.md) 定義 Walking Skeleton（Task 1 先完成貫穿所有子系統的真實薄切片）、契約式任務（Task Contracts，嚴格定義 Consumes/Produces 接口與可觀測驗收標準，不預寫代碼腳本）與 `Tier: mechanical | judgment` 標記。
+- **subagent-driven-development (SDD) — 波次派發（Wave Dispatch）與並行工作樹協議**：
+  - 控制器在衝突掃描階段針對 skeleton-first 計畫生成 **DISPATCH PLAN**，將檔案互斥且無未完成介面依賴的任務組成波次並行派發。
+  - **並行工作樹協議（Parallel Worktree Protocol）**：並行任務各於專屬 `.worktrees/task-<N>` 執行，按計畫順序依次合併；若遇衝突或驗證失敗，自動 rebase 並喚醒 implementer 自行修復。
+  - Step 5 增加完工後的 `Plan holds` / `Amendment:` 檢查行，確保並行在途任務順利收斂，並將介面變動直接傳遞給後續任務。
+- **SDD — Tier 驅動模型分派**：
+  - SDD 控制器與 `implementer-prompt.md` 嚴格遵循計畫中的 `Tier:` 標記（`mechanical` → 快速經濟型模型；`judgment` → 標準中階模型），大幅節省 token 且不再重複審議。
+- **writing-skills — 二進位安全加固（`render-graphs.js`）**：
+  - 改用 `execFileSync('dot', ['-Tsvg'], ...)` 徹底杜絕 shell 注入，設置 10MB 緩衝上限，支援 Windows CRLF（`\r?\n`）換行匹配與 `winget` 安裝提示。
+- **測試與驗證**：MCP 協定、邊界安全、SDD Bash（11 項斷言）、PowerShell（70 項斷言）及 Graphviz 渲染測試全數 100% 通過。
+
+### v6.3.1
 
 - **SDD 工作區歸屬標記與實體路徑正規化**：`sdd-workspace`（Bash）與 `sdd-workspace.ps1`（PowerShell）改用 `plan-path` 歸屬標記與標準化實體路徑（`pwd -P` 與動態 `pwd` 偵測）。同名 plan（如 `docs/alpha/plan.md` 與 `docs/beta/plan.md`）會自動解析為獨立的 `.superpowers/sdd/` 工作區，杜絕產物與進度覆蓋。
 - **SDD 審查包範圍機械守衛**：`review-package` 與 `review-package.ps1` 強制校驗 `git merge-base --is-ancestor BASE HEAD` 與 commit 數量大於 0（錯誤時 exit 3），防止空範圍或倒置範圍造成審查假綠燈。

@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
@@ -128,7 +128,22 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v6.3.1 (Latest)
+### v6.3.2 (Latest)
+
+- **writing-plans — Two Plan Shapes Router & Skeleton-First Plans**:
+  - `skills/writing-plans/SKILL.md` introduces the **Two Plan Shapes** router (`task-by-task` default vs `skeleton-first` alternative) to determine architecture upfront.
+  - New [`skills/writing-plans/skeleton-first-plans.md`](skills/writing-plans/skeleton-first-plans.md) defines the Walking Skeleton pattern (Task 1 builds the thinnest running end-to-end slice across all subsystems), Task Contracts (strict interfaces and observable behaviors without code scripts), and deliberate `Tier: mechanical | judgment` tagging.
+- **subagent-driven-development (SDD) — Wave Dispatch & Parallel Worktree Protocol**:
+  - SDD controller performs **Dispatch Plan** scanning on skeleton-first plans, grouping mutually file-disjoint tasks into waves for concurrent dispatch.
+  - **Parallel Worktree Protocol**: Runs concurrent tasks in dedicated `.worktrees/task-<N>` worktrees, with sequential plan-order merges and automatic rebase-to-fix loops on merge conflict or test regression.
+  - Step 5 adds the post-completion `Plan holds` / `Amendment:` check line, ensuring in-flight tasks complete cleanly while downstream tasks inherit updated plan contracts.
+- **SDD — Tier-Driven Model Selection**:
+  - SDD dispatcher and `implementer-prompt.md` respect task `Tier:` markings (`mechanical` → fastest/cheapest tier; `judgment` → standard tier), saving tokens without redundant re-adjudication.
+- **writing-skills — Binary Execution Hardening (`render-graphs.js`)**:
+  - Replaced `execSync` shell execution with direct `execFileSync('dot', ['-Tsvg'], ...)` to eliminate shell injection risks. Added 10MB buffer limits, Windows CRLF support (`\r?\n`), and Windows `winget` installation guidance.
+- **Tests & Verification**: Full regression suites pass 100% across MCP protocol, Security Edge Cases, SDD Bash (11 assertions), PowerShell (70 assertions), and Graphviz rendering.
+
+### v6.3.1
 
 - **SDD Ownership Markers & Path Normalization**: `sdd-workspace` (Bash) and `sdd-workspace.ps1` (PowerShell) now manage plan-scoped workspaces using `plan-path` markers with canonical physical path normalization (`pwd -P` and dynamic `pwd` detection). Same-basename plans (e.g. `docs/alpha/plan.md` vs `docs/beta/plan.md`) safely disambiguate into distinct `.superpowers/sdd/` workspaces, preventing artifact and ledger overwrites.
 - **SDD Review Package Range Mechanical Guards**: `review-package` and `review-package.ps1` now enforce `git merge-base --is-ancestor BASE HEAD` and `git rev-list --count BASE..HEAD > 0` (exiting with code 3 on error) to reject invalid or empty commit ranges and prevent false-pass review approvals.

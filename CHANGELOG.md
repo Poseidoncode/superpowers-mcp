@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] / [6.3.2]
+
+### Upstream Enhancements: Skeleton-First Architecture & Wave Dispatch
+
+Adopted upstream `skeleton-alternative` capabilities and security hardening:
+
+- **writing-plans — Two Plan Shapes Router & Skeleton-First Plans**:
+  - `skills/writing-plans/SKILL.md` adds the **Two Plan Shapes** router (`task-by-task` default vs `skeleton-first` alternative) to classify the plan shape upfront.
+  - New [`skills/writing-plans/skeleton-first-plans.md`](file:///Users/poseidomhung/Documents/github/Infinity/superpowers-mcp/skills/writing-plans/skeleton-first-plans.md) defines the Walking Skeleton approach (Task 1 creates the thinnest running end-to-end slice across all subsystems), Task Contracts (precise interfaces/success criteria instead of handwritten code scripts), and explicit `Tier: mechanical | judgment` tagging.
+- **subagent-driven-development (SDD) — Wave Dispatch & Parallel Worktree Protocol**:
+  - `skills/subagent-driven-development/SKILL.md` gains **Dispatch Plan** scanning for `Plan shape: skeleton-first` plans, grouping file-disjoint tasks into waves for concurrent dispatch.
+  - Adds the **Parallel Worktree Protocol**: each concurrent task runs in its own dedicated Git Worktree (`.worktrees/task-<N>`), with integration merges executed sequentially in plan order and merge-conflict remediation via implementer resume.
+  - Step 5 now appends a `Plan holds` / `Amendment:` check line after task completion to apply plan-level corrections before subsequent task dispatches.
+- **SDD — Tier-Driven Model Selection**:
+  - SDD controller and [`implementer-prompt.md`](file:///Users/poseidomhung/Documents/github/Infinity/superpowers-mcp/skills/subagent-driven-development/implementer-prompt.md) follow the plan's `Tier:` tag (mechanical → fast/cheapest model, judgment → standard mid-tier model) to optimize tokens and execution speed without re-litigating tiers at dispatch.
+- **writing-skills — Binary Execution Hardening in `render-graphs.js`**:
+  - Switched from `execSync` shell execution to `execFileSync('dot', ...)` for Graphviz CLI invocations, preventing shell interpretation hazards and improving cross-platform reliability while maintaining full CommonJS compatibility.
+
 ## [6.3.1] - 2026-08-18
 
 ### Upstream Enhancements & Robustness Hardening

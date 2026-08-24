@@ -32,6 +32,14 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
+## v6.3.2 Security & Hardening Notes
+
+- **Graphviz Binary Execution Hardening (`render-graphs.js`)**: Replaced shell-interpreted `execSync` invocations with direct binary execution via `execFileSync('dot', ...)`. This eliminates shell injection / command interpolation risks, enforces strict buffer bounding (`maxBuffer: 10 * 1024 * 1024`), provides robust `try...catch` error handling with `stderr` capture, and ensures Windows CRLF (`\r?\n`) compatibility and `winget` installation guidance.
+- **Wave Dispatch & Parallel Worktree Isolation**: SDD now supports `Plan shape: skeleton-first` concurrent execution using dedicated Git Worktrees (`.worktrees/task-<N>`). Pre-flight conflict scanning strictly enforces file-disjoint conditions, while integration merges follow plan order sequentially. Any post-merge conflict or test regression triggers an automatic rebase-and-fix loop inside the worker's own worktree, preventing concurrent working tree pollution and race conditions.
+- **Tier-Driven Model Selection & Strict Contract Defense**: Task contracts in `skeleton-first-plans.md` enforce explicit interface boundaries (`Consumes`/`Produces`) and concrete observable success criteria ("No Vague Contracts" gate). The SDD dispatcher and `implementer-prompt.md` map `Tier: mechanical` to cost-effective models and `Tier: judgment` to standard models, maintaining high precision without human re-litigation.
+- **In-Flight Task Convergence & Amendment Propagation**: Step 5 enforces post-completion `Plan holds` or `Amendment:` ledger checks. In-flight parallel tasks in a wave are safely isolated and allowed to complete, while contract drifts are resolved naturally through integration merge rebasing and downstream prompt injection.
+- **Zero Vulnerabilities Maintained**: All regression suites continue passing 100% (MCP protocol, Security Edge Cases, SDD Bash/PowerShell, and Graphviz).
+
 ## v6.3.1 Security & Hardening Notes
 
 - **SDD Ownership Markers & Path Normalization**: `sdd-workspace` (Bash) and `sdd-workspace.ps1` (PowerShell) now manage plan-scoped workspaces using `plan-path` markers with canonical physical path normalization (`pwd -P` and dynamic `pwd` detection). Same-basename plans (e.g. `docs/alpha/plan.md` vs `docs/beta/plan.md`) safely disambiguate into distinct `.superpowers/sdd/` workspaces, preventing artifact and ledger overwrites.
@@ -82,13 +90,14 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.3.1)
+## Current Security Status (v6.3.2)
 
 | Check | Status |
 | ----- | ------ |
 | npm audit vulnerabilities | :zero: Zero — exact verified overrides for `hono`, `@hono/node-server`, and `fast-uri` |
 | `innerHTML` usage | :zero: Zero — entire codebase uses safe DOM APIs |
 | `eval` / `new Function` / `document.write` | :zero: Zero occurrences |
+| Command Injection (`execFileSync` in `render-graphs.js` & `server.cjs`) | :white_check_mark: Secured — direct binary execution, shell interpreters eliminated |
 | Hardcoded secrets in tracked files | :zero: Zero — `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*` |
 | World-writable files | :zero: Zero |
 | Symlink / Path Traversal Defense | :white_check_mark: Secured — bounded `O_NOFOLLOW`/fd reads, `realpath` containment, private state files, canonical temp-deletion guard in v6.2.3, and hardened token-file read (`readPrivateFile`) rejecting symlinked/multi-link `.last-token` in v6.2.4; **unchanged in v6.3.0** (upstream's removal of these controls was deliberately not adopted) |
