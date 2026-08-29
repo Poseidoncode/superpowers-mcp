@@ -57,7 +57,7 @@ const skillsManager = new SkillsManager(SKILLS_PATH);
 const server = new Server(
     {
         name: "superpowers-mcp",
-        version: "6.3.2",
+        version: "6.3.3",
     },
     {
         capabilities: {
