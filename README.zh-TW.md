@@ -5,25 +5,35 @@
 [![版本](https://img.shields.io/badge/version-6.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-本文檔總結了將原始 Superpowers 技能庫打包成獨立 MCP Toolpack 的相關資訊與使用說明。
+本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
 
 ---
 
 ## 🚀 安裝與使用方式
 
-### 支援的環境
+### 支援的環境與 Agent 平台
 
-**Antigravity**、**Cursor**、**VSCode**，以及其他支援 MCP 工具鏈的 AI 編輯器。
+- **MCP 原生 AI 編輯器與 IDE**：**Antigravity (AGY)**、**Cursor**、**VSCode**、**Windsurf**、**Claude Desktop / Claude Code**。
+- **CLI 工具與自主代理環境**：**Devin CLI**、**Hermes Agent**、**OpenCode**、**Kimi CLI**、**Pi CLI**、**Gemini CLI**。
+
+### 提供之 MCP 協議功能
+
+| 協議功能 | 包含項目 | 說明 |
+| :--- | :--- | :--- |
+| **Tools (工具)** | `list_skills`, `read_skill` | 依需求隨時探索並載入 14 項 Superpowers 技能完整內容。 |
+| **Prompts (提示詞)** | `session-start`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` | 可在 IDE Prompts 列表直接選用之對抗式審查與子代理協調 Prompt 模板。 |
+| **Resources (資源)** | `skill://superpowers/<skill-name>` | 提供符合 MCP 標準的 Direct URI 技能讀取協議。 |
 
 ### 與 AI Agent 對話
 
-安裝或配置完成後，您的 AI Agent（例如 Copilot 或 Antigravity Cascade）將能夠識別並使用 `Superpowers Skills`。
+安裝或配置完成後，您的 AI Agent 將能夠自動識別並調用 `Superpowers Skills` 與 `Prompts`。
 
 **您可以這樣提問：**
 
 - "列出所有 superpowers 技能"
 - "使用 read_skill 讀取 brainstorming 技能，然後幫我分析這個功能的實作"
-- "套用 session-start prompt"（模擬原始的啟動注入機制）
+- "套用 session-start prompt"（初始化完整的 Superpowers 工作流上下文）
+- "使用 subagent-driven-development 執行 docs/plans/feature-plan.md 的開發計畫"
 
 ---
 

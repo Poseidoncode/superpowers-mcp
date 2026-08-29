@@ -5,25 +5,35 @@
 [![Version](https://img.shields.io/badge/version-6.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-This document summarizes the information and usage instructions for packaging the original Superpowers skills library into an independent MCP Toolpack.
+This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
 
 ---
 
 ## 🚀 How to Install and Use
 
-### Supported Environments
+### Supported Environments & Harnesses
 
-**Antigravity**, **Cursor**, **VSCode**, and other AI editors that support the MCP toolchain.
+- **MCP-Native AI Editors & IDEs**: **Antigravity (AGY)**, **Cursor**, **VSCode**, **Windsurf**, **Claude Desktop / Claude Code**.
+- **CLI & Autonomous Agents**: **Devin CLI**, **Hermes Agent**, **OpenCode**, **Kimi CLI**, **Pi CLI**, **Gemini CLI**.
+
+### MCP Capabilities Provided
+
+| Protocol Feature | Items / Capabilities | Description |
+| :--- | :--- | :--- |
+| **Tools** | `list_skills`, `read_skill` | Discover and load any of the 14 Superpowers skills on demand. |
+| **Prompts** | `session-start`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` | Ready-to-use adversarial review and subagent orchestrator prompts in your IDE prompt list. |
+| **Resources** | `skill://superpowers/<skill-name>` | Direct URI-based skill access for MCP-compliant hosts. |
 
 ### Chatting with the AI Agent
 
-Once installed or configured, your AI Agent (such as Copilot or Antigravity Cascade) will be able to recognize the `Superpowers Skills`.
+Once installed or configured, your AI Agent will automatically discover and invoke `Superpowers Skills` and `Prompts`.
 
-**You can ask things like:**
+**Example prompts to your agent:**
 
 - "List all superpowers skills"
 - "Use read_skill to read the brainstorming skill, and then help me analyze the implementation of this feature"
-- "Apply the session-start prompt" (Simulates the original startup injection mechanism)
+- "Apply the session-start prompt" (Initializes the full Superpowers workflow context)
+- "Run Subagent-Driven Development for docs/plans/feature-plan.md"
 
 ---
 

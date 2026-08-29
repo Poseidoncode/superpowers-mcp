@@ -5,25 +5,35 @@
 [![バージョン](https://img.shields.io/badge/version-6.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-このドキュメントは、オリジナルの Superpowers スキルライブラリを独立した MCP Toolpack にパッケージ化するための情報と使用手順をまとめたものです。
+このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
 
 ---
 
 ## 🚀 インストールと使用方法
 
-### サポート環境
+### サポート環境とエージェントプラットフォーム
 
-**Antigravity**、**Cursor**、**VSCode**、および MCP ツールチェーンをサポートするその他の AI エディター。
+- **MCP ネイティブ AI エディター & IDE**: **Antigravity (AGY)**、**Cursor**、**VSCode**、**Windsurf**、**Claude Desktop / Claude Code**。
+- **CLI ツール & 自律型エージェント**: **Devin CLI**、**Hermes Agent**、**OpenCode**、**Kimi CLI**、**Pi CLI**、**Gemini CLI**。
+
+### 提供される MCP 機能
+
+| プロトコル機能 | 項目 | 説明 |
+| :--- | :--- | :--- |
+| **Tools** | `list_skills`, `read_skill` | 14 種類の Superpowers スキルをオンデマンドで検索・読み込み。 |
+| **Prompts** | `session-start`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` | IDE のプロンプト一覧から即座に使用可能なレビュー・サブエージェント協調プロンプト。 |
+| **Resources** | `skill://superpowers/<skill-name>` | MCP 規格に準拠した URI ベースのスキルアクセス。 |
 
 ### AI エージェントとの対話
 
-インストールまたは設定が完了すると、AI エージェント（Copilot や Antigravity Cascade など）が `Superpowers Skills` を認識できるようになります。
+インストールまたは設定が完了すると、AI エージェントが自動的に `Superpowers Skills` および `Prompts` を認識して呼び出せるようになります。
 
-**次のように質問できます：**
+**質問例：**
 
 - 「すべての superpowers スキルを一覧表示して」
 - 「read_skill で brainstorming スキルを読み込んで、この機能の実装を分析して」
-- 「session-start プロンプトを適用して」（元の起動注入メカニズムをシミュレート）
+- 「session-start プロンプトを適用して」（Superpowers のコンテキストをセッションに注入）
+- 「subagent-driven-development で docs/plans/feature-plan.md の計画を実行して」
 
 ---
 

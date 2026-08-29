@@ -34,11 +34,15 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 
 ## v6.3.2 Security & Hardening Notes
 
+- **MCP Standard Prompts Security & Injection Defense (`src/server.ts`)**:
+  - `ListPromptsRequestSchema` and `GetPromptRequestSchema` are backed by `readPromptFileSafe`, which proxies all template reads through `SkillsManager.readSkillContent`.
+  - All prompt template reads inherit double physical path containment verification (`fs.realpath`), relative path checks, and POSIX `O_NOFOLLOW` / inode identity matching (`readFileNoFollow`), eliminating arbitrary file read and symlink escape vectors.
+  - Optional prompt arguments (`task_description`, `plan_file`, `previous_findings`, etc.) are defensively coerced and sanitized, preventing `undefined` leakage, template corruption, or shell injection. Unknown prompt requests are rejected with standard `McpError(ErrorCode.InvalidRequest)`.
 - **Graphviz Binary Execution Hardening (`render-graphs.js`)**: Replaced shell-interpreted `execSync` invocations with direct binary execution via `execFileSync('dot', ...)`. This eliminates shell injection / command interpolation risks, enforces strict buffer bounding (`maxBuffer: 10 * 1024 * 1024`), provides robust `try...catch` error handling with `stderr` capture, and ensures Windows CRLF (`\r?\n`) compatibility and `winget` installation guidance.
 - **Wave Dispatch & Parallel Worktree Isolation**: SDD now supports `Plan shape: skeleton-first` concurrent execution using dedicated Git Worktrees (`.worktrees/task-<N>`). Pre-flight conflict scanning strictly enforces file-disjoint conditions, while integration merges follow plan order sequentially. Any post-merge conflict or test regression triggers an automatic rebase-and-fix loop inside the worker's own worktree, preventing concurrent working tree pollution and race conditions.
 - **Tier-Driven Model Selection & Strict Contract Defense**: Task contracts in `skeleton-first-plans.md` enforce explicit interface boundaries (`Consumes`/`Produces`) and concrete observable success criteria ("No Vague Contracts" gate). The SDD dispatcher and `implementer-prompt.md` map `Tier: mechanical` to cost-effective models and `Tier: judgment` to standard models, maintaining high precision without human re-litigation.
 - **In-Flight Task Convergence & Amendment Propagation**: Step 5 enforces post-completion `Plan holds` or `Amendment:` ledger checks. In-flight parallel tasks in a wave are safely isolated and allowed to complete, while contract drifts are resolved naturally through integration merge rebasing and downstream prompt injection.
-- **Zero Vulnerabilities Maintained**: All regression suites continue passing 100% (MCP protocol, Security Edge Cases, SDD Bash/PowerShell, and Graphviz).
+- **Zero Vulnerabilities Maintained**: `npm audit` reports **0 vulnerabilities**. All regression suites continue passing 100% (MCP protocol, Prompts dynamic injection, Security Edge Cases, SDD Bash/PowerShell, and Graphviz).
 
 ## v6.3.1 Security & Hardening Notes
 
@@ -100,6 +104,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Command Injection (`execFileSync` in `render-graphs.js` & `server.cjs`) | :white_check_mark: Secured — direct binary execution, shell interpreters eliminated |
 | Hardcoded secrets in tracked files | :zero: Zero — `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*` |
 | World-writable files | :zero: Zero |
+| MCP Prompts Injection & Path Traversal | :white_check_mark: Secured — dynamic prompt templating inherits `SkillsManager` double physical containment, `O_NOFOLLOW` / fd identity match, and safe argument sanitization |
 | Symlink / Path Traversal Defense | :white_check_mark: Secured — bounded `O_NOFOLLOW`/fd reads, `realpath` containment, private state files, canonical temp-deletion guard in v6.2.3, and hardened token-file read (`readPrivateFile`) rejecting symlinked/multi-link `.last-token` in v6.2.4; **unchanged in v6.3.0** (upstream's removal of these controls was deliberately not adopted) |
 | WebSocket Protocol Validation | :white_check_mark: Secured — RFC 6455 handshake check, 125-byte control-frame cap, 10 MB frame cap, 16-client cap, idle timeout, and partial-frame deadline in v6.2.3; unchanged in v6.3.0 |
 | Filesystem Race / Crash Resilience | :white_check_mark: Secured — read-before-headers, try/catch fs paths, watcher self-heal in v6.2.3 |
@@ -118,7 +123,10 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **Vulnerability Audit**: `npm audit` returned **0 vulnerabilities**.
 - **Dependency Overrides**: Pinned versions for `hono` (4.13.0), `@hono/node-server` (2.0.11), and `fast-uri` (4.1.2) protect against upstream CVEs (including GHSA-8j4g-w8fx-2239).
 
-### 2. MCP Server & Skills Core Engine (`src/server.ts`, `src/skills-manager.ts`)
+### 2. MCP Server, Prompts & Skills Core Engine (`src/server.ts`, `src/skills-manager.ts`)
+- **Prompts Injection & Argument Sanitization**:
+  - `ListPromptsRequestSchema` and `GetPromptRequestSchema` are guarded against prompt injection; all template files are read through hardened `SkillsManager` APIs.
+  - Arguments are evaluated safely with optional chaining and string boundary guards, preventing `undefined` concatenation or prototype pollution.
 - **Path Traversal & Symlink Defense**:
   - `getSafeSkillsPath()` blocks hazardous system directory prefixes (`/etc`, `/var`, `/usr`, `C:\Windows`, etc.).
   - `findSkill()` strictly strips path separators (`/`, `\`, `\0`, `..`), using in-memory Map key lookups so user inputs never enter filesystem read APIs directly.
@@ -148,7 +156,7 @@ A full repository security audit was conducted covering dependencies, core MCP s
 
 ### 5. Automated Security & Edge-Case Verification
 - **Edge Cases & Security Suite** (`tests/edge_cases_test.js`): Passed (BOM handling, traversal blocking, concurrency locks, dot-named skills, transient failure cache preservation).
-- **MCP Protocol Suite** (`tests/run_test.js`): Passed (Initialization, `list_skills`, `read_skill`, malformed URI handling).
+- **MCP Protocol & Prompts Suite** (`tests/run_test.js`): Passed (Initialization, `list_skills`, `read_skill`, malformed URI handling, `prompts/list`, `prompts/get` dynamic injection).
 - **Companion Server Suite** (`tests/brainstorm_server_test.js`): **31 passed, 0 failed** (Authentication, token persistence, WS caps, CSP, traversal protection, PID lifecycle).
 
 ---

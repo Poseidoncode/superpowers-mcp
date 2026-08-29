@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] / [6.3.2]
 
+### MCP Protocol & Multi-Harness Expansion
+
+- **MCP Standard Prompts Support (`src/server.ts`)**:
+  - Implemented `ListPromptsRequestSchema` and `GetPromptRequestSchema` handlers, registering 6 standard prompts for seamless IDE prompt-picker usage:
+    - `session-start`: Superpowers system context injection.
+    - `sdd-implementer`: Implementer subagent prompt with optional `task_description` and `plan_file` arguments.
+    - `sdd-task-reviewer`: Task reviewer subagent prompt with optional `task_description` and `review_target` arguments.
+    - `sdd-re-review`: Scoped re-review prompt for delta-only fix iterations.
+    - `spec-reviewer`: Adversarial specification reviewer prompt.
+    - `plan-reviewer`: Adversarial implementation plan reviewer prompt.
+- **Platform Reference Mappings (`skills/using-superpowers/references/`)**:
+  - Added [`references/devin-tools.md`](file:///Users/poseidomhung/Documents/github/Infinity/superpowers-mcp/skills/using-superpowers/references/devin-tools.md) for Devin CLI tool resolution (`invoke_subagent`, `skill`, `task_list`).
+  - Added [`references/opencode-tools.md`](file:///Users/poseidomhung/Documents/github/Infinity/superpowers-mcp/skills/using-superpowers/references/opencode-tools.md) for OpenCode tool resolution (`use_skill`, `find_skills`).
+  - Updated [`skills/using-superpowers/SKILL.md`](file:///Users/poseidomhung/Documents/github/Infinity/superpowers-mcp/skills/using-superpowers/SKILL.md) Platform Adaptation table.
+- **Multi-Lingual Documentation Alignment**:
+  - Refined top header sections of `README.md`, `README.zh-TW.md`, `README.ja.md`, and `README.ko.md` with explicit MCP protocol feature tables (Tools / Prompts / Resources) and the extended multi-harness support matrix.
+- **Test Suite Expansion (`tests/run_test.js`)**:
+  - Added automated assertions for `prompts/list` and `prompts/get` parameter injection.
+
 ### Upstream Enhancements: Skeleton-First Architecture & Wave Dispatch
 
 Adopted upstream `skeleton-alternative` capabilities and security hardening:

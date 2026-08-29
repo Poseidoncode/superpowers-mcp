@@ -133,33 +133,112 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                 name: "session-start",
                 description: "Inject the Superpowers context into an AI agent session. Tells the agent it has superpowers and how to use the skill system.",
             },
+            {
+                name: "sdd-implementer",
+                description: "Subagent-Driven Development (SDD) Implementer Prompt. Directs a subagent to implement a specific task using TDD and self-verification.",
+                arguments: [
+                    {
+                        name: "task_description",
+                        description: "Description or brief of the task to implement",
+                        required: false,
+                    },
+                    {
+                        name: "plan_file",
+                        description: "Path to the plan file or task brief",
+                        required: false,
+                    },
+                ],
+            },
+            {
+                name: "sdd-task-reviewer",
+                description: "Subagent-Driven Development (SDD) Task Reviewer Prompt. Evaluates task implementation against specification and code quality.",
+                arguments: [
+                    {
+                        name: "task_description",
+                        description: "Description of the task being reviewed",
+                        required: false,
+                    },
+                    {
+                        name: "review_target",
+                        description: "Files, commit SHAs, or review package to examine",
+                        required: false,
+                    },
+                ],
+            },
+            {
+                name: "sdd-re-review",
+                description: "SDD Scoped Re-Review Prompt. Reviews only fix-round deltas and previous feedback to prevent context bloat.",
+                arguments: [
+                    {
+                        name: "previous_findings",
+                        description: "Previous reviewer findings that needed fixing",
+                        required: false,
+                    },
+                    {
+                        name: "fix_summary",
+                        description: "Summary of changes made to address previous findings",
+                        required: false,
+                    },
+                ],
+            },
+            {
+                name: "spec-reviewer",
+                description: "Spec Document Reviewer Prompt. Adversarially reviews a design specification across requirements, architecture, and edge cases.",
+                arguments: [
+                    {
+                        name: "spec_file",
+                        description: "Path or content of the specification document to review",
+                        required: false,
+                    },
+                ],
+            },
+            {
+                name: "plan-reviewer",
+                description: "Plan Document Reviewer Prompt. Adversarially reviews an implementation plan for completeness, testability, and task contracts.",
+                arguments: [
+                    {
+                        name: "plan_file",
+                        description: "Path or content of the plan document to review",
+                        required: false,
+                    },
+                ],
+            },
         ],
     };
 });
 
 server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-    if (request.params.name !== "session-start") {
-        throw new McpError(ErrorCode.InvalidRequest, `Unknown prompt: ${request.params.name}`);
-    }
+    const promptName = request.params.name;
+    const args = request.params.arguments || {};
 
-    const skill = await skillsManager.findSkill("using-superpowers");
-    let skillContent = "";
-    if (skill) {
+    const readPromptFileSafe = async (relPath: string): Promise<string> => {
+        const fullPath = path.join(SKILLS_PATH, relPath);
         try {
-            skillContent = await skillsManager.readSkillContent(skill.skillPath);
+            return await skillsManager.readSkillContent(fullPath);
         } catch {
-            skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
+            return "";
         }
-    } else {
-        const usingSuperpowersPath = path.join(SKILLS_PATH, "using-superpowers", "SKILL.md");
-        try {
-            skillContent = await skillsManager.readSkillContent(usingSuperpowersPath);
-        } catch {
-            skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
-        }
-    }
+    };
 
-    const sessionContext = `<EXTREMELY_IMPORTANT>
+    if (promptName === "session-start") {
+        const skill = await skillsManager.findSkill("using-superpowers");
+        let skillContent = "";
+        if (skill) {
+            try {
+                skillContent = await skillsManager.readSkillContent(skill.skillPath);
+            } catch {
+                skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
+            }
+        } else {
+            const usingSuperpowersPath = path.join(SKILLS_PATH, "using-superpowers", "SKILL.md");
+            try {
+                skillContent = await skillsManager.readSkillContent(usingSuperpowersPath);
+            } catch {
+                skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
+            }
+        }
+
+        const sessionContext = `<EXTREMELY_IMPORTANT>
 You have superpowers.
 
 **Below is the full content of your 'superpowers:using-superpowers' skill - your introduction to using skills. For all other skills, use the read_skill tool:**
@@ -167,18 +246,109 @@ You have superpowers.
 ${skillContent}
 </EXTREMELY_IMPORTANT>`;
 
-    return {
-        description: "Superpowers session start context — establishes how to find and use skills",
-        messages: [
-            {
-                role: "user",
-                content: {
-                    type: "text",
-                    text: sessionContext,
+        return {
+            description: "Superpowers session start context — establishes how to find and use skills",
+            messages: [
+                {
+                    role: "user",
+                    content: {
+                        type: "text",
+                        text: sessionContext,
+                    },
                 },
-            },
-        ],
-    };
+            ],
+        };
+    }
+
+    if (promptName === "sdd-implementer") {
+        const template = await readPromptFileSafe("subagent-driven-development/implementer-prompt.md");
+        const taskDesc = args.task_description ? `\n\n### Target Task:\n${args.task_description}` : "";
+        const planFile = args.plan_file ? `\n\n### Plan / Brief File:\n${args.plan_file}` : "";
+        return {
+            description: "Subagent-Driven Development Implementer Prompt",
+            messages: [
+                {
+                    role: "user",
+                    content: {
+                        type: "text",
+                        text: `${template}${taskDesc}${planFile}`,
+                    },
+                },
+            ],
+        };
+    }
+
+    if (promptName === "sdd-task-reviewer") {
+        const template = await readPromptFileSafe("subagent-driven-development/task-reviewer-prompt.md");
+        const taskDesc = args.task_description ? `\n\n### Reviewed Task:\n${args.task_description}` : "";
+        const target = args.review_target ? `\n\n### Review Target:\n${args.review_target}` : "";
+        return {
+            description: "Subagent-Driven Development Task Reviewer Prompt",
+            messages: [
+                {
+                    role: "user",
+                    content: {
+                        type: "text",
+                        text: `${template}${taskDesc}${target}`,
+                    },
+                },
+            ],
+        };
+    }
+
+    if (promptName === "sdd-re-review") {
+        const template = await readPromptFileSafe("subagent-driven-development/re-review-prompt.md");
+        const findings = args.previous_findings ? `\n\n### Previous Findings:\n${args.previous_findings}` : "";
+        const summary = args.fix_summary ? `\n\n### Fix Summary:\n${args.fix_summary}` : "";
+        return {
+            description: "SDD Scoped Re-Review Prompt",
+            messages: [
+                {
+                    role: "user",
+                    content: {
+                        type: "text",
+                        text: `${template}${findings}${summary}`,
+                    },
+                },
+            ],
+        };
+    }
+
+    if (promptName === "spec-reviewer") {
+        const template = await readPromptFileSafe("brainstorming/spec-document-reviewer-prompt.md");
+        const specFile = args.spec_file ? `\n\n### Target Specification:\n${args.spec_file}` : "";
+        return {
+            description: "Brainstorming Spec Document Reviewer Prompt",
+            messages: [
+                {
+                    role: "user",
+                    content: {
+                        type: "text",
+                        text: `${template}${specFile}`,
+                    },
+                },
+            ],
+        };
+    }
+
+    if (promptName === "plan-reviewer") {
+        const template = await readPromptFileSafe("writing-plans/plan-document-reviewer-prompt.md");
+        const planFile = args.plan_file ? `\n\n### Target Implementation Plan:\n${args.plan_file}` : "";
+        return {
+            description: "Writing-Plans Plan Document Reviewer Prompt",
+            messages: [
+                {
+                    role: "user",
+                    content: {
+                        type: "text",
+                        text: `${template}${planFile}`,
+                    },
+                },
+            ],
+        };
+    }
+
+    throw new McpError(ErrorCode.InvalidRequest, `Unknown prompt: ${promptName}`);
 });
 
 // ---------------------------------------------------------------------------

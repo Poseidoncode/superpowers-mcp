@@ -5,25 +5,35 @@
 [![Version](https://img.shields.io/badge/version-6.3.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-이 문서는 원본 Superpowers 스킬 라이브러리를 독립적인 MCP Toolpack으로 패키징하기 위한 정보와 사용 지침을 요약한 것입니다.
+이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
 
 ---
 
 ## 🚀 설치 및 사용 방법
 
-### 지원 환경
+### 지원 환경 및 에이전트 플랫폼
 
-**Antigravity**, **Cursor**, **VSCode** 및 MCP 툴체인을 지원하는 기타 AI 편집기.
+- **MCP 네이티브 AI 편집기 & IDE**: **Antigravity (AGY)**, **Cursor**, **VSCode**, **Windsurf**, **Claude Desktop / Claude Code**.
+- **CLI 도구 & 자율 에이전트**: **Devin CLI**, **Hermes Agent**, **OpenCode**, **Kimi CLI**, **Pi CLI**, **Gemini CLI**.
+
+### 제공되는 MCP 프로토콜 기능
+
+| 프로토콜 기능 | 포함 항목 | 설명 |
+| :--- | :--- | :--- |
+| **Tools** | `list_skills`, `read_skill` | 14개의 Superpowers 스킬을 온디맨드로 검색 및 로드합니다. |
+| **Prompts** | `session-start`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` | IDE 프롬프트 목록에서 즉시 사용할 수 있는 대립 검토 및 서브에이전트 조율 프롬프트. |
+| **Resources** | `skill://superpowers/<skill-name>` | MCP 규격에 맞는 URI 기반 스킬 직접 접근. |
 
 ### AI 에이전트와 대화하기
 
-설치 또는 구성이 완료되면 AI 에이전트(Copilot 또는 Antigravity Cascade 등)가 `Superpowers Skills`를 인식할 수 있습니다.
+설치 또는 구성이 완료되면 AI 에이전트가 `Superpowers Skills` 및 `Prompts`를 자동으로 인식하고 호출할 수 있습니다.
 
-**다음과 같이 질문할 수 있습니다:**
+**질문 예시:**
 
 - "모든 superpowers 스킬을 나열해줘"
 - "read_skill을 사용하여 brainstorming 스킬을 읽고, 이 기능의 구현을 분석해줘"
-- "session-start 프롬프트를 적용해줘" (원래 시작 주입 메커니즘 시뮬레이션)
+- "session-start 프롬프트를 적용해줘" (Superpowers 전체 워크플로우 컨텍스트 초기화)
+- "subagent-driven-development로 docs/plans/feature-plan.md 계획을 실행해줘"
 
 ---
 
