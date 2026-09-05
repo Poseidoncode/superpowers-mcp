@@ -77,10 +77,10 @@ brainstorming ➔ writing-plans ➔ using-git-worktrees ➔ subagent-driven-deve
 
 ### 2. 結構化多點除錯管線 (Structured Troubleshooting Pipeline)
 ```
-systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review
+systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
 - **一鍵指令：**「請套用 `structured-debug`，幫我排查這個報錯：[貼上錯誤訊息]」
-- **流程特色：** 根因分析拆解假說 ➔ Worktree 隔離平行排查 ➔ 多 Agent 驗證 ➔ 編寫失敗測試並修復 ➔ 全套迴歸驗證。
+- **流程特色：** 根因分析拆解假說 ➔ Worktree 隔離平行排查 ➔ 多 Agent 驗證 ➔ 編寫失敗測試並修復 ➔ 全套迴歸驗證 ➔ 審查結果解決 ➔ 分支合併收尾。
 
 ### 3. 動態技能導引 (Dynamic Workflow Guide)
 - **一鍵指令：**「請套用 `skill-composition`，我目前的情境是 [重構/遷移/接手舊專案]」
@@ -112,3 +112,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
+## 🙏 致謝
+
+本專案是透過 fork 與改編自 [obra](https://github.com/obra) 的原始 [Superpowers](https://github.com/obra/superpowers) 專案。我們非常感謝他們在定義 Agentic 技能框架與軟體工程工作流上的開創性貢獻，這些構成了本 MCP Server 的基石。

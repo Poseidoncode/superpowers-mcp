@@ -77,10 +77,10 @@ brainstorming ➔ writing-plans ➔ using-git-worktrees ➔ subagent-driven-deve
 
 ### 2. Structured Troubleshooting Pipeline
 ```
-systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review
+systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
 - **One-Click Command:** "Please apply `structured-debug` to investigate this error: [Paste Trace / Logs]"
-- **Workflow:** Hypothesizes root causes ➔ Isolates worktrees for parallel agents ➔ Authors failing reproduction tests ➔ Applies targeted fix ➔ Confirms zero regressions.
+- **Workflow:** Hypothesizes root causes ➔ Isolates worktrees for parallel agents ➔ Authors failing reproduction tests ➔ Applies targeted fix ➔ Confirms zero regressions ➔ Reviews fix ➔ Finishes branch.
 
 ### 3. Dynamic Workflow Guide
 - **One-Click Command:** "Please apply `skill-composition` for [Refactoring / Migration / Legacy Codebase]"
@@ -112,3 +112,6 @@ To help you choose the right skill, we have structured all 14 skills across the 
 
 ---
 
+## 🙏 Acknowledgments
+
+This project is a fork and adaptation of the original [Superpowers](https://github.com/obra/superpowers) project by [obra](https://github.com/obra). We are grateful for their pioneering work in defining the agentic skills framework and software development methodology that powers this MCP server.

@@ -62,6 +62,7 @@ flowchart LR
     D3 --> D4[test-driven-development]
     D4 --> D5[verification-before-completion]
     D5 --> D6[requesting-code-review]
+    D6 --> D7[finishing-a-development-branch]
 ```
 
 1. **`systematic-debugging`**：根本原因を分析し、独立して検証可能な仮説に分解。
@@ -69,7 +70,8 @@ flowchart LR
 3. **`dispatching-parallel-agents`**：サブエージェントを並行ディスパッチして各仮説を検証。
 4. **`test-driven-development`**：バグを再現する最小限の失敗テストを作成した上で修正を実施。
 5. **`verification-before-completion`**：全テストが正常に通過することを検証。
-6. **`requesting-code-review`**：修正差分と回帰テストの網羅性をレビュー。
+6. **`requesting-code-review`**（および `receiving-code-review`）：修正差分と回帰テストの網羅性をレビューし、指摘事項を解消。
+7. **`finishing-a-development-branch`**：バグ修正ブランチをマージ/PRし、一時 Worktree を安全にクリーンアップ。
 
 ---
 
@@ -81,21 +83,22 @@ flowchart LR
 3. **`using-git-worktrees`**：移行作業専用の長期 Worktree を構築。
 4. **`subagent-driven-development`**：段階的にリファクタリングを実行し、タスクごとにレビューを実施。
 5. **`verification-before-completion`** + **`requesting-code-review`**：完全な回帰検証と専門家によるレビュー。
+6. **`finishing-a-development-branch`**：移行ブランチをマージし、Worktree を整理して完了。
 
 ---
 
 ### パイプライン 4: レガシーコードベース安全網の構築 (Legacy Codebase Safety Net)
 **推奨用途：** 単体テストが不足している、または構造が乱雑なレガシーコードベース。
 
-1. **`brainstorming`**：クリティカルパスと高リスクモジュールを特定。
-2. **`writing-plans`**：仕様化テスト（Characterization Tests）の追加ロードマップを作成。
-3. **`test-driven-development`**：既存の挙動に対するベースラインテストとゴールデンマスターテストを作成。
-4. **`systematic-debugging`**：テスト追加過程で発見された潜在的欠陥を体系的に解消。
-5. **`verification-before-completion`**：自動 CI テスト防壁を確立。
+1. **`brainstorming`**：システムの境界、既存動作の仕様化目標を特定。
+2. **`writing-plans`**：仕様化テスト（Characterization Tests）作成計画を策定。
+3. **`test-driven-development`**：既存の振る舞いを保護する網羅的テストを作成。
+4. **`systematic-debugging`**：保護テストで発見された潜在的欠陥を特定・修正。
+5. **`verification-before-completion`**：安全網の完全性を検証。
 
 ---
 
-## 4. 計画駆動型スキル構成スキーマ (Plan-Driven Skill Metadata Schema)
+## 4. スキル作成とメタデータ標準 (Skill Authoring & Metadata Standards)
 
 `writing-plans` で作成する実装計画において、各タスクに推奨スキルを指定できます：
 
@@ -109,6 +112,12 @@ flowchart LR
   2. 最小限の検証ロジックを実装してパスさせる (PASS)
   3. 厳格な型安全性を確保してリファクタリング
 ```
+
+### コントローラーとサブエージェントのディスパッチプロトコル
+コントローラーエージェントがタスクサブエージェントを起動する際：
+1. コントローラーは計画タスクに指定された `Recommended Skill` を読み取ります。
+2. コントローラーは `read_skill(skill_name)` を介してそのスキルを読み込むようサブエージェントに指示します。
+3. サブエージェントはそのスキルの厳格な手法（Red-Green-Refactor など）に従って実装を実行します。
 
 ---
 

@@ -62,6 +62,7 @@ flowchart LR
     D3 --> D4[test-driven-development]
     D4 --> D5[verification-before-completion]
     D5 --> D6[requesting-code-review]
+    D6 --> D7[finishing-a-development-branch]
 ```
 
 1. **`systematic-debugging`**：分析根因，拆解為獨立的待驗證假說或子問題。
@@ -69,7 +70,8 @@ flowchart LR
 3. **`dispatching-parallel-agents`**：平行分派 Agent 驗證各假說與修復方案。
 4. **`test-driven-development`**：為確認的 Bug 編寫重現測試（Reproduction Test），接著進行修復。
 5. **`verification-before-completion`**：驗證全部測試通過，確保修復未破壞其他功能。
-6. **`requesting-code-review`**：審查 Bugfix 差異與防護測試完整性。
+6. **`requesting-code-review`**（與 `receiving-code-review`）：審查 Bugfix 差異與防護測試完整性，並徹底解決所有審查發現。
+7. **`finishing-a-development-branch`**：完成分支合併/PR，安全刪除暫存 Worktree 與過期分支。
 
 ---
 
@@ -81,6 +83,7 @@ flowchart LR
 3. **`using-git-worktrees`**：建立重構專用長效 Worktree。
 4. **`subagent-driven-development`**：分階段重構，每一階段均有獨立 Task Review 確保架構未走偏。
 5. **`verification-before-completion`** + **`requesting-code-review`**：全面迴歸測試與專家架構審查。
+6. **`finishing-a-development-branch`**：合併遷移分支，清理 Worktrees，乾淨收尾。
 
 ---
 

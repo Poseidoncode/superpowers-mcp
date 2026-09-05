@@ -77,10 +77,10 @@ brainstorming ➔ writing-plans ➔ using-git-worktrees ➔ subagent-driven-deve
 
 ### 2. 構造化トラブルシューティングパイプライン (Structured Troubleshooting Pipeline)
 ```
-systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review
+systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
 - **ワンクリック指示：**「`structured-debug` を適用して、次のエラーを調査・修正してください：[エラーログ]」
-- **特徴：** 根本原因の仮説分解 ➔ Worktree 隔離並行調査 ➔ 複数エージェント検証 ➔ 失敗テスト作成・修正 ➔ 完全な回帰検証。
+- **特徴：** 根本原因の仮説分解 ➔ Worktree 隔離並行調査 ➔ 複数エージェント検証 ➔ 失敗テスト作成・修正 ➔ 完全な回帰検証 ➔ レビュー指摘解決 ➔ ブランチ完了。
 
 ### 3. 動的ワークフローガイド (Dynamic Workflow Guide)
 - **ワンクリック指示：**「`skill-composition` を適用して、現在の状況 [リファクタリング/移行/レガシーコード保護] の手順を提示してください」
@@ -112,3 +112,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
+## 🙏 謝辞
+
+このプロジェクトは、[obra](https://github.com/obra) によるオリジナルの [Superpowers](https://github.com/obra/superpowers) プロジェクトのフォークおよび適応です。この MCP サーバーの基盤となるエージェンティックスキルフレームワークとソフトウェアエンジニアリングワークフローを定義してくれた彼らの先駆的な仕事に感謝します。

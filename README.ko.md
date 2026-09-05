@@ -77,10 +77,10 @@ brainstorming ➔ writing-plans ➔ using-git-worktrees ➔ subagent-driven-deve
 
 ### 2. 구조화된 문제 해결 파이프라인 (Structured Troubleshooting Pipeline)
 ```
-systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review
+systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
 - **원클릭 명령어:** "`structured-debug`를 적용하여 다음 오류를 분석하고 수정해줘: [오류 로그]"
-- **특징:** 근본 원인 가설 분해 ➔ Worktree 격리 병렬 조사 ➔ 다중 에이전트 검증 ➔ 실패 테스트 작성 및 수정 ➔ 완전한 회귀 검증.
+- **특징:** 근본 원인 가설 분해 ➔ Worktree 격리 병렬 조사 ➔ 다중 에이전트 검증 ➔ 실패 테스트 작성 및 수정 ➔ 완전한 회귀 검증 ➔ 리뷰 지적 해결 ➔ 브랜치 마무리.
 
 ### 3. 동적 워크플로우 가이드 (Dynamic Workflow Guide)
 - **원클릭 명령어:** "`skill-composition`을 적용하여 현재 상황 [리팩토링/마이그레이션/레거시 코드 보호]에 맞는 절차를 안내해줘"
@@ -112,3 +112,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
+## 🙏 감사의 말
+
+이 프로젝트는 [obra](https://github.com/obra)의 원본 [Superpowers](https://github.com/obra/superpowers) 프로젝트의 포크 및 각색입니다. 이 MCP 서버의 기반이 되는 에이전틱 스킬 프레임워크와 소프트웨어 엔지니어링 워크플로우를 정의해 준 그들의 선구적인 작업에 감사드립니다.

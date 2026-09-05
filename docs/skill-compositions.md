@@ -63,6 +63,7 @@ flowchart LR
     D3 --> D4[test-driven-development]
     D4 --> D5[verification-before-completion]
     D5 --> D6[requesting-code-review]
+    D6 --> D7[finishing-a-development-branch]
 ```
 
 1. **`systematic-debugging`**: Investigate root causes and break failures into distinct, testable hypotheses.
@@ -70,7 +71,8 @@ flowchart LR
 3. **`dispatching-parallel-agents`**: Dispatch concurrent subagents to validate or invalidate individual hypotheses.
 4. **`test-driven-development`**: Write minimal failing reproduction tests before applying targeted bugfixes.
 5. **`verification-before-completion`**: Validate that all repository tests pass with clean outputs.
-6. **`requesting-code-review`**: Review the fix delta and ensure defensive regression test coverage.
+6. **`requesting-code-review`** (and `receiving-code-review`): Review the fix delta, ensure defensive regression test coverage, and resolve review findings.
+7. **`finishing-a-development-branch`**: Merge the bugfix branch, remove temporary worktrees, and clean up workspace.
 
 ---
 
@@ -82,6 +84,7 @@ flowchart LR
 3. **`using-git-worktrees`**: Establish dedicated long-lived migration worktrees.
 4. **`subagent-driven-development`**: Execute phased refactoring tasks with mandatory per-task review gates.
 5. **`verification-before-completion`** + **`requesting-code-review`**: Full regression verification and architectural review.
+6. **`finishing-a-development-branch`**: Merge migration branch, clean up worktrees, and finalize delivery.
 
 ---
 

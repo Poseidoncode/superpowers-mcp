@@ -62,6 +62,7 @@ flowchart LR
     D3 --> D4[test-driven-development]
     D4 --> D5[verification-before-completion]
     D5 --> D6[requesting-code-review]
+    D6 --> D7[finishing-a-development-branch]
 ```
 
 1. **`systematic-debugging`**: 근본 원인을 분석하고 독립적으로 검증 가능한 가설로 분해.
@@ -69,7 +70,8 @@ flowchart LR
 3. **`dispatching-parallel-agents`**: 서브에이전트를 병렬 디스패치하여 각 가설 검증.
 4. **`test-driven-development`**: 버그를 재현하는 최소한의 실패 테스트를 작성한 후 수정 적용.
 5. **`verification-before-completion`**: 모든 테스트가 성공적으로 통과하는지 검증.
-6. **`requesting-code-review`**: 수정 사항과 회귀 테스트 적용 범위 검토.
+6. **`requesting-code-review`** (및 `receiving-code-review`): 수정 사항과 회귀 테스트 적용 범위 검토 및 지적 사항 해결.
+7. **`finishing-a-development-branch`**: 버그 수정 브랜치를 병합/PR하고 임시 Worktree를 안전하게 정리.
 
 ---
 
@@ -81,6 +83,7 @@ flowchart LR
 3. **`using-git-worktrees`**: 마이그레이션 전용 장기 Worktree 구성.
 4. **`subagent-driven-development`**: 단계별 리팩토링을 수행하고 태스크별 검토 게이트 유지.
 5. **`verification-before-completion`** + **`requesting-code-review`**: 완전한 회귀 검증 및 전문가 아키텍처 검토.
+6. **`finishing-a-development-branch`**: 마이그레이션 브랜치를 병합하고 Worktree를 정리하여 완료.
 
 ---
 
@@ -109,6 +112,12 @@ flowchart LR
   2. 최소한의 검증 로직을 구현하여 테스트 통과 (PASS)
   3. 엄격한 타입 안전성을 확보하며 리팩토링
 ```
+
+### 컨트롤러와 서브에이전트 디스패치 프로토콜
+컨트롤러 에이전트가 태스크 서브에이전트를 생성할 때:
+1. 컨트롤러는 계획 작업에 명시된 `Recommended Skill`을 읽습니다.
+2. 컨트롤러는 `read_skill(skill_name)`을 통해 해당 스킬을 로드하도록 서브에이전트에 지시합니다.
+3. 서브에이전트는 해당 스킬의 엄격한 방법론(Red-Green-Refactor 등)을 준수하여 구현을 진행합니다.
 
 ---
 

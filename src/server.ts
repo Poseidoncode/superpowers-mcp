@@ -127,14 +127,23 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 // ---------------------------------------------------------------------------
 
 function interpolateTemplate(template: string, replacements: Record<string, string | undefined>): string {
-    let result = template;
-    for (const [key, value] of Object.entries(replacements)) {
-        if (value !== undefined && value !== "") {
-            // Replace exact literal key occurrences
-            result = result.split(key).join(value);
-        }
+    const validKeys = Object.keys(replacements).filter((key) => {
+        const val = replacements[key];
+        return val !== undefined && val !== "";
+    });
+    if (validKeys.length === 0) {
+        return template;
     }
-    return result;
+    // Sort longer keys first to prevent prefix shadowing and escape regex characters
+    const pattern = validKeys
+        .sort((a, b) => b.length - a.length)
+        .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join("|");
+    const regex = new RegExp(pattern, "g");
+    return template.replace(regex, (matched) => {
+        const val = replacements[matched];
+        return val !== undefined && val !== "" ? String(val) : matched;
+    });
 }
 
 server.setRequestHandler(ListPromptsRequestSchema, async () => {
@@ -288,7 +297,7 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                 arguments: [
                     {
                         name: "spec_file",
-                        description: "Path to the specification document to review (docs/superpowers/specs/...",
+                        description: "Path to the specification document to review (e.g., docs/superpowers/specs/...)",
                         required: false,
                     },
                 ],
@@ -360,6 +369,19 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     const promptName = request.params.name;
     const args = request.params.arguments || {};
 
+    const MAX_PROMPT_ARG_LENGTH = 32 * 1024;
+
+    const getStringArg = (key: string, maxLen = MAX_PROMPT_ARG_LENGTH): string => {
+        const val = Object.prototype.hasOwnProperty.call(args, key) ? args[key] : undefined;
+        let str = "";
+        if (typeof val === "string") {
+            str = val.trim();
+        } else if (val !== undefined && val !== null) {
+            str = String(val).trim();
+        }
+        return str.length > maxLen ? str.slice(0, maxLen) : str;
+    };
+
     const readPromptFileSafe = async (relPath: string): Promise<string> => {
         const fullPath = path.join(SKILLS_PATH, relPath);
         try {
@@ -403,11 +425,13 @@ ${skillContent}
 
     if (promptName === "sdd-implementer") {
         const template = await readPromptFileSafe("subagent-driven-development/implementer-prompt.md");
-        const briefFile = args.brief_file || args.plan_file;
-        const taskName = args.task_name || args.task_description;
-        const reportFile = args.report_file;
-        const workDir = args.work_dir;
-        const model = args.model;
+        const briefFile = getStringArg("brief_file") || getStringArg("plan_file");
+        const taskName = getStringArg("task_name") || getStringArg("task_description");
+        const reportFile = getStringArg("report_file");
+        const workDir = getStringArg("work_dir");
+        const model = getStringArg("model");
+        const taskDesc = getStringArg("task_description");
+        const planFile = getStringArg("plan_file");
 
         const rendered = interpolateTemplate(template, {
             "[BRIEF_FILE]": briefFile,
@@ -418,8 +442,8 @@ ${skillContent}
         });
 
         const legacyAppends = [
-            args.task_description && !rendered.includes(args.task_description) ? `\n\n### Target Task:\n${args.task_description}` : "",
-            args.plan_file && !rendered.includes(args.plan_file) ? `\n\n### Plan / Brief File:\n${args.plan_file}` : "",
+            taskDesc && !rendered.includes(taskDesc) ? `\n\n### Target Task:\n${taskDesc}` : "",
+            planFile && !rendered.includes(planFile) ? `\n\n### Plan / Brief File:\n${planFile}` : "",
         ].join("");
 
         return {
@@ -438,13 +462,15 @@ ${skillContent}
 
     if (promptName === "sdd-task-reviewer") {
         const template = await readPromptFileSafe("subagent-driven-development/task-reviewer-prompt.md");
-        const briefFile = args.brief_file;
-        const reportFile = args.report_file;
-        const diffFile = args.diff_file || args.review_target;
-        const baseSha = args.base_sha;
-        const headSha = args.head_sha;
-        const globalConstraints = args.global_constraints;
-        const model = args.model;
+        const briefFile = getStringArg("brief_file");
+        const reportFile = getStringArg("report_file");
+        const diffFile = getStringArg("diff_file") || getStringArg("review_target");
+        const baseSha = getStringArg("base_sha");
+        const headSha = getStringArg("head_sha");
+        const globalConstraints = getStringArg("global_constraints");
+        const model = getStringArg("model");
+        const taskDesc = getStringArg("task_description");
+        const reviewTarget = getStringArg("review_target");
 
         const rendered = interpolateTemplate(template, {
             "[BRIEF_FILE]": briefFile,
@@ -457,8 +483,8 @@ ${skillContent}
         });
 
         const legacyAppends = [
-            args.task_description && !rendered.includes(args.task_description) ? `\n\n### Reviewed Task:\n${args.task_description}` : "",
-            args.review_target && !rendered.includes(args.review_target) ? `\n\n### Review Target:\n${args.review_target}` : "",
+            taskDesc && !rendered.includes(taskDesc) ? `\n\n### Reviewed Task:\n${taskDesc}` : "",
+            reviewTarget && !rendered.includes(reviewTarget) ? `\n\n### Review Target:\n${reviewTarget}` : "",
         ].join("");
 
         return {
@@ -477,13 +503,14 @@ ${skillContent}
 
     if (promptName === "sdd-re-review") {
         const template = await readPromptFileSafe("subagent-driven-development/re-review-prompt.md");
-        const briefFile = args.brief_file;
-        const reportFile = args.report_file;
-        const diffFile = args.diff_file;
-        const findings = args.previous_findings;
-        const baseSha = args.base_sha || args.fix_base_sha;
-        const headSha = args.head_sha;
-        const model = args.model;
+        const briefFile = getStringArg("brief_file");
+        const reportFile = getStringArg("report_file");
+        const diffFile = getStringArg("diff_file");
+        const findings = getStringArg("previous_findings");
+        const baseSha = getStringArg("base_sha") || getStringArg("fix_base_sha");
+        const headSha = getStringArg("head_sha");
+        const model = getStringArg("model");
+        const fixSummary = getStringArg("fix_summary");
 
         const rendered = interpolateTemplate(template, {
             "[BRIEF_FILE]": briefFile,
@@ -496,8 +523,8 @@ ${skillContent}
         });
 
         const legacyAppends = [
-            args.previous_findings && !rendered.includes(args.previous_findings) ? `\n\n### Previous Findings:\n${args.previous_findings}` : "",
-            args.fix_summary ? `\n\n### Fix Summary:\n${args.fix_summary}` : "",
+            findings && !rendered.includes(findings) ? `\n\n### Previous Findings:\n${findings}` : "",
+            fixSummary ? `\n\n### Fix Summary:\n${fixSummary}` : "",
         ].join("");
 
         return {
@@ -516,7 +543,7 @@ ${skillContent}
 
     if (promptName === "spec-reviewer") {
         const template = await readPromptFileSafe("brainstorming/spec-document-reviewer-prompt.md");
-        const specFile = args.spec_file;
+        const specFile = getStringArg("spec_file");
         const rendered = interpolateTemplate(template, {
             "[SPEC_FILE_PATH]": specFile,
         });
@@ -538,8 +565,8 @@ ${skillContent}
 
     if (promptName === "plan-reviewer") {
         const template = await readPromptFileSafe("writing-plans/plan-document-reviewer-prompt.md");
-        const planFile = args.plan_file;
-        const specFile = args.spec_file;
+        const planFile = getStringArg("plan_file");
+        const specFile = getStringArg("spec_file");
         const rendered = interpolateTemplate(template, {
             "[PLAN_FILE_PATH]": planFile,
             "[SPEC_FILE_PATH]": specFile,
@@ -562,8 +589,10 @@ ${skillContent}
     }
 
     if (promptName === "feature-pipeline") {
-        const featureName = args.feature_name || "(Unspecified feature)";
-        const requirements = args.requirements ? `\n### Requirements / Context:\n${args.requirements}\n` : "";
+        const rawFeatureName = getStringArg("feature_name");
+        const featureName = rawFeatureName ? rawFeatureName.replace(/[\r\n]+/g, " ") : "(Unspecified feature)";
+        const rawRequirements = getStringArg("requirements");
+        const requirements = rawRequirements ? `\n### Requirements / Context:\n${rawRequirements}\n` : "";
 
         const text = `# Feature Development Pipeline
 
@@ -622,8 +651,10 @@ ${requirements}
     }
 
     if (promptName === "structured-debug") {
-        const issueDescription = args.issue_description ? `\n### Issue Description / Logs:\n${args.issue_description}\n` : "";
-        const failingTests = args.failing_tests ? `\n### Failing Tests:\n${args.failing_tests}\n` : "";
+        const rawIssueDescription = getStringArg("issue_description");
+        const issueDescription = rawIssueDescription ? `\n### Issue Description / Logs:\n${rawIssueDescription}\n` : "";
+        const rawFailingTests = getStringArg("failing_tests");
+        const failingTests = rawFailingTests ? `\n### Failing Tests:\n${rawFailingTests}\n` : "";
 
         const text = `# Structured Troubleshooting Pipeline
 
@@ -654,9 +685,13 @@ ${issueDescription}${failingTests}
    - **Invoke Skill:** \`superpowers:verification-before-completion\`
    - Run entire repository test suite to confirm zero regressions.
 
-6. **Stage 6: Code Review**
-   - **Invoke Skill:** \`superpowers:requesting-code-review\`
-   - Review fix delta and safety regression tests.`;
+6. **Stage 6: Code Review & Findings Resolution**
+   - **Invoke Skill:** \`superpowers:requesting-code-review\` (and \`superpowers:receiving-code-review\`)
+   - Review fix delta, ensure regression tests are defensive, and resolve all review findings.
+
+7. **Stage 7: Branch Finishing & Cleanup**
+   - **Invoke Skill:** \`superpowers:finishing-a-development-branch\`
+   - Merge/PR the bugfix branch, clean up temporary worktrees, and delete obsolete branches.`;
 
         return {
             description: "Structured Troubleshooting Pipeline Prompt",
@@ -673,22 +708,37 @@ ${issueDescription}${failingTests}
     }
 
     if (promptName === "skill-composition") {
-        const scenario = args.scenario ? `\n### Selected Scenario:\n${args.scenario}\n` : "";
+        const rawScenario = getStringArg("scenario");
+        const scenario = rawScenario ? `\n### Selected Scenario:\n${rawScenario}\n` : "";
+
+        let scenarioFocus = "";
+        if (rawScenario) {
+            const lower = rawScenario.toLowerCase();
+            if (lower.includes("debug") || lower.includes("troubleshoot") || lower.includes("bug") || lower.includes("fix")) {
+                scenarioFocus = "\n> **Recommended Pipeline Focus:** Pipeline 2 (Structured Debugging & Troubleshooting)\n";
+            } else if (lower.includes("refactor") || lower.includes("migrat") || lower.includes("upgrade")) {
+                scenarioFocus = "\n> **Recommended Pipeline Focus:** Pipeline 3 (Large Refactoring & System Migration)\n";
+            } else if (lower.includes("legacy") || lower.includes("safety")) {
+                scenarioFocus = "\n> **Recommended Pipeline Focus:** Pipeline 4 (Legacy Codebase Safety Net)\n";
+            } else if (lower.includes("feature") || lower.includes("new") || lower.includes("build")) {
+                scenarioFocus = "\n> **Recommended Pipeline Focus:** Pipeline 1 (New Feature Development)\n";
+            }
+        }
 
         const text = `# Superpowers Skill Composition Guide
 
 You are selecting or executing a multi-skill workflow pipeline.
-${scenario}
+${scenario}${scenarioFocus}
 ## Available Workflow Pipelines (see docs/skill-compositions.md for full details):
 
 1. **New Feature Development:**
    \`brainstorming\` ➔ \`writing-plans\` ➔ \`using-git-worktrees\` ➔ \`subagent-driven-development\` (TDD) ➔ \`verification-before-completion\` ➔ \`requesting-code-review\` ➔ \`finishing-a-development-branch\`
 
 2. **Structured Debugging & Multi-failure Troubleshooting:**
-   \`systematic-debugging\` ➔ \`using-git-worktrees\` ➔ \`dispatching-parallel-agents\` ➔ \`test-driven-development\` ➔ \`verification-before-completion\` ➔ \`requesting-code-review\`
+   \`systematic-debugging\` ➔ \`using-git-worktrees\` ➔ \`dispatching-parallel-agents\` ➔ \`test-driven-development\` ➔ \`verification-before-completion\` ➔ \`requesting-code-review\` ➔ \`finishing-a-development-branch\`
 
 3. **Large Refactoring & System Migration:**
-   \`brainstorming\` ➔ \`writing-plans\` (skeleton-first) ➔ \`using-git-worktrees\` ➔ \`subagent-driven-development\` ➔ \`verification-before-completion\` ➔ \`requesting-code-review\`
+   \`brainstorming\` ➔ \`writing-plans\` (skeleton-first) ➔ \`using-git-worktrees\` ➔ \`subagent-driven-development\` ➔ \`verification-before-completion\` ➔ \`requesting-code-review\` ➔ \`finishing-a-development-branch\`
 
 4. **Legacy Codebase Safety Net:**
    \`brainstorming\` ➔ \`writing-plans\` ➔ \`test-driven-development\` (characterization tests) ➔ \`systematic-debugging\` ➔ \`verification-before-completion\`

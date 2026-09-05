@@ -3,6 +3,19 @@ const path = require("path");
 
 const serverPath = path.join(__dirname, "..", "out", "server.js");
 const server = spawn("node", [serverPath]);
+server.stdout.setEncoding("utf8");
+
+server.on("error", (err) => {
+    console.error("❌ Failed to start server child process:", err);
+    process.exit(1);
+});
+
+server.on("exit", (code, signal) => {
+    if (code !== 0 && code !== null) {
+        console.error(`❌ Server exited prematurely with code ${code}, signal ${signal}`);
+        process.exit(1);
+    }
+});
 
 let buffer = "";
 
@@ -104,8 +117,10 @@ server.stdout.on("data", (data) => {
                     text.includes("superpowers:dispatching-parallel-agents") &&
                     text.includes("superpowers:test-driven-development") &&
                     text.includes("superpowers:verification-before-completion") &&
-                    text.includes("superpowers:requesting-code-review")) {
-                    console.log("✅ prompts/get structured-debug returned complete troubleshooting workflow");
+                    text.includes("superpowers:requesting-code-review") &&
+                    text.includes("superpowers:receiving-code-review") &&
+                    text.includes("superpowers:finishing-a-development-branch")) {
+                    console.log("✅ prompts/get structured-debug returned complete troubleshooting workflow with lifecycle completion");
                 } else {
                     console.error("❌ prompts/get structured-debug content mismatch:", text);
                     process.exit(1);
@@ -126,16 +141,80 @@ server.stdout.on("data", (data) => {
             } else if (response.id === 5) {
                 const text = response.result?.messages?.[0]?.content?.text || "";
                 if (text.includes("Refactoring legacy authentication subsystem") &&
+                    text.includes("Recommended Pipeline Focus:") &&
+                    text.includes("Pipeline 3 (Large Refactoring & System Migration)") &&
                     text.includes("New Feature Development") &&
                     text.includes("Structured Debugging") &&
                     text.includes("Large Refactoring") &&
                     text.includes("Legacy Codebase Safety Net")) {
-                    console.log("✅ prompts/get skill-composition returned comprehensive guide");
-                    console.log("🎉 ALL SKILL COMPOSITION PROMPT TESTS PASSED 100%!");
+                    console.log("✅ prompts/get skill-composition returned comprehensive guide with dynamic scenario focus");
+
+                    // Test prompt whitespace and empty args robustness
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 6,
+                        method: "prompts/get",
+                        params: {
+                            name: "feature-pipeline",
+                            arguments: {
+                                feature_name: "   ",
+                                requirements: "   "
+                            }
+                        }
+                    });
+                } else {
+                    console.error("❌ prompts/get skill-composition content mismatch:", text);
+                    process.exit(1);
+                }
+            } else if (response.id === 6) {
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                if (text.includes("(Unspecified feature)") && !text.includes("Requirements / Context")) {
+                    console.log("✅ prompts/get whitespace argument trimming & fallback verified");
+
+                    // Test 7: Cascading template interpolation protection
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 7,
+                        method: "prompts/get",
+                        params: {
+                            name: "sdd-implementer",
+                            arguments: {
+                                brief_file: "path/with/[task name]/in/name.md",
+                                task_name: "REAL_TASK_NAME"
+                            }
+                        }
+                    });
+                } else {
+                    console.error("❌ prompts/get whitespace robustness check failed:", text);
+                    process.exit(1);
+                }
+            } else if (response.id === 7) {
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                if (text.includes("path/with/[task name]/in/name.md")) {
+                    console.log("✅ prompts/get cascading template placeholder injection protection verified");
+
+                    // Test 8: Negative test (Unknown prompt returns InvalidRequest error)
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 8,
+                        method: "prompts/get",
+                        params: {
+                            name: "non-existent-pipeline",
+                            arguments: {}
+                        }
+                    });
+                } else {
+                    console.error("❌ prompts/get cascading template injection occurred!", text);
+                    process.exit(1);
+                }
+            } else if (response.id === 8) {
+                if (response.error && (response.error.code === -32600 || response.error.code === -32602)) {
+                    console.log(`✅ prompts/get unknown prompt returns InvalidRequest error (${response.error.code})`);
+                    console.log("🎉 ALL ADVANCED COMPOSITIONS & SECURITY PROMPT TESTS PASSED 100%!");
                     server.kill();
                     process.exit(0);
                 } else {
-                    console.error("❌ prompts/get skill-composition content mismatch:", text);
+                    console.error("❌ prompts/get unknown prompt did not return expected error:", response);
                     process.exit(1);
                 }
             }
