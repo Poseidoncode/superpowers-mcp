@@ -13,6 +13,7 @@ import {
     McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import { SkillsManager } from "./skills-manager.js";
+import { runSetupCli } from "./setup-runner.js";
 
 // ---------------------------------------------------------------------------
 // Paths & Environment Protection
@@ -860,13 +861,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 // ---------------------------------------------------------------------------
 
 async function main() {
+    const args = process.argv.slice(2);
+    const firstArg = args[0];
+
+    // Explicit CLI setup interception before initializing any MCP transports
+    if (firstArg === "setup" || firstArg === "--setup") {
+        try {
+            await runSetupCli(args);
+            process.exit(0);
+        } catch (err) {
+            console.error("Setup failed:", err);
+            process.exit(1);
+        }
+        return;
+    }
+
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
     const shutdown = async () => {
         try {
             await server.close();
-        } catch {
+        } catch (_closeErr) {
             // Ignore close errors during termination
         }
         process.exit(0);

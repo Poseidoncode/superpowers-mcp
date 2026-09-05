@@ -36,9 +36,59 @@
 
 ---
 
-## 🛠️ MCP 구성
+## ⚡ 타겟 지정형 원클릭 설정 (Targeted One-Click Setup)
 
-다음 설정을 IDE 또는 MCP 클라이언트(예: Cursor, Antigravity, VSCode, AnythingLLM 등)의 MCP 설정에 추가하세요.
+불필요한 환경 수정을 방지하고 필요한 클라이언트에만 안전하게 도입할 수 있도록, **명시적인 타겟 지정과 개인정보/환경 보호를 최우선**으로 하는 원클릭 설정 도구를 제공합니다.
+
+> [!NOTE]
+> **모든 디렉터리에서 바로 실행 가능**: 이 저장소를 복제(clone)하거나 특정 폴더로 이동할 필요가 없습니다. 터미널의 **어느 위치에서나** 바로 아래 명령어를 실행할 수 있습니다. 설치 도구가 사용자 홈 디렉터리(`~`)를 기준으로 전역 설정 파일을 자동 탐지하여 모든 작업 공간에서 즉시 활성화합니다.
+
+> [!TIP]
+> **투명성 및 환경 보호 원칙**: Superpowers MCP는 악성코드처럼 선택되지 않은 다른 에디터를 임의로 스캔하거나 일괄 수정하지 않습니다. 사용 중인 AI 클라이언트 전용 명령어를 실행하기만 하면, **원자적 쓰기(Atomic Swap) 기술**을 통해 설정을 안전하게 병합합니다 (충돌 시 손상 제로, **기본적으로 불필요한 `.bak` 쓰레기 파일을 남기지 않는 클린 사양**, 기존 다른 MCP 서버 무영향).
+
+### 1. 사용 중인 AI Agent / 에디터 선택 (원클릭 정밀 설정)
+
+사용 중인 클라이언트에 맞춰 터미널에서 해당 명령어를 실행하세요:
+
+| Harness / 클라이언트 | 지원 OS | 원클릭 설정 명령어 | 기본 설정 파일 경로 |
+| :--- | :--- | :--- | :--- |
+| **Antigravity (Google DeepMind)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target antigravity` | `~/.gemini/config/mcp_config.json` |
+| **Pi Desktop / Pi Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target pi-desktop` | `~/.pi/agent/mcp.json` |
+| **Cursor** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target cursor` | `~/.cursor/mcp.json` |
+| **GitHub Copilot (VS Code)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target copilot` | `Code/User/mcp.json` *(VS Code `servers` 형식)* |
+| **Hermes Desktop / Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target hermes` | `~/.hermes/config.yaml` *(Win: `%LOCALAPPDATA%\hermes`)* |
+| **Kimi Work / Kimi Code** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kimi` | `~/.kimi-code/mcp.json` |
+| **Claude Desktop** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target claude` | `Claude/claude_desktop_config.json` |
+| **Devin Desktop (구 Windsurf)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target devin` | `~/.config/devin/mcp_config.json` *(또는 `windsurf`)* |
+
+*(Bun을 선호하는 경우 `--bun`을 추가할 수 있습니다, 예: `npx -y superpowers-mcp setup --target cursor --bun`)*
+
+---
+
+### 2. Curl 또는 PowerShell을 통한 설정
+
+- **macOS / Linux (Curl 이용 타겟 지정):**
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.sh | bash -s -- --target cursor
+  ```
+
+- **Windows (PowerShell 이용 타겟 지정):**
+  ```powershell
+  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.ps1))) -Target cursor
+  ```
+
+#### 유용한 고급 옵션:
+- `--dry-run`: 디스크에 쓰지 않고 변경될 파일과 내용을 미리 확인합니다.
+- `--remove`: 지정된 대상 Harness에서 Superpowers 설정을 안전하게 제거합니다.
+- `--backup`: 변경 전 타임스탬프가 포함된 `.bak` 백업 파일을 생성 (기본값은 해제, 클린 환경 유지).
+- `--bun`: 생성되는 명령어에서 `bunx`를 사용합니다.
+- `--target <name>`: 특정 대상을 지정 (별칭 지원, 예: `code`, `vscode`, `kimi-code`).
+
+---
+
+## 🛠️ 수동 MCP 구성 (Manual Configuration)
+
+수동으로 설정하려는 경우, 다음 설정을 IDE 또는 MCP 클라이언트(예: Cursor, Antigravity, VSCode, AnythingLLM 등)의 MCP 설정에 추가하세요.
 
 ### 방법: NPX / BUNX (권장)
 

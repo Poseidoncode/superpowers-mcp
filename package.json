@@ -23,10 +23,14 @@
     "agent"
   ],
   "bin": {
-    "superpowers-mcp": "./out/server.js"
+    "superpowers-mcp": "./out/server.js",
+    "superpowers-setup": "./out/setup.js"
   },
   "files": [
     "out/server.js",
+    "out/setup.js",
+    "out/setup-runner.js",
+    "scripts",
     "skills"
   ],
   "overrides": {
@@ -39,7 +43,7 @@
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "pretest": "npm run build",
-    "test": "node tests/edge_cases_test.js && node tests/run_test.js && node tests/brainstorm_server_test.js && node tests/prompts_compositions_test.js",
+    "test": "node tests/edge_cases_test.js && node tests/run_test.js && node tests/brainstorm_server_test.js && node tests/prompts_compositions_test.js && node tests/setup_test.js",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

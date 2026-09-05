@@ -36,9 +36,59 @@
 
 ---
 
-## 🛠️ MCP 配置
+## ⚡ 快速全域一鍵設定 (Targeted One-Click Setup)
 
-將以下設定加入您的 IDE 或 MCP 客戶端（例如 Cursor、Antigravity、VSCode、AnythingLLM 等）。
+為了讓您在最短時間內啟用 Superpowers，我們提供了**精確指定、尊重環境隱私、杜絕批量侵入**的跨平台一鍵安裝工具。
+
+> [!NOTE]
+> **可在系統任何目錄下直接執行**：您不需要預先切換到特定專案目錄，也無須 clone 本儲存庫。在終端機的**任意目錄**皆可直接執行以下指令！安裝程式會自動鎖定您系統中的全域設定檔（以使用者家目錄為基準），一次設定、全域與所有專案皆可自動生效。
+
+> [!TIP]
+> **透明與零污染保護原則**：Superpowers 絕不會像惡意軟體般擅自全域掃描或批量改寫您未指定的其他編輯器。您使用哪一款 AI 工具，就執行該工具的專屬一鍵指令，完全透明、可控且安全無損（採用**原子寫入技術**，保證斷電不壞檔，且**預設零磁碟垃圾殘留**，不隨意產生 `.bak`，亦絕不影響原有其他 MCP 伺服器）。
+
+### 1. 選擇您的 AI Agent / 編輯器（一鍵精準設定）
+
+請依據您使用的客戶端，在終端機複製並執行對應指令：
+
+| Harness / 客戶端 | 支援 OS | 專屬一鍵設定指令 | 全域設定檔路徑 |
+| :--- | :--- | :--- | :--- |
+| **Antigravity (Google DeepMind)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target antigravity` | `~/.gemini/config/mcp_config.json` |
+| **Pi Desktop / Pi Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target pi-desktop` | `~/.pi/agent/mcp.json` |
+| **Cursor** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target cursor` | `~/.cursor/mcp.json` |
+| **GitHub Copilot (VS Code)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target copilot` | `Code/User/mcp.json` *(VS Code `servers` 格式)* |
+| **Hermes Desktop / Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target hermes` | `~/.hermes/config.yaml` *(Win: `%LOCALAPPDATA%\hermes`)* |
+| **Kimi Work / Kimi Code** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kimi` | `~/.kimi-code/mcp.json` |
+| **Claude Desktop** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target claude` | `Claude/claude_desktop_config.json` |
+| **Devin Desktop (原 Windsurf)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target devin` | `~/.config/devin/mcp_config.json` *(或 `windsurf`)* |
+
+*(若偏好使用 Bun，指令可加上 `--bun`，例如 `npx -y superpowers-mcp setup --target cursor --bun`)*
+
+---
+
+### 2. 透過 Curl / PowerShell 一鍵設定
+
+- **macOS / Linux（透過 Curl 指定目標）：**
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.sh | bash -s -- --target cursor
+  ```
+
+- **Windows（透過 PowerShell 指定目標）：**
+  ```powershell
+  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.ps1))) -Target cursor
+  ```
+
+#### 常用進階參數：
+- `--dry-run`：預覽即將修改的檔案與配置內容，不實際寫入磁碟。
+- `--remove`：從指定目標 Harness 安全移除 Superpowers 配置。
+- `--backup`：修改前建立時間戳記 `.bak` 備份檔（預設為關閉，維持系統純淨零殘留）。
+- `--bun`：在產生的設定中改用 `bunx` 啟動，享受極速啟動效能。
+- `--target <name>`：指定目標名稱（支援常用別名，如 `code`、`vscode`、`kimi-code` 等）。
+
+---
+
+## 🛠️ 手動 MCP 配置 (Manual Configuration)
+
+若您偏好手動設定，可將以下設定加入您的 IDE 或 MCP 客戶端（例如 Cursor、Antigravity、VSCode、AnythingLLM 等）。
 
 ### 方法：NPX / BUNX（推薦）
 

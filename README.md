@@ -36,9 +36,59 @@ Once installed or configured, your AI Agent will automatically discover and invo
 
 ---
 
-## 🛠️ MCP Configuration
+## ⚡ Targeted One-Click Setup
 
-Add the following settings to your IDE or MCP client (e.g., Cursor, Antigravity, VSCode, AnythingLLM, etc.). 
+To get up and running with Superpowers instantly without intrusive background modifications, use our **targeted, privacy-respecting** one-click setup tool.
+
+> [!NOTE]
+> **Run From Any Directory**: You do NOT need to clone this repository or navigate to a specific folder. You can execute these commands directly from **any directory** in your terminal. The installer automatically targets global configuration files rooted in your user home directory (`~`), instantly enabling Superpowers across all your workspaces.
+
+> [!TIP]
+> **Transparency & Zero-Pollution Principle**: Superpowers will NEVER silently scan or bulk-modify unselected editors like adware. You explicitly choose the client you use, ensuring 100% transparent and safe modification via **atomic write swap** (zero crash risk, **zero disk pollution by default** without dumping `.bak` files, zero impact on your existing MCP servers).
+
+### 1. Choose Your AI Agent / Editor (Targeted One-Liner)
+
+Select your client and run the corresponding command in your terminal:
+
+| Harness / Client | Supported OS | One-Click Setup Command | Global Config Location |
+| :--- | :--- | :--- | :--- |
+| **Antigravity (Google DeepMind)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target antigravity` | `~/.gemini/config/mcp_config.json` |
+| **Pi Desktop / Pi Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target pi-desktop` | `~/.pi/agent/mcp.json` |
+| **Cursor** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target cursor` | `~/.cursor/mcp.json` |
+| **GitHub Copilot (VS Code)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target copilot` | `Code/User/mcp.json` *(VS Code `servers` schema)* |
+| **Hermes Desktop / Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target hermes` | `~/.hermes/config.yaml` *(Win: `%LOCALAPPDATA%\hermes`)* |
+| **Kimi Work / Kimi Code** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kimi` | `~/.kimi-code/mcp.json` |
+| **Claude Desktop** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target claude` | `Claude/claude_desktop_config.json` |
+| **Devin Desktop (formerly Windsurf)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target devin` | `~/.config/devin/mcp_config.json` *(or `windsurf`)* |
+
+*(If using Bun, append `--bun` for faster startup, e.g., `npx -y superpowers-mcp setup --target cursor --bun`)*
+
+---
+
+### 2. Setup via Curl or PowerShell
+
+- **macOS / Linux (via Curl with explicit target):**
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.sh | bash -s -- --target cursor
+  ```
+
+- **Windows (via PowerShell with explicit target):**
+  ```powershell
+  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.ps1))) -Target cursor
+  ```
+
+#### Advanced Flags:
+- `--dry-run`: Preview changes without writing to disk.
+- `--remove`: Safely remove Superpowers configuration from the targeted client.
+- `--backup`: Create a timestamped `.bak` backup before modifying (Default: disabled, zero-pollution).
+- `--bun`: Use `bunx` instead of `npx` in the generated configuration.
+- `--target <name>`: Explicit target name (aliases supported, e.g. `code`, `vscode`, `kimi-code`).
+
+---
+
+## 🛠️ Manual MCP Configuration
+
+If you prefer configuring manually, add the following settings to your IDE or MCP client (e.g., Cursor, Antigravity, VSCode, AnythingLLM, etc.).
 
 ### Method : NPX / BUNX (Recommended)
 

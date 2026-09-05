@@ -36,6 +36,25 @@ const managerConfig = {
     format: "cjs",
 };
 
+const setupConfig = {
+    ...baseConfig,
+    entryPoints: ["src/setup-cli.ts"],
+    outfile: "out/setup.js",
+    external: [],
+    format: "cjs",
+    banner: {
+        js: "#!/usr/bin/env node",
+    },
+};
+
+const setupRunnerConfig = {
+    ...baseConfig,
+    entryPoints: ["src/setup-runner.ts"],
+    outfile: "out/setup-runner.js",
+    external: [],
+    format: "cjs",
+};
+
 async function build() {
     if (isWatch) {
         const srvCtx = await esbuild.context(serverConfig);
@@ -44,16 +63,24 @@ async function build() {
     } else {
         await esbuild.build(serverConfig);
         await esbuild.build(managerConfig);
+        await esbuild.build(setupConfig);
+        await esbuild.build(setupRunnerConfig);
 
-        // Make server.js executable safely across platforms
-        const serverPath = path.join(__dirname, "out", "server.js");
-        if (fs.existsSync(serverPath)) {
-            try {
-                if (process.platform !== "win32") {
-                    fs.chmodSync(serverPath, "755");
+        // Make server.js and setup.js executable safely across platforms
+        const executablePaths = [
+            path.join(__dirname, "out", "server.js"),
+            path.join(__dirname, "out", "setup.js"),
+        ];
+
+        for (const execPath of executablePaths) {
+            if (fs.existsSync(execPath)) {
+                try {
+                    if (process.platform !== "win32") {
+                        fs.chmodSync(execPath, "755");
+                    }
+                } catch (chmodErr) {
+                    console.warn(`Warning: Failed to set executable permissions on ${execPath}:`, chmodErr);
                 }
-            } catch (chmodErr) {
-                console.warn(`Warning: Failed to set executable permissions on ${serverPath}:`, chmodErr);
             }
         }
         console.log("Build complete.");
