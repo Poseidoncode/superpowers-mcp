@@ -138,7 +138,18 @@ These skills are designed for orchestrating complex meta-execution patterns with
 
 ## 🆕 Recent Updates
 
-### v6.3.2 (Latest)
+### v6.3.3 (Latest)
+
+- **MCP Standard Prompts Support (`src/server.ts`)**:
+  - Implemented standard prompt handlers, registering 6 prompts (`session-start`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer`) for native IDE prompt-picker usage.
+- **Multi-Harness Reference Mappings**:
+  - Added platform references for Devin CLI (`references/devin-tools.md`) and OpenCode (`references/opencode-tools.md`).
+- **Multi-Lingual Documentation Alignment**:
+  - Aligned MCP capability tables (Tools, Prompts, Resources) and multi-harness matrices across all supported languages.
+- **Test Suite Expansion**:
+  - Added automated test assertions for `prompts/list` and `prompts/get` parameter injection.
+
+### v6.3.2
 
 - **writing-plans — Two Plan Shapes Router & Skeleton-First Plans**:
   - `skills/writing-plans/SKILL.md` introduces the **Two Plan Shapes** router (`task-by-task` default vs `skeleton-first` alternative) to determine architecture upfront.
@@ -153,145 +164,7 @@ These skills are designed for orchestrating complex meta-execution patterns with
   - Replaced `execSync` shell execution with direct `execFileSync('dot', ['-Tsvg'], ...)` to eliminate shell injection risks. Added 10MB buffer limits, Windows CRLF support (`\r?\n`), and Windows `winget` installation guidance.
 - **Tests & Verification**: Full regression suites pass 100% across MCP protocol, Security Edge Cases, SDD Bash (11 assertions), PowerShell (70 assertions), and Graphviz rendering.
 
-### v6.3.1
-
-- **SDD Ownership Markers & Path Normalization**: `sdd-workspace` (Bash) and `sdd-workspace.ps1` (PowerShell) now manage plan-scoped workspaces using `plan-path` markers with canonical physical path normalization (`pwd -P` and dynamic `pwd` detection). Same-basename plans (e.g. `docs/alpha/plan.md` vs `docs/beta/plan.md`) safely disambiguate into distinct `.superpowers/sdd/` workspaces, preventing artifact and ledger overwrites.
-- **SDD Review Package Range Mechanical Guards**: `review-package` and `review-package.ps1` now enforce `git merge-base --is-ancestor BASE HEAD` and `git rev-list --count BASE..HEAD > 0` (exiting with code 3 on error) to reject invalid or empty commit ranges and prevent false-pass review approvals.
-- **SDD Helper Resilience on Stripped Permissions**: `task-brief` and `review-package` invoke `sdd-workspace` via explicit `"${BASH:-bash}"`, surviving environments where execution bits (`+x`) are stripped during archive extraction.
-- **TDD Verification Floor**: `skills/test-driven-development/SKILL.md` explicitly defines "green" as passing the entire repository test suite (e.g., bare `npm test`, `pytest`, `cargo test`) before declaring a task complete.
-- **Code Review Merge-Base Anchoring**: `skills/requesting-code-review/SKILL.md` now anchors multi-commit review `BASE_SHA` to `git merge-base origin/main HEAD` to prevent phantom deletions when `origin/main` advances.
-- **Brainstorming Tooling Decision Gate**: `skills/brainstorming/SKILL.md` adds a proactive tooling inquiry (linter, formatting, unit/e2e tests, fuzzing) during the Design Presentation phase for new projects, recording choices into the spec's `Global Constraints`.
-- **Tests & Coverage**: Added `tests/sdd/test-sdd-workspace.sh` (11 assertions) and expanded PowerShell suites (70 assertions across 5 files). Full test suites passing 100%.
-
-### v6.3.0
-
-- **Upstream sync with obra/superpowers v6.3.0** — all applicable improvements adopted, fork-specific security hardening and PowerShell support preserved.
-  - **brainstorming — three-path router**: every request is classified `spike` / `bounded` / `architectural` up front; the ceremony scales with the task but the approval gate never does. Hidden complexity upgrades the path mid-task — never downgrades.
-  - **subagent-driven-development — rulings, not stalls**: conflicts, ambiguities, and plan defects are ruled on and ledgered (`Ruling: ...`) instead of parking the session on a human; only four named conditions stop execution. Pre-flight conflict scans produce a ledgered table, small same-shape tasks batch into one dispatch, subagent waits use bounded stretches, and all three prompts carry the no-subagents contract.
-  - **Hermes Agent support**: new `hermes-tools.md` reference maps skill actions to Hermes tools (`delegate_task`, `skill_view`, …).
-  - **Codex**: V1/V2 multi-agent differences, `followup_task` fix-round resume, and event-subscription `wait_agent` guidance.
-  - **writing-plans**: plan template now carries a `Spec:` field.
-  - **finishing-a-development-branch**: worktree removal-refused procedure — never `--force` on your own initiative.
-- **Fixes from dual-agent code review**: merged-path "commit them to \<branch\>" no longer strands files outside the base branch (finishing-a-development-branch); `sdd-workspace.ps1` slug derivation matches `basename` on all platforms (`PLAN.MD` stays `PLAN.MD`).
-- **Not adopted (deliberate)**: upstream's v6.3.0 server simplification (it removed loopback-only enforcement, `O_NOFOLLOW` reads, nonce CSP, and the local brand SVG) — this package keeps its hardened server; upstream's `.ps1` deletions and plugin-only restructuring also don't apply to this MCP server layout.
-- **Tests**: MCP flow, render-graphs (8 assertions), and the full PowerShell suite (64 assertions) all pass.
-
-### v6.2.4
-
-- **Upstream alignment — persistent brainstorm sessions**: with `--project-dir`, the companion now persists its session key to `.superpowers/brainstorm/.last-token` (owner-only, gitignored) alongside `.last-port` and reuses it across restarts — an already-open browser tab stays connected after a restart, no URL re-sharing needed. Ephemeral `/tmp` sessions keep rotating the key per invocation, and an explicit `BRAINSTORM_TOKEN` env var still wins and is never persisted. Delete `.last-token` (server stopped) to force a fresh key.
-- **Token-file read path hardened** (`readPrivateFile`): symlinked or multi-link `.last-token` files are rejected instead of being adopted as the session key, with the read performed through an `O_NOFOLLOW` fd whose identity is re-checked and tightened to 0600 — closing the asymmetry with the already-hardened write path (found by independent security review).
-- **Diagnosability**: a failed token-file write now logs `Failed to write private token file:` instead of silently degrading to per-start key rotation.
-- **start-server.ps1 env hygiene**: an ephemeral (no `--project-dir`) launch no longer inherits a stale project key/port from the invoking pwsh session.
-- **Tests**: companion suite now 31 assertions — token persistence across restarts, pre-seeded file honored, symlinked token file rejected, rotation preserved without a token file; test cleanup is failure-safe (try/finally). PowerShell suite asserts `.last-token` matches the served key.
-
-### v6.2.3
-
-- **Hardened Brainstorming Visual Companion (`server.cjs`)**: the local loopback-only HTTP+WebSocket server is crash-resistant against filesystem races (a deleted content dir or a screen vanishing mid-read degrades to the waiting page / 404 instead of killing the process), and its watcher self-heals after the content dir is deleted and recreated (Linux inotify + macOS FSEvents). WebSocket handshakes are validated against RFC 6455 (version/upgrade/connection/key), control-frame payloads are capped at 125 bytes, clients have idle/partial-frame deadlines, and the oldest connection is evicted when the cap is full. Security headers now include `nosniff` and a nonce CSP; generated keys rotate per invocation; screen, skill, event, and user-event reads/logs are size-capped and state files are private.
-- **Companion security defaults**: the server only binds to loopback HTTP, rotates its key on every invocation, stores browser authentication only in an HttpOnly/SameSite cookie after the initial URL, and blocks unnonce'd scripts in screen HTML. Remote browsers must use an authenticated SSH tunnel; a restart requires sharing the new `server-info` URL.
-- **`/files/` double-`writeHead` crash fixed** (found by subagent review): files are read *before* headers are sent, and reads use `O_NOFOLLOW` + fd-based `fstat` + size cap, closing the check-then-read TOCTOU.
-- **Process-lifecycle safety**: `start-server.sh/.ps1` now prove a PID is a live brainstorm server of this session (server-instance-id + cmdline check, same as stop-server) before signalling it; `stop-server.sh` resolves paths canonically before deleting temp sessions so `/tmp/../` tricks can't escape the temp root; relative `--project-dir` is resolved up front; `server-instance-id` is written without BOM so cross-shell identity checks work on Windows PowerShell 5.1.
-- **SkillsManager hardening**: skill reads use `O_NOFOLLOW` on POSIX (symlink-swap TOCTOU); a failed rescan returns the last-good cache instead of poisoning it; skill names containing consecutive dots (e.g. `a..b`) are now findable — lookups are map-only and never touch the filesystem.
-- **MCP protocol polish**: malformed percent-encoding in resource URIs now returns `InvalidRequest` (-32600) instead of leaking an internal error.
-- **Dependencies**: exact verified overrides pin `hono` to 4.13.0, `@hono/node-server` to 2.0.11, and `fast-uri` to 4.1.2 (resolving the relevant advisories). `npm audit`: **0 vulnerabilities**.
-- **Test suite**: `npm test` builds first and runs the JavaScript edge-case/security, MCP server flow, and companion-server regression suites. The 63-assertion PowerShell suite runs separately with `tests/powershell/run-tests.sh` and skips gracefully when `pwsh` is unavailable.
-- **Independent review**: the security and correctness findings were addressed with per-invocation auth rotation, loopback-only HTTP, nonce CSP, bounded reads, private state writes, and deterministic cross-platform tests.
-
-### v6.2.2
-
-- **Symlink Traversal Prevention**: `SkillsManager.readSkillContent()` now canonicalizes paths with `fs.realpath` before checking boundaries, preventing symlink-based arbitrary file reads; `getSafeSkillsPath` also blocks dangerous system-directory prefixes.
-- **Compatibility & Protocol**: Added UTF-8 BOM support for frontmatter and skill content, and enforced RFC 3986 encoding/decoding for resource URIs containing spaces or special characters.
-- **Correctness & Tests**: Force reloads now invalidate the content cache, concurrent reload locking is safer, multiline YAML descriptions accept tab or space indentation, and `tests/edge_cases_test.js` covers these security and cache behaviors.
-
-### v6.2.1
-
-- **PowerShell Script Test Suite**: Added `tests/powershell/` with 63 assertions across 5 suites for `sdd-workspace.ps1`, `task-brief.ps1`, `review-package.ps1`, `find-polluter.ps1`, and the brainstorm `start-server.ps1`/`stop-server.ps1` lifecycle. Run with `tests/powershell/run-tests.sh`; it skips gracefully when `pwsh` is unavailable.
-- **stop-server.ps1 Cross-Platform Fix**: `Get-CimInstance Win32_Process` is Windows-only; the script now uses `ps` on Unix so the server-id check works correctly on macOS/Linux.
-- **Cleanup**: Removed `skills/using-superpowers/references/copilot-tools.md`, an orphaned reference file already pruned upstream.
-
-### v6.2.0
-- **Upstream Sync with obra/superpowers v6.2.0**: Synchronized upstream improvements across all skills while preserving local security enhancements and PowerShell helpers.
-  - **subagent-driven-development Restructure**: Plan-scoped workspaces (`.superpowers/sdd/<plan>/`) so concurrent plans can never read or overwrite each other's artifacts. Resume-based review-fix loop with a five-round circuit breaker, plus a new scoped `re-review-prompt.md` for re-reviews after fixes.
-  - **test-driven-development**: `testing-anti-patterns.md` replaced by upstream `writing-good-tests.md`.
-  - **finishing-a-development-branch**: Adopted the upstream rewrite (includes the same worktree-path capture fix previously patched locally; branch discard is now explicit-request-only).
-  - **Skills-wide compression**: Recap and persuasion sections removed across many `SKILL.md` files, reducing prompt token footprint.
-  - **gemini-tools.md**: Restored to the updated upstream version; `visual-companion.md` gains a Gemini CLI launch section.
-- **PowerShell Parity Fixes**:
-  - All SDD `.ps1` scripts ported to the new plan-scoped `PLAN_FILE` interfaces; `find-polluter.ps1` gained the `./`-prefix and `**/` collapse fixes from the bash version.
-  - **Exit-code parity**: Fixed `Write-Error` under `$ErrorActionPreference = "Stop"` swallowing the intended exit codes — validation failures now correctly exit 2 and a missing task exits 3, matching the bash scripts.
-  - **`sdd-workspace.ps1` slug derivation**: Strips only a trailing `.md` (matching bash `basename`), instead of any file extension.
-- **Version Alignment**: `package.json`, `package-lock.json`, and the MCP server handshake version are now consistent at 6.2.0.
-
-### v6.0.3
-- **Command Injection Fix**: Replaced `cp.exec()` with `cp.execFile()` in the brainstorming Visual Companion server (`server.cjs`) for the `BRAINSTORM_OPEN_CMD` launcher path. The old code concatenated the env var with the URL via the shell; the new code passes arguments as an argv array, eliminating shell metacharacter injection regardless of env var content.
-- **Dependency Security (overrides)**: Added `overrides` block in `package.json` enforcing minimum versions for transitive dependencies:
-  - `@hono/node-server`: 1.19.14 → **2.0.11** — fixes Windows path traversal in serve-static via encoded backslash ([GHSA-frvp-7c67-39w9](https://github.com/advisories/GHSA-frvp-7c67-39w9))
-  - `fast-uri`: 3.1.2 → **4.1.1** — fixes host confusion via IDN canonicalization ([GHSA-4c8g-83qw-93j6](https://github.com/advisories/GHSA-4c8g-83qw-93j6)) and literal backslash authority delimiter ([GHSA-v2hh-gcrm-f6hx](https://github.com/advisories/GHSA-v2hh-gcrm-f6hx))
-  - `body-parser`: 2.2.2 → **2.3.0** — fixes DoS when invalid limit value silently disables size enforcement ([GHSA-v422-hmwv-36x6](https://github.com/advisories/GHSA-v422-hmwv-36x6))
-- **Upstream Bug Fixes**:
-  - `find-polluter.sh`: Now accepts `./`-prefixed paths (not just bare paths) and supports top-level test files by collapsing `**/` in the pattern
-  - `finishing-a-development-branch/SKILL.md`: Captures `WORKTREE_PATH` before Step 5 changes directory, fixing a cleanup regression. Added detached HEAD push variant for Option 2
-
-### v6.0.2
-- **Modular Refactoring & Performance Upgrades**:
-  - **Decoupled Architecture**: Extracted file system access, metadata caching, and parsing logic into a dedicated [`src/skills-manager.ts`](src/skills-manager.ts), leaving [`src/server.ts`](src/server.ts) purely focused on MCP protocol handling.
-  - **O(1) Map-Based Cache**: Replaced the $O(N)$ double-array scan with case-insensitive, dual-key (by name and directory name) memory caches for fast $O(1)$ lookups.
-  - **Async I/O Pipeline**: Swapped synchronous file API calls (`readdirSync`, `readFileSync`) with promises and `Promise.all` concurrent execution, unlocking high-throughput performance.
-  - **Markdown Cache**: Cached stripped skill content in memory to avoid repetitive disk reads when tools are invoked frequently.
-- **Security Hardening**:
-  - **ReDoS Prevention**: Replaced regex-based frontmatter parser with a safe, line-by-line state machine parser, completely eliminating CPU exhaustion risks and supporting multiline YAML descriptions.
-  - **Path Traversal Shield**: Added strict alphanumeric white-listing (`/^[a-zA-Z0-9-_]+$/`) on skill name inputs to prevent traversal attacks.
-  - **Directory Injection Check**: Validated `SKILLS_PATH` to actively reject potentially hostile system root folders.
-  - **Path & Username Leak Protection**: Caught native file system errors and masked them into generic, path-free `McpError` payloads.
-  - **Windows Build and Script Safety**: Handled Windows `chmodSync` platform checks in `esbuild.js` and skipped Symlinks in `copy-skills.js` to prevent recursive file copy loops.
-
-- **Upstream Security Cherry-Picks**: Applied security hardening from obra/superpowers v6.1.1:
-  - **WebSocket frame size validation**: Added `MAX_FRAME_PAYLOAD_BYTES (10 MB)` check in `decodeFrame()` to prevent oversized frame attacks (CWE-789). Dual protection — BigInt extended-length and general post-resolution guard.
-  - **Hardlink containment**: Added `stat.nlink !== 1` check in `isRegularFileInsideContentDir()` prevents path traversal via hardlinks.
-  - **`escapeHtmlText()` extraction**: Extracted inline `escHtml` closure into a reusable named function for consistent HTML escaping.
-  - **URL parsing refactor**: Extracted `pathnameOf()` and `queryKey()` helpers, reducing duplicate inline URL logic in `handleRequest()`.
-- **`review-package` Path Resolution Fix**: Fixed `sdd-workspace` invocation to use absolute path resolution (`$(cd "$(dirname "$0")" && pwd)`) instead of relative path, fixing CWD-dependent failures.
-- **Windows Native Helper Scripts**: Added PowerShell wrappers for Visual Companion startup/shutdown, SDD review/task helpers, and systematic-debugging polluter detection.
-- **Skill Documentation Enhancements**:
-  - `subagent-driven-development`: Added `plan-mandated` review guidance for handling plan conflicts.
-  - `writing-skills`: Strengthened prohibition vs. recipe guidance with empirical evidence from wording tests.
-  - `test-driven-development`: Fixed table formatting for clarity.
-  - `writing-skills/anthropic-best-practices`: Updated image CDN URLs.
-- **`helper.js` Comment Alignment**: Added 4 clarifying inline comments to align with upstream documentation without changing behavior. DOM-safe `showTombstone()` preserved (no `innerHTML` regression).
-- **Cleanup**: Removed obsolete `walkthrough.md` (v5.1.0 upgrade guide).
-
-### v6.0.1
-- **Security Fix — Reflected XSS (#2)**: Fixed server-side reflected cross-site scripting in `skills/brainstorming/scripts/server.cjs`. The `bootstrapPage()` function was called with the user-supplied `keyFromQuery` parameter (even though validated via `timingSafeEqualStr`). Changed to use the server-side `TOKEN` constant instead, eliminating user-tainted data from the HTML response sink. Zero behavior change (the validated value is identical).
-
-### v6.0.0
-- **Upstream Sync with obra/superpowers v6.1.1**: Major synchronization bringing upstream improvements across all skills.
-- **subagent-driven-development Redesign**: Consolidated two-stage review (spec → code quality) into a single "task reviewer" sub-agent, plus added a broad **whole-branch final review** at completion. New **Pre-Flight Plan Review** catches task conflicts before execution begins. Added **Model Selection Guidance** to optimize cost vs. turn count.
-- **using-superpowers Simplified**: Removed platform-specific sections and Graphviz diagram. Introduced **per-platform reference files** (`antigravity-tools.md`, `pi-tools.md`) and updated `codex-tools.md` for cleaner multi-environment support.
-- **brainstorming Visual Companion**: Changed to **just-in-time** offering — no longer offered upfront, only when a visual question actually arises.
-- **Type Safety & Code Quality**: Fixed `Record<string,string>` cast in `server.ts` with proper `typeof` guard. Replaced remaining `innerHTML` with safe DOM methods. Removed redundant checks and verbose comments across the codebase.
-
-### v5.1.2
-- **Security Hardening**: Removed the last remaining `innerHTML` usage in `skills/brainstorming/scripts/helper.js`, replacing it with safe DOM creation methods — now zero `innerHTML` in the entire codebase.
-- **Dependency Security**: Upgraded `hono` from `4.12.23` to `4.12.26` to patch 5 advisories including CORS origin reflection, Lambda body-limit bypass, and Set-Cookie header merging.
-- **Clean Slate**: All 37 Dependabot advisories and npm audit warnings now fully resolved — zero outstanding vulnerabilities.
-
-### v5.1.1
-- **Security Audit & Hardening**: Conducted a full-scale security audit and updated `.gitignore` rules to prevent potential secret leaks.
-- **Vulnerability Patches**: Patched XSS vulnerability in brainstorming Visual Companion (`helper.js`) by replacing unsafe `innerHTML` usage with secure DOM APIs. Upgraded `path-to-regexp` to `8.4.2` to resolve a high-severity ReDoS vulnerability.
-- **Dev Dependencies**: Bumped `esbuild` to `0.28.1`.
-
-### v5.1.0
-- **Inline Self-Review**: Replaced heavyweight subagent review loops (Spec Review, Plan Review) in `brainstorming` and `writing-plans` with lightweight inline self-review checklists, significantly improving efficiency by eliminating subagent overhead.
-- **Git Worktree Redesign**: Rewrote `using-git-worktrees` and `finishing-a-development-branch` with a `detect-and-defer` mechanism, natively supporting AI editors' (like Claude Code) built-in worktree tools while safely falling back to git CLI commands.
-- **Token Optimization**: Removed obsolete `Integration` sections from all skills, reducing prompt token footprints.
-- **Consolidation**: Consolidated the independent `code-reviewer` agent directly into `requesting-code-review`.
-
-### v4.3.2
-- **Security**: Fixed XSS vulnerability in brainstorming Visual Companion
-- **Docs**: Updated README and SECURITY with accurate version info
-
-### v4.3.0
-- Initial MCP server implementation
-- 14 core skills migrated from original Superpowers
+👉 *For the complete release history, see [CHANGELOG.md](CHANGELOG.md).*
 
 ---
 
