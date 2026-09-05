@@ -36,6 +36,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 
 - **Targeted Global Setup & Anti-Virus Design (`src/setup-runner.ts`, `scripts/setup.js`, `scripts/install.sh`, `scripts/install.ps1`)**:
   - **Explicit Consent Mandate**: Completely eliminated unprompted bulk scanning or blind filesystem crawling (`--all` removed). Configuration now strictly requires `--target <client>` specification. Executing without a target outputs interactive guidance and cleanly exits without touching, reading, or writing any files on the host system.
+  - **Multi-Harness Co-existence & Copilot Insiders Isolation**: Provides fully isolated configuration paths for GitHub Copilot (VS Code Insiders) (`Code - Insiders/User/mcp.json`) distinct from standard VS Code (`Code/User/mcp.json`) across macOS, Linux, and Windows. Guarantees zero cross-contamination: configuring or removing superpowers in either environment operates independently without collision. Aliases (`copilot-insiders`, `vscode-insiders`, `code-insiders`, `insiders`, `insider`, `copilot-insider`) inherit strict JSON schema validation, prototype pollution guards, and atomic write isolation.
   - **Atomic File Operations & Race Defense (`safeWriteConfig`)**: Employs non-destructive atomic write pattern utilizing temporary files scoped to the target directory with process ID and a cryptographically secure 8-byte hexadecimal nonce (`crypto.randomBytes(8)`). Writes enforce `flag: "wx"` (exclusive creation, preventing symlink pre-creation hijacking) followed by atomic commit via `fs.renameSync`. Transient write errors trigger best-effort temporary file cleanup.
   - **Symlink Boundary Preservation**: Resolves target paths via `fs.realpathSync` to preserve symbolic link destinations while guarding containment boundaries, handling dangling symlinks safely.
   - **Strict Least-Privilege Permissions**: Automatically creates parent configuration directories with restricted mode `0o700` (`rwx------`). Configuration files are written with `0o600` (`rw-------`) or retain existing target permissions. Pre-write backup files (`.bak`) strictly inherit source permissions.
@@ -121,6 +122,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | `eval` / `new Function` / `document.write` | :zero: Zero occurrences |
 | Command Injection (`execFileSync` in `render-graphs.js` & `server.cjs`) | :white_check_mark: Secured — direct binary execution, shell interpreters eliminated |
 | Targeted Global Setup & Explicit Consent | :white_check_mark: Secured — anti-virus design; requires explicit `--target <client>`, no blind scanning, safe exit without target |
+| Multi-Harness Co-existence & Path Isolation | :white_check_mark: Secured — physical separation between Copilot Stable (`Code/User/mcp.json`) and Copilot Insiders (`Code - Insiders/User/mcp.json`), zero collision or cross-contamination |
 | Atomic Config Writes & Race Defense | :white_check_mark: Secured — temporary file write with cryptographically secure random nonce (`crypto.randomBytes(8)`), exclusive creation (`wx`), and atomic `renameSync` |
 | Least-Privilege Directory & File Modes | :white_check_mark: Secured — created configuration dirs restricted to `0o700`, files written with `0o600` or existing mode, backup files preserve source mode |
 | JSONC & Serialization Injection Defense | :white_check_mark: Secured — comment stripping with trailing comma tolerance, `isPlainObject` prototype pollution defense, `JSON.stringify` variable escaping in YAML/JSON |
@@ -179,6 +181,8 @@ A full repository security audit was conducted covering dependencies, core MCP s
 ### 4. Universal Global Setup Engine & Installation Scripts (`src/setup-runner.ts`, `scripts/`)
 - **Explicit Consent & Anti-Virus Design**:
   - Abolished all unprompted bulk scanning or blind directory crawling (`--all` removed). Setup strictly requires `--target <client>`. Running without arguments outputs interactive guidance and cleanly exits without touching or reading the host filesystem.
+- **Multi-Harness Co-existence & Copilot Insiders Isolation**:
+  - Distinct physical configuration separation between standard VS Code (`Code/User/mcp.json`) and VS Code Insiders (`Code - Insiders/User/mcp.json`) across macOS, Linux, and Windows. Prevents cross-contamination and guarantees independent updates, additions, and uninstalls.
 - **Atomic Operations & Race Resilience**:
   - `safeWriteConfig` utilizes temporary files scoped to the target directory containing process ID and cryptographically random 8-byte nonces (`crypto.randomBytes(8)`). Writes enforce `flag: "wx"` (exclusive creation, avoiding symlink hijacking) and commit via atomic `fs.renameSync`.
 - **Symlink Boundary Preservation**:
@@ -202,7 +206,11 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **MCP Protocol & Prompts Suite** (`tests/run_test.js`): Passed 7/7 tests (Initialization, `list_skills`, `read_skill`, malformed URI handling, `prompts/list`, `prompts/get` dynamic injection).
 - **Companion Server Suite** (`tests/brainstorm_server_test.js`): **31 passed, 0 failed** (Authentication, token persistence, WS caps, CSP, traversal protection, PID lifecycle).
 - **Compositions & Prompts Injection Suite** (`tests/prompts_compositions_test.js`): Passed 7/7 tests (Workflow prompts coverage, multi-stage integrity, dynamic scenario focus, cascading injection defense, unknown prompt rejection).
-- **Global Setup Engine Suite** (`tests/setup_test.js`): **21 passed, 0 failed** (Copilot & standard JSON, YAML injection defense, JSONC parsing, plain object validation, anti-bulk target consent, cross-platform path resolution, atomic write sandbox & symlink preservation, double invocation defense).
+- **Global Setup Engine Suite** (`tests/setup_test.js`): **32 passed, 0 failed** (Full coverage across 15 AI agent harnesses: Antigravity, Pi Desktop, Cursor, Copilot, Copilot Insiders, Hermes, Kimi, Claude, Devin, QwenPaw, Cline, Kilo Code, Qoder, Kiro, Trae; JSONC comment tolerance, `json-mcp` local format, YAML injection defense, plain object validation, anti-bulk target consent, cross-platform path resolution, atomic write sandbox & symlink preservation, double invocation defense).
+- **SDD Workspace Bash Suite** (`tests/sdd/test-sdd-workspace.sh`): **11 passed, 0 failed** (Workspace isolation, path normalization, collision counters, commit range validation, permission-stripped execution).
+- **Writing Skills Render Graphs Suite** (`tests/writing-skills/test-render-graphs.sh`): **8 passed, 0 failed** (Direct binary execution, SVG rendering, output verification, error capture).
+- **PowerShell Script Hardening Suite** (`tests/powershell/run-tests.sh`): **70 passed, 0 failed** across 5 test scripts (`test-brainstorming-server.ps1`, `test-find-polluter.ps1`, `test-review-package.ps1`, `test-sdd-workspace.ps1`, `test-task-brief.ps1`).
+- **Total Automated Regression Floor**: **173 automated test assertions, 100% pass rate, 0 regressions**.
 
 ---
 

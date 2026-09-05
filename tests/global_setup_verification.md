@@ -25,11 +25,18 @@
   - **Antigravity (Google DeepMind)**：`~/.gemini/config/mcp_config.json`（支援別名 `antigravity`, `agy`, `gemini`）
   - **Pi Desktop / Pi Agent**：`~/.pi/agent/mcp.json`（支援別名 `pi-desktop`, `pi`, `pi-agent`）
   - **GitHub Copilot (VS Code)**：`Code/User/mcp.json`（自動適配 VS Code 特有的 `servers` root 與 `stdio` 類型規範）
+  - **GitHub Copilot (VS Code Insiders)**：`Code - Insiders/User/mcp.json`（自動適配 VS Code Insiders 的獨立使用者路徑與 `servers` schema，支援別名 `copilot-insiders`, `vscode-insiders`, `code-insiders`, `insiders`, `insider` 等）
   - **Cursor**：`~/.cursor/mcp.json`
   - **Hermes Desktop / Agent**：`~/.hermes/config.yaml`（安全 YAML 區塊合併與更新）
   - **Kimi Work / Kimi Code**：`~/.kimi-code/mcp.json`
   - **Claude Desktop**：`claude_desktop_config.json`
   - **Devin Desktop (原 Windsurf)**：`~/.config/devin/mcp_config.json` 或舊版 `~/.codeium/windsurf/mcp_config.json`（支援別名 `devin`, `windsurf`）
+  - **QwenPaw (個人 AI 助理工作站)**：`~/.qwenpaw/config.json`（相容舊版 `~/.copaw/config.json`，支援別名 `qwenpaw`, `qwen-paw`, `copaw`）
+  - **Cline (VS Code / CLI)**：`.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json`（支援別名 `cline`, `claude-dev`）
+  - **Kilo Code**：`~/.config/kilo/kilo.jsonc`（自適應 Kilo 特有的 `"mcp"` root 與 local 規格，支援別名 `kilo`, `kilocode`, `kilo-code`）
+  - **Qoder**：`~/.qoder/settings.json`（支援別名 `qoder`）
+  - **Kiro**：`~/.kiro/settings/mcp.json`（支援別名 `kiro`, `kiro-code`）
+  - **Trae**：`.../Trae/User/mcp.json`（支援 macOS/Windows/Linux，相容 Trae CN，支援別名 `trae`）
 - **安全防護**：
   - **預設零磁碟污染（Zero-Pollution）**：預設不產生任何 `.bak` 孤兒檔案，杜絕空間浪費與目錄殘留（僅在使用者顯式指定 `--backup` 時生成）。
   - **原子化檔案置換（Atomic Write via renameSync）**：使用隨機後綴與 `flag: 'wx'` 寫入同目錄暫存檔再進行作業系統級原子替換，防禦 Symlink 劫持，保證斷電、行程異常時原設定檔 100% 完好無損。
@@ -56,5 +63,5 @@
   - Edge Cases & Security: 7/7 通過
   - Basic MCP Protocol: 7/7 通過
   - Brainstorm UI & Security: 31/31 通過
-  - Prompts Compositions: 9/9 通過
-  - Global Setup Comprehensive: 21/21 通過
+  - Prompts Compositions: 7/7 通過
+  - Global Setup Engine Suite: 32/32 通過 (包含 15 個 Harnesses 全覆蓋、沙盒原子寫入、端到端建立與更新、刪除、備份、JSONC)

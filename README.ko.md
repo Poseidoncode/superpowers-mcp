@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -13,8 +13,8 @@
 
 ### 지원 환경 및 에이전트 플랫폼
 
-- **AI 코드 편집기 & IDE**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **Devin Desktop**, **MiniMax Code Desktop**, **Codex**.
-- **AI 데스크톱 앱 & 에이전트 도구**: **Hermes Desktop**, **Kimi Work**.
+- **AI 코드 편집기 & IDE**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **VSCode Insiders** (GitHub Copilot), **Devin Desktop**, **Trae**, **Cline**, **Kilo Code**, **Qoder**, **Kiro**, **MiniMax Code Desktop**, **Codex**.
+- **AI 데스크톱 앱 & 에이전트 도구**: **Claude Desktop**, **Pi Desktop**, **QwenPaw**, **Hermes Desktop**, **Kimi Work**.
 - **자체 호스팅 & 로컬 AI 플랫폼**: **AnythingLLM**, **LibreChat**.
 
 ### 제공되는 MCP 프로토콜 기능
@@ -56,10 +56,17 @@
 | **Pi Desktop / Pi Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target pi-desktop` | `~/.pi/agent/mcp.json` |
 | **Cursor** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target cursor` | `~/.cursor/mcp.json` |
 | **GitHub Copilot (VS Code)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target copilot` | `Code/User/mcp.json` *(VS Code `servers` 형식)* |
+| **GitHub Copilot (VS Code Insiders)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target copilot-insiders` | `Code - Insiders/User/mcp.json` *(VS Code `servers` 형식)* |
 | **Hermes Desktop / Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target hermes` | `~/.hermes/config.yaml` *(Win: `%LOCALAPPDATA%\hermes`)* |
 | **Kimi Work / Kimi Code** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kimi` | `~/.kimi-code/mcp.json` |
 | **Claude Desktop** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target claude` | `Claude/claude_desktop_config.json` |
 | **Devin Desktop (구 Windsurf)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target devin` | `~/.config/devin/mcp_config.json` *(또는 `windsurf`)* |
+| **QwenPaw (개인 AI 워크스테이션)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qwenpaw` | `~/.qwenpaw/config.json` *(별칭: `copaw`)* |
+| **Cline (VS Code / CLI)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target cline` | `.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json` |
+| **Kilo Code** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kilo` | `~/.config/kilo/kilo.jsonc` *(적응형 `mcp` 규격)* |
+| **Qoder** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qoder` | `~/.qoder/settings.json` |
+| **Kiro** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kiro` | `~/.kiro/settings/mcp.json` |
+| **Trae** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target trae` | `.../Trae/User/mcp.json` *(Trae CN 지원)* |
 
 *(Bun을 선호하는 경우 `--bun`을 추가할 수 있습니다, 예: `npx -y superpowers-mcp setup --target cursor --bun`)*
 
@@ -168,7 +175,30 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.3.4 (최신)
+### v6.3.5 (최신)
+
+- **7개 신규 AI 에이전트 및 편집기 환경 원클릭 설치 지원 (`src/setup-runner.ts`, `scripts/install.sh`)**:
+  - 구성 엔진을 확장하여 총 15개 AI 개발 환경 지원:
+    - **GitHub Copilot (VS Code Insiders)**: `Code - Insiders/User/mcp.json` (안정 버전 VS Code와의 충돌을 원천 방지하는 독립 물리 경로 격리, 별칭: `copilot-insiders`, `vscode-insiders`, `code-insiders`, `insiders`, `insider`)
+    - **QwenPaw (개인 AI 어시스턴트 워크스테이션)**: `~/.qwenpaw/config.json` (`copaw` 호환, 별칭: `qwenpaw`, `copaw`)
+    - **Cline (VS Code / CLI)**: `.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json` (별칭: `cline`, `claude-dev`)
+    - **Kilo Code**: `~/.config/kilo/kilo.jsonc` (적응형 `"mcp"` 루트 사양, 별칭: `kilo`, `kilocode`)
+    - **Qoder**: `~/.qoder/settings.json` (별칭: `qoder`)
+    - **Kiro**: `~/.kiro/settings/mcp.json` (별칭: `kiro`, `kiro-code`)
+    - **Trae**: `.../Trae/User/mcp.json` (macOS, Windows, Linux 및 Trae CN 크로스 플랫폼 지원)
+  - Kilo Code 고유의 딕셔너리 구조를 수용하는 `"json-mcp"` 형식 유형 추가.
+  - `runSetup`을 통해 `harness.defaultConfig`로부터 템플릿을 주입하여 Single Source of Truth (SSOT) 확립.
+- **듀얼 Subagent 아키텍처 및 품질 코드 리뷰 (Code Review)**:
+  - '아키텍처 및 보안 검토자'와 '품질 및 엣지 케이스 검토자' 2개의 전문 에이전트로 리뷰 수행.
+  - 원자적 쓰기(`crypto.randomBytes(8)` + `flag: "wx"`), 심볼릭 링크 방어, 최소 권한(`0o700`/`0o600`), 기본 디스크 무오염 원칙 검증 완료.
+  - 프로젝트 전반의 보안 감사를 완료하고 [`SECURITY.md`](SECURITY.md) 갱신(173개 자동화 어서션 100% 통과).
+- **테스트 스위트 대폭 확장 (`tests/setup_test.js`)**:
+  - 단위 테스트를 21개에서 32개로 확장(100% 통과). Claude Desktop, Kimi Work, Hermes Desktop에 대한 엔드투엔드 샌드박스 테스트 및 별칭 검증 완료.
+- **다국어 문서 동기화**:
+  - 모든 언어의 README([`README.md`](README.md), [`README.zh-TW.md`](README.zh-TW.md), [`README.ja.md`](README.ja.md), [`README.ko.md`](README.ko.md))에서 지원 환경 목록 및 명령 표 동기화.
+  - [`tests/global_setup_verification.md`](tests/global_setup_verification.md) 잔존 데이터 정리.
+
+### v6.3.4
 
 - **Universal One-Click 글로벌 설정 엔진 (`src/setup-runner.ts`, `scripts/`)**:
   - 8대 주요 AI 개발 환경(Antigravity, Pi Desktop / Pi Agent, Cursor, GitHub Copilot (VS Code), Hermes Desktop / Agent, Kimi Work / Kimi Code, Claude Desktop, Devin Desktop)에 대한 무의존성 원클릭 자동 구성 지원.

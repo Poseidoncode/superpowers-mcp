@@ -5,11 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.5] - 2026-09-05
+
+### Added
+- **7 New AI Agent & Editor Harnesses Support (`src/setup-runner.ts`, `scripts/install.sh`)**:
+  - Expanded universal one-click setup engine to support 7 additional AI developer platforms, bringing total coverage to 15 major AI environments:
+    - **GitHub Copilot (VS Code Insiders)** (`Code - Insiders/User/mcp.json`, strictly isolated physical configuration path preventing collisions with Stable VS Code, aliases: `copilot-insiders`, `vscode-insiders`, `code-insiders`, `insiders`, `insider`, `vscode-insider`, `code-insider`, `copilot-insider`)
+    - **QwenPaw (Personal Agent Workstation)** (`~/.qwenpaw/config.json`, backward-compatible with `copaw`, aliases: `qwenpaw`, `qwen-paw`, `copaw`)
+    - **Cline (VS Code / CLI)** (`.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json`, aliases: `cline`, `claude-dev`)
+    - **Kilo Code** (`~/.config/kilo/kilo.jsonc` with adaptive `"mcp"` root and array-based command schema, aliases: `kilo`, `kilocode`, `kilo-code`)
+    - **Qoder** (`~/.qoder/settings.json`, alias: `qoder`)
+    - **Kiro** (`~/.kiro/settings/mcp.json`, aliases: `kiro`, `kiro-code`)
+    - **Trae** (`.../Trae/User/mcp.json`, cross-platform support for macOS, Windows, Linux, and Trae CN)
+  - Added `"json-mcp"` schema format type to dynamically handle Kilo Code's unique dictionary structure.
+  - Enforced Single Source of Truth (SSOT) by wiring `harness.defaultConfig(cmd, args)` directly through `runSetup` into `updateJsonConfig`.
+
+### Security & Auditing
+- **Dual-Subagent Architectural & Code Quality Review**:
+  - Dispatched specialized Architectural & Security Reviewer and Quality & Edge-Case Reviewer subagents.
+  - Verified atomic writes (`crypto.randomBytes(8)` + `flag: "wx"`), symlink containment, least-privilege permissions (`0o700`/`0o600`), and zero-pollution disk defaults across all 15 harnesses.
+  - Verified physical configuration isolation between VS Code Stable and VS Code Insiders, ensuring independent additions, updates, and removals.
+  - Completed comprehensive project-wide security review and refreshed [`SECURITY.md`](SECURITY.md) with 173 automated regression test assertions.
+
+### Testing & Documentation
+- **Automated Test Suite Expansion (`tests/setup_test.js`)**:
+  - Expanded setup regression tests from 21 to 32 tests (100% pass rate), adding end-to-end sandbox creation, aliases, co-existence, and update assertions for Copilot Insiders, Claude Desktop, Kimi Work, and Hermes Desktop.
+- **Multilingual Documentation Alignment**:
+  - Synchronized supported harness directories and one-click commands across all 4 localized READMEs ([`README.md`](README.md), [`README.zh-TW.md`](README.zh-TW.md), [`README.ja.md`](README.ja.md), [`README.ko.md`](README.ko.md)).
+  - Cleaned up obsolete metric residues in [`tests/global_setup_verification.md`](tests/global_setup_verification.md).
+
 ## [6.3.4] - 2026-09-05
 
 ### Universal One-Click Global Setup Engine (`src/setup-runner.ts`, `scripts/`)
 - **Multi-Harness Targeted Setup**:
-  - Engineered a universal, zero-dependency configuration engine supporting 8 major AI environments:
+  - Engineered a universal, zero-dependency configuration engine supporting 8 initial AI agent environments:
     - **Antigravity (Google DeepMind)** (`~/.gemini/config/mcp_config.json`)
     - **Pi Desktop / Pi Agent** (`~/.pi/agent/mcp.json`)
     - **Cursor** (`~/.cursor/mcp.json`)
@@ -35,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI Transport Stdio Isolation**:
   - `src/server.ts` routes `setup` arguments in `main()` prior to initializing any MCP Stdio transport, preventing protocol deadlock or stdout pollution.
 - **Automated Test Suite (`tests/setup_test.js`)**:
-  - Added 21 comprehensive unit tests validating config formats, JSONC comment handling, YAML injection protection, cross-platform path resolution, anti-bulk target consent, and sandbox atomic writes (100% PASS).
+  - Added 32 comprehensive unit tests validating config formats (including `json-mcp`), JSONC comment handling, YAML injection protection, cross-platform path resolution, anti-bulk target consent, and sandbox atomic writes (100% PASS).
 
 ### Skill Compositions & End-to-End Pipelines (`docs/skill-compositions.*`, `src/server.ts`)
 - **New Workflow Prompts**:

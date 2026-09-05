@@ -1,7 +1,9 @@
 /**
  * Superpowers MCP - Universal Global Setup & Configuration Engine
  * Supports: macOS, Windows, Linux
- * Targets: GitHub Copilot (VS Code), Cursor, Hermes Desktop, Kimi Work, Claude Desktop, Windsurf
+ * Targets: GitHub Copilot (VS Code / VS Code Insiders), Cursor, Hermes Desktop, Kimi Work,
+ *          Claude Desktop, Devin Desktop, Antigravity, Pi Desktop, QwenPaw, Cline,
+ *          Kilo Code, Qoder, Kiro, Trae
  */
 
 import * as fs from "fs";
@@ -9,7 +11,7 @@ import * as path from "path";
 import * as os from "os";
 import * as crypto from "crypto";
 
-export type JsonFormatType = "json-servers" | "json-mcpServers";
+export type JsonFormatType = "json-servers" | "json-mcpServers" | "json-mcp";
 
 export interface HarnessConfig {
     name: string;
@@ -30,6 +32,25 @@ export const HARNESS_CONFIGS: Record<string, HarnessConfig> = {
                 return path.join(homeDir, "Library", "Application Support", "Code", "User", "mcp.json");
             } else {
                 return path.join(homeDir, ".config", "Code", "User", "mcp.json");
+            }
+        },
+        type: "json-servers", // VS Code uses "servers" instead of "mcpServers"
+        defaultConfig: (cmd, args) => ({
+            command: cmd,
+            args: args,
+            type: "stdio",
+        }),
+    },
+    "copilot-insiders": {
+        name: "GitHub Copilot (VS Code Insiders)",
+        aliases: ["vscode-insiders", "code-insiders", "insiders", "insider", "vscode-insider", "code-insider", "copilot-insider"],
+        getConfigPath: (platform, homeDir, appData, _localAppData) => {
+            if (platform === "win32") {
+                return path.join(appData || path.join(homeDir, "AppData", "Roaming"), "Code - Insiders", "User", "mcp.json");
+            } else if (platform === "darwin") {
+                return path.join(homeDir, "Library", "Application Support", "Code - Insiders", "User", "mcp.json");
+            } else {
+                return path.join(homeDir, ".config", "Code - Insiders", "User", "mcp.json");
             }
         },
         type: "json-servers", // VS Code uses "servers" instead of "mcpServers"
@@ -143,6 +164,143 @@ export const HARNESS_CONFIGS: Record<string, HarnessConfig> = {
             const rootPath = path.join(homeDir, ".pi", "mcp.json");
             if (fs.existsSync(rootPath)) return rootPath;
             return agentPath;
+        },
+        type: "json-mcpServers",
+        defaultConfig: (cmd, args) => ({
+            command: cmd,
+            args: args,
+        }),
+    },
+    qwenpaw: {
+        name: "QwenPaw (Personal Agent Workstation)",
+        aliases: ["qwenpaw", "qwen-paw", "copaw"],
+        getConfigPath: (_platform, homeDir) => {
+            const qwenPath = path.join(homeDir, ".qwenpaw", "config.json");
+            if (fs.existsSync(qwenPath)) return qwenPath;
+            const legacyPath = path.join(homeDir, ".copaw", "config.json");
+            if (fs.existsSync(legacyPath)) return legacyPath;
+            return qwenPath;
+        },
+        type: "json-mcpServers",
+        defaultConfig: (cmd, args) => ({
+            command: cmd,
+            args: args,
+        }),
+    },
+    cline: {
+        name: "Cline (VS Code / CLI)",
+        aliases: ["cline", "claude-dev"],
+        getConfigPath: (platform, homeDir, appData) => {
+            let globalStoragePath = "";
+            if (platform === "win32") {
+                globalStoragePath = path.join(
+                    appData || path.join(homeDir, "AppData", "Roaming"),
+                    "Code",
+                    "User",
+                    "globalStorage",
+                    "saoudrizwan.claude-dev",
+                    "settings",
+                    "cline_mcp_settings.json"
+                );
+            } else if (platform === "darwin") {
+                globalStoragePath = path.join(
+                    homeDir,
+                    "Library",
+                    "Application Support",
+                    "Code",
+                    "User",
+                    "globalStorage",
+                    "saoudrizwan.claude-dev",
+                    "settings",
+                    "cline_mcp_settings.json"
+                );
+            } else {
+                globalStoragePath = path.join(
+                    homeDir,
+                    ".config",
+                    "Code",
+                    "User",
+                    "globalStorage",
+                    "saoudrizwan.claude-dev",
+                    "settings",
+                    "cline_mcp_settings.json"
+                );
+            }
+            if (fs.existsSync(globalStoragePath)) return globalStoragePath;
+            const cliPath = path.join(homeDir, ".cline", "data", "settings", "cline_mcp_settings.json");
+            if (fs.existsSync(cliPath)) return cliPath;
+            return globalStoragePath;
+        },
+        type: "json-mcpServers",
+        defaultConfig: (cmd, args) => ({
+            command: cmd,
+            args: args,
+        }),
+    },
+    kilo: {
+        name: "Kilo Code",
+        aliases: ["kilo", "kilocode", "kilo-code"],
+        getConfigPath: (_platform, homeDir) => {
+            const jsoncPath = path.join(homeDir, ".config", "kilo", "kilo.jsonc");
+            if (fs.existsSync(jsoncPath)) return jsoncPath;
+            const jsonPath = path.join(homeDir, ".config", "kilo", "kilo.json");
+            if (fs.existsSync(jsonPath)) return jsonPath;
+            return jsoncPath;
+        },
+        type: "json-mcp",
+        defaultConfig: (cmd, args) => ({
+            type: "local",
+            command: [cmd, ...args],
+            enabled: true,
+        }),
+    },
+    qoder: {
+        name: "Qoder",
+        aliases: ["qoder"],
+        getConfigPath: (_platform, homeDir) => {
+            return path.join(homeDir, ".qoder", "settings.json");
+        },
+        type: "json-mcpServers",
+        defaultConfig: (cmd, args) => ({
+            command: cmd,
+            args: args,
+        }),
+    },
+    kiro: {
+        name: "Kiro",
+        aliases: ["kiro", "kiro-code"],
+        getConfigPath: (_platform, homeDir) => {
+            return path.join(homeDir, ".kiro", "settings", "mcp.json");
+        },
+        type: "json-mcpServers",
+        defaultConfig: (cmd, args) => ({
+            command: cmd,
+            args: args,
+        }),
+    },
+    trae: {
+        name: "Trae",
+        aliases: ["trae"],
+        getConfigPath: (platform, homeDir, appData) => {
+            if (platform === "win32") {
+                const standard = path.join(appData || path.join(homeDir, "AppData", "Roaming"), "Trae", "User", "mcp.json");
+                if (fs.existsSync(standard)) return standard;
+                const cn = path.join(appData || path.join(homeDir, "AppData", "Roaming"), "Trae CN", "User", "mcp.json");
+                if (fs.existsSync(cn)) return cn;
+                return standard;
+            } else if (platform === "darwin") {
+                const standard = path.join(homeDir, "Library", "Application Support", "Trae", "User", "mcp.json");
+                if (fs.existsSync(standard)) return standard;
+                const cn = path.join(homeDir, "Library", "Application Support", "Trae CN", "User", "mcp.json");
+                if (fs.existsSync(cn)) return cn;
+                return standard;
+            } else {
+                const standard = path.join(homeDir, ".config", "Trae", "User", "mcp.json");
+                if (fs.existsSync(standard)) return standard;
+                const cn = path.join(homeDir, ".config", "Trae CN", "User", "mcp.json");
+                if (fs.existsSync(cn)) return cn;
+                return standard;
+            }
         },
         type: "json-mcpServers",
         defaultConfig: (cmd, args) => ({
@@ -284,7 +442,8 @@ export function updateJsonConfig(
     formatType: JsonFormatType,
     cmd: string,
     args: string[],
-    remove = false
+    remove = false,
+    customConfig?: Record<string, unknown>
 ): string {
     let json: Record<string, unknown> = {};
     if (existingContent && existingContent.trim() !== "") {
@@ -313,7 +472,12 @@ export function updateJsonConfig(
         }
     }
 
-    const rootKey = formatType === "json-servers" ? "servers" : "mcpServers";
+    let rootKey = "mcpServers";
+    if (formatType === "json-servers") {
+        rootKey = "servers";
+    } else if (formatType === "json-mcp") {
+        rootKey = "mcp";
+    }
 
     if (!isPlainObject(json[rootKey])) {
         json[rootKey] = {};
@@ -324,11 +488,19 @@ export function updateJsonConfig(
     if (remove) {
         delete targetServers["superpowers"];
     } else {
-        if (formatType === "json-servers") {
+        if (customConfig) {
+            targetServers["superpowers"] = customConfig;
+        } else if (formatType === "json-servers") {
             targetServers["superpowers"] = {
                 command: cmd,
                 args: args,
                 type: "stdio",
+            };
+        } else if (formatType === "json-mcp") {
+            targetServers["superpowers"] = {
+                type: "local",
+                command: [cmd, ...args],
+                enabled: true,
             };
         } else {
             targetServers["superpowers"] = {
@@ -486,7 +658,8 @@ export async function runSetup(options: SetupOptions = {}): Promise<SetupResult[
             if (harness.type === "yaml") {
                 newContent = updateYamlConfig(originalContent, cmd, args, isRemove);
             } else {
-                newContent = updateJsonConfig(originalContent, harness.type, cmd, args, isRemove);
+                const serverConfig = typeof harness.defaultConfig === "function" ? harness.defaultConfig(cmd, args) : undefined;
+                newContent = updateJsonConfig(originalContent, harness.type, cmd, args, isRemove, serverConfig);
             }
 
             if (originalContent.trim() === newContent.trim() && fileExists) {
@@ -587,10 +760,17 @@ export async function runSetupCli(argv = process.argv.slice(2)): Promise<void> {
         console.log("  npx -y superpowers-mcp setup --target pi-desktop  # Pi Desktop / Pi Agent (~/.pi/agent/mcp.json)");
         console.log("  npx -y superpowers-mcp setup --target cursor     # Cursor (~/.cursor/mcp.json)");
         console.log("  npx -y superpowers-mcp setup --target copilot    # GitHub Copilot (VS Code mcp.json)");
+        console.log("  npx -y superpowers-mcp setup --target copilot-insiders # GitHub Copilot (VS Code Insiders mcp.json)");
         console.log("  npx -y superpowers-mcp setup --target hermes     # Hermes Desktop / Agent");
         console.log("  npx -y superpowers-mcp setup --target kimi       # Kimi Work / Kimi Code");
         console.log("  npx -y superpowers-mcp setup --target claude     # Claude Desktop");
-        console.log("  npx -y superpowers-mcp setup --target devin      # Devin Desktop (formerly Windsurf)\n");
+        console.log("  npx -y superpowers-mcp setup --target devin      # Devin Desktop (formerly Windsurf)");
+        console.log("  npx -y superpowers-mcp setup --target qwenpaw    # QwenPaw / CoPaw (~/.qwenpaw/config.json)");
+        console.log("  npx -y superpowers-mcp setup --target cline      # Cline (~/.../cline_mcp_settings.json)");
+        console.log("  npx -y superpowers-mcp setup --target kilo       # Kilo Code (~/.config/kilo/kilo.jsonc)");
+        console.log("  npx -y superpowers-mcp setup --target qoder      # Qoder (~/.qoder/settings.json)");
+        console.log("  npx -y superpowers-mcp setup --target kiro       # Kiro (~/.kiro/settings/mcp.json)");
+        console.log("  npx -y superpowers-mcp setup --target trae       # Trae (~/.../Trae/User/mcp.json)\n");
         console.log("💡 Tip:");
         console.log("   You can run this setup command from ANY folder on your system.");
         console.log("   It automatically targets your global config files (~/...) without needing to clone this repo.\n");
@@ -654,7 +834,10 @@ Usage:
 Options:
   --target, -t <name>   Configure specific harness (Required):
                         antigravity (agy, gemini), pi-desktop (pi, pi-agent), cursor,
-                        copilot (vscode), hermes, kimi, claude, devin (windsurf)
+                        copilot (vscode), copilot-insiders (vscode-insiders, code-insiders, insiders),
+                        hermes, kimi, claude, devin (windsurf),
+                        qwenpaw (qwen-paw, copaw), cline (claude-dev), kilo (kilocode),
+                        qoder, kiro (kiro-code), trae
   --bun                 Use "bunx" instead of "npx" in server commands
   --backup              Create a timestamped .bak backup before modifying (Default: false, zero-pollution)
   --remove              Remove superpowers MCP configuration from target
@@ -666,10 +849,17 @@ Examples:
   npx -y superpowers-mcp setup --target pi-desktop  # Configure Pi Desktop / Pi Agent only
   npx -y superpowers-mcp setup --target cursor      # Configure Cursor only
   npx -y superpowers-mcp setup --target copilot     # Configure GitHub Copilot (VS Code) only
+  npx -y superpowers-mcp setup --target copilot-insiders # Configure GitHub Copilot (VS Code Insiders) only
   npx -y superpowers-mcp setup --target hermes      # Configure Hermes Desktop only
   npx -y superpowers-mcp setup --target kimi        # Configure Kimi Work only
   npx -y superpowers-mcp setup --target claude      # Configure Claude Desktop only
   npx -y superpowers-mcp setup --target devin       # Configure Devin Desktop (Windsurf) only
+  npx -y superpowers-mcp setup --target qwenpaw     # Configure QwenPaw only
+  npx -y superpowers-mcp setup --target cline       # Configure Cline only
+  npx -y superpowers-mcp setup --target kilo        # Configure Kilo Code only
+  npx -y superpowers-mcp setup --target qoder       # Configure Qoder only
+  npx -y superpowers-mcp setup --target kiro        # Configure Kiro only
+  npx -y superpowers-mcp setup --target trae        # Configure Trae only
 
 Any Directory:
   You can run this command from ANY directory on your machine.

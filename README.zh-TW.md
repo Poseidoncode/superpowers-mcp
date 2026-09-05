@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.3.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.3.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -13,8 +13,8 @@
 
 ### 支援的環境與 Agent 平台
 
-- **AI 程式碼編輯器與 IDE**：**Antigravity (AGY)**、**Cursor**、**VSCode**（GitHub Copilot）、**Devin Desktop**、**MiniMax Code Desktop**、**Codex**。
-- **AI 桌面應用與 Agent 工具**：**Hermes Desktop**、**Kimi Work**。
+- **AI 程式碼編輯器與 IDE**：**Antigravity (AGY)**、**Cursor**、**VSCode**（GitHub Copilot）、**VSCode Insiders**（GitHub Copilot）、**Devin Desktop**、**Trae**、**Cline**、**Kilo Code**、**Qoder**、**Kiro**、**MiniMax Code Desktop**、**Codex**。
+- **AI 桌面應用與 Agent 工具**：**Claude Desktop**、**Pi Desktop**、**QwenPaw**、**Hermes Desktop**、**Kimi Work**。
 - **開源與私有化 AI 平台**：**AnythingLLM**、**LibreChat**。
 
 ### 提供之 MCP 協議功能
@@ -56,10 +56,17 @@
 | **Pi Desktop / Pi Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target pi-desktop` | `~/.pi/agent/mcp.json` |
 | **Cursor** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target cursor` | `~/.cursor/mcp.json` |
 | **GitHub Copilot (VS Code)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target copilot` | `Code/User/mcp.json` *(VS Code `servers` 格式)* |
+| **GitHub Copilot (VS Code Insiders)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target copilot-insiders` | `Code - Insiders/User/mcp.json` *(VS Code `servers` 格式)* |
 | **Hermes Desktop / Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target hermes` | `~/.hermes/config.yaml` *(Win: `%LOCALAPPDATA%\hermes`)* |
 | **Kimi Work / Kimi Code** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kimi` | `~/.kimi-code/mcp.json` |
 | **Claude Desktop** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target claude` | `Claude/claude_desktop_config.json` |
 | **Devin Desktop (原 Windsurf)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target devin` | `~/.config/devin/mcp_config.json` *(或 `windsurf`)* |
+| **QwenPaw (個人 AI 助理工作站)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qwenpaw` | `~/.qwenpaw/config.json` *(相容 `copaw`)* |
+| **Cline (VS Code / CLI)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target cline` | `.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json` |
+| **Kilo Code** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kilo` | `~/.config/kilo/kilo.jsonc` *(自適應 `mcp` 規格)* |
+| **Qoder** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qoder` | `~/.qoder/settings.json` |
+| **Kiro** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kiro` | `~/.kiro/settings/mcp.json` |
+| **Trae** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target trae` | `.../Trae/User/mcp.json` *(支援 Trae CN)* |
 
 *(若偏好使用 Bun，指令可加上 `--bun`，例如 `npx -y superpowers-mcp setup --target cursor --bun`)*
 
@@ -168,7 +175,30 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.3.4 (最新版)
+### v6.3.5 (最新版)
+
+- **新增 7 款主流 AI 開發環境一鍵安裝 (`src/setup-runner.ts`, `scripts/install.sh`)**：
+  - 全域配置引擎支援擴充至 15 款 AI Agent 與 IDE 環境：
+    - **GitHub Copilot (VS Code Insiders)**：`Code - Insiders/User/mcp.json`（具備實體路徑完全隔離，避免與正式版 VS Code 互相覆寫，別名 `copilot-insiders`, `vscode-insiders`, `code-insiders`, `insiders`, `insider`）
+    - **QwenPaw (個人 AI 助理工作站)**：`~/.qwenpaw/config.json`（相容舊版 `~/.copaw/config.json`，別名 `qwenpaw`, `copaw`）
+    - **Cline (VS Code / CLI)**：`.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json`（別名 `cline`, `claude-dev`）
+    - **Kilo Code**：`~/.config/kilo/kilo.jsonc`（自適應 `"mcp"` root 與陣列 command 規格，別名 `kilo`, `kilocode`）
+    - **Qoder**：`~/.qoder/settings.json`（別名 `qoder`）
+    - **Kiro**：`~/.kiro/settings/mcp.json`（別名 `kiro`, `kiro-code`）
+    - **Trae**：`.../Trae/User/mcp.json`（跨平台支援 macOS、Windows、Linux 與 Trae CN）
+  - 新增 `"json-mcp"` 設定格式型別，精確相容 Kilo Code 特有字典規格。
+  - 落實 Single Source of Truth (SSOT)，全面由 `runSetup` 透過 `harness.defaultConfig` 動態注入設定範本。
+- **雙子 Subagent 架構與安全品質審查 (Code Review)**：
+  - 派出專職「架構與安全性審查員」與「代碼品質與邊界審查員」雙代理審查。
+  - 全數驗證原子置換（`crypto.randomBytes(8)` + `flag: "wx"`）、Symlink 邊界防禦、最小目錄權限 `0o700` / 檔案權限 `0o600`，以及全環境預設零磁碟污染原則。
+  - 完成專案全面安全掃描與審計，更新 [`SECURITY.md`](SECURITY.md)（173 項自動化回歸斷言 100% 通過）。
+- **自動化測試套件擴充 (`tests/setup_test.js`)**：
+  - 單元測試由 21 項大幅擴增至 32 項（100% 通過），補齊 Claude Desktop、Kimi Work 與 Hermes Desktop 的端到端沙盒測試與別名驗證。
+- **多語系文檔全面對齊**：
+  - 4 語系 README（[`README.md`](README.md)、[`README.zh-TW.md`](README.zh-TW.md)、[`README.ja.md`](README.ja.md)、[`README.ko.md`](README.ko.md)）同步支援環境清單與指令表格。
+  - 清理 [`tests/global_setup_verification.md`](tests/global_setup_verification.md) 殘留數據。
+
+### v6.3.4
 
 - **Universal One-Click 全域安裝引擎 (`src/setup-runner.ts`, `scripts/`)**：
   - 支援 8 大主流 AI 開發環境的一鍵零依賴配置：Antigravity、Pi Desktop / Pi Agent、Cursor、GitHub Copilot (VS Code)、Hermes Desktop / Agent、Kimi Work / Kimi Code、Claude Desktop 與 Devin Desktop。

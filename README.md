@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -13,8 +13,8 @@ This document summarizes the information and usage instructions for packaging th
 
 ### Supported Environments & Harnesses
 
-- **AI Code Editors & IDEs**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **Devin Desktop**, **MiniMax Code Desktop**, **Codex**.
-- **AI Desktop Applications & Harnesses**: **Hermes Desktop**, **Kimi Work**.
+- **AI Code Editors & IDEs**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **VSCode Insiders** (GitHub Copilot), **Devin Desktop**, **Trae**, **Cline**, **Kilo Code**, **Qoder**, **Kiro**, **MiniMax Code Desktop**, **Codex**.
+- **AI Desktop Applications & Harnesses**: **Claude Desktop**, **Pi Desktop**, **QwenPaw**, **Hermes Desktop**, **Kimi Work**.
 - **Local & Self-Hosted AI Platforms**: **AnythingLLM**, **LibreChat**.
 
 ### MCP Capabilities Provided
@@ -56,10 +56,17 @@ Select your client and run the corresponding command in your terminal:
 | **Pi Desktop / Pi Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target pi-desktop` | `~/.pi/agent/mcp.json` |
 | **Cursor** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target cursor` | `~/.cursor/mcp.json` |
 | **GitHub Copilot (VS Code)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target copilot` | `Code/User/mcp.json` *(VS Code `servers` schema)* |
+| **GitHub Copilot (VS Code Insiders)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target copilot-insiders` | `Code - Insiders/User/mcp.json` *(VS Code `servers` schema)* |
 | **Hermes Desktop / Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target hermes` | `~/.hermes/config.yaml` *(Win: `%LOCALAPPDATA%\hermes`)* |
 | **Kimi Work / Kimi Code** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kimi` | `~/.kimi-code/mcp.json` |
 | **Claude Desktop** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target claude` | `Claude/claude_desktop_config.json` |
 | **Devin Desktop (formerly Windsurf)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target devin` | `~/.config/devin/mcp_config.json` *(or `windsurf`)* |
+| **QwenPaw (Personal Agent Workstation)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qwenpaw` | `~/.qwenpaw/config.json` *(aliases: `copaw`)* |
+| **Cline (VS Code / CLI)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target cline` | `.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json` |
+| **Kilo Code** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kilo` | `~/.config/kilo/kilo.jsonc` *(native `mcp` schema)* |
+| **Qoder** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qoder` | `~/.qoder/settings.json` |
+| **Kiro** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kiro` | `~/.kiro/settings/mcp.json` |
+| **Trae** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target trae` | `.../Trae/User/mcp.json` *(supports Trae CN)* |
 
 *(If using Bun, append `--bun` for faster startup, e.g., `npx -y superpowers-mcp setup --target cursor --bun`)*
 
@@ -168,7 +175,30 @@ To help you choose the right skill, we have structured all 14 skills across the 
 
 ## 🆕 Recent Updates
 
-### v6.3.4 (Latest)
+### v6.3.5 (Latest)
+
+- **7 New AI Agent & Editor Harnesses Support (`src/setup-runner.ts`, `scripts/install.sh`)**:
+  - Expanded universal one-click setup engine to support 7 additional AI developer platforms, bringing total coverage to 15 major AI environments:
+    - **GitHub Copilot (VS Code Insiders)** (`Code - Insiders/User/mcp.json`, strictly isolated physical configuration path preventing collisions with Stable VS Code, aliases: `copilot-insiders`, `vscode-insiders`, `code-insiders`, `insiders`, `insider`)
+    - **QwenPaw** (`~/.qwenpaw/config.json`, backward-compatible with `copaw`)
+    - **Cline** (`.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json`, aliases: `cline`, `claude-dev`)
+    - **Kilo Code** (`~/.config/kilo/kilo.jsonc` with adaptive `"mcp"` root and array-based command schema, aliases: `kilo`, `kilocode`, `kilo-code`)
+    - **Qoder** (`~/.qoder/settings.json`, alias: `qoder`)
+    - **Kiro** (`~/.kiro/settings/mcp.json`, aliases: `kiro`, `kiro-code`)
+    - **Trae** (`.../Trae/User/mcp.json`, cross-platform support for macOS, Windows, Linux, and Trae CN)
+  - Added `"json-mcp"` schema format type to dynamically handle Kilo Code's unique dictionary structure.
+  - Enforced Single Source of Truth (SSOT) by wiring `harness.defaultConfig(cmd, args)` directly through `runSetup` into `updateJsonConfig`.
+- **Dual-Subagent Architectural & Code Quality Review**:
+  - Dispatched specialized Architectural & Security Reviewer and Quality & Edge-Case Reviewer subagents.
+  - Verified atomic writes (`crypto.randomBytes(8)` + `flag: "wx"`), symlink containment, least-privilege permissions (`0o700`/`0o600`), and zero-pollution disk defaults across all 15 harnesses.
+  - Completed comprehensive project-wide security review and refreshed [`SECURITY.md`](SECURITY.md) with 173 automated regression test assertions.
+- **Automated Test Suite Expansion (`tests/setup_test.js`)**:
+  - Expanded setup regression tests from 21 to 32 tests (100% pass rate), adding end-to-end sandbox creation, aliases, and update assertions for Claude Desktop, Kimi Work, and Hermes Desktop.
+- **Multilingual Documentation Alignment**:
+  - Synchronized supported harness directories and one-click commands across all 4 localized READMEs ([`README.md`](README.md), [`README.zh-TW.md`](README.zh-TW.md), [`README.ja.md`](README.ja.md), [`README.ko.md`](README.ko.md)).
+  - Cleaned up obsolete metric residues in [`tests/global_setup_verification.md`](tests/global_setup_verification.md).
+
+### v6.3.4
 
 - **Universal One-Click Global Setup Engine (`src/setup-runner.ts`, `scripts/`)**:
   - One-click zero-dependency configuration for 8 major AI environments: Antigravity, Pi Desktop / Pi Agent, Cursor, GitHub Copilot (VS Code), Hermes Desktop / Agent, Kimi Work / Kimi Code, Claude Desktop, and Devin Desktop.

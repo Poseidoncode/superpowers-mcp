@@ -3,7 +3,7 @@
 # Superpowers MCP - One-Click Global Installer (macOS & Linux)
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.sh | bash -s -- --target <client>
-#   ./scripts/install.sh --target <antigravity|pi-desktop|cursor|copilot|hermes|kimi|claude|devin>
+#   ./scripts/install.sh --target <antigravity|pi-desktop|cursor|copilot|copilot-insiders|hermes|kimi|claude|devin|qwenpaw|cline|kilo|qoder|kiro|trae>
 # ==============================================================================
 
 set -euo pipefail
