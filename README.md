@@ -166,6 +166,46 @@ To help you choose the right skill, we have structured all 14 skills across the 
 
 ---
 
+## 🆕 Recent Updates
+
+### v6.3.4 (Latest)
+
+- **Universal One-Click Global Setup Engine (`src/setup-runner.ts`, `scripts/`)**:
+  - One-click zero-dependency configuration for 8 major AI environments: Antigravity, Pi Desktop / Pi Agent, Cursor, GitHub Copilot (VS Code), Hermes Desktop / Agent, Kimi Work / Kimi Code, Claude Desktop, and Devin Desktop.
+  - Added CLI executables `superpowers-setup` and `superpowers-mcp setup` with cross-platform installers ([`install.sh`](scripts/install.sh) and [`install.ps1`](scripts/install.ps1)).
+  - **Explicit Consent & Anti-Virus Design**: Mandated explicit `--target <client>` requirement, completely eliminating unprompted bulk disk scanning or blind crawling (`--all` removed).
+  - **Atomic File Operations & Race Defense (`safeWriteConfig`)**: Implemented non-destructive atomic writes via temporary files with process IDs and cryptographically random 8-byte nonces (`crypto.randomBytes(8)`), exclusive creation (`wx`), and atomic `renameSync`.
+  - **Symlink Preservation & Permissions**: Preserves symlink destinations with `realpathSync`, restricts created directories to `0o700` and config files to `0o600`.
+  - **Injection Defense & JSONC Parsing**: Parameter escaping via `JSON.stringify`, JSONC comment tolerance, and `isPlainObject` prototype pollution defense.
+  - **CLI Transport Stdio Isolation**: Front-intercepts setup CLI commands in `src/server.ts` before MCP Stdio transport initialization.
+  - **Comprehensive Test Suite**: Added [`tests/setup_test.js`](tests/setup_test.js) with 21 unit assertions (100% PASS).
+- **Skill Compositions & End-to-End Orchestration Pipelines (`src/server.ts`, `docs/`)**:
+  - Added 3 new MCP workflow prompts: `feature-pipeline`, `structured-debug`, and `skill-composition`.
+  - Comprehensive localized documentation in [`docs/skill-compositions.md`](docs/skill-compositions.md) (EN), [`docs/skill-compositions.zh-TW.md`](docs/skill-compositions.zh-TW.md) (ZH-TW), [`docs/skill-compositions.ja.md`](docs/skill-compositions.ja.md) (JA), and [`docs/skill-compositions.ko.md`](docs/skill-compositions.ko.md) (KO) with horizontal Mermaid flowcharts and ASCII workflow diagrams.
+  - Enhanced [`skills/using-superpowers/SKILL.md`](skills/using-superpowers/SKILL.md) and [`skills/writing-plans/SKILL.md`](skills/writing-plans/SKILL.md) with `Recommended Skill` task metadata standards and controller-to-subagent dispatch protocols.
+  - Added [`tests/prompts_compositions_test.js`](tests/prompts_compositions_test.js) with 7 comprehensive assertions (100% PASS).
+- **Prompts Security Hardening & Lifecycle Fixes (`src/server.ts`)**:
+  - Upgraded `interpolateTemplate` to single-pass regex replacement, eliminating cascading placeholder injection risks.
+  - Enforced universal `getStringArg` with a 32 KB clamp and `hasOwnProperty` validation across all 9 prompts.
+  - Augmented `structured-debug` with Stage 6 (findings resolution via `receiving-code-review`) and Stage 7 (branch finishing and cleanup via `finishing-a-development-branch`).
+- **Full Security Audit & Verification**:
+  - Verified 0 vulnerabilities across `npm audit` with exact dependency overrides for `hono`, `@hono/node-server`, `fast-uri`, and `qs`. All 5 test suites (100+ assertions) passing 100%. Updated [`SECURITY.md`](SECURITY.md).
+
+### v6.3.3
+
+- **MCP Standard Prompts Support (`src/server.ts`)**:
+  - Implemented standard prompt handlers, registering 6 prompts (`session-start`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer`) for native IDE prompt-picker usage.
+- **Multi-Harness Reference Mappings**:
+  - Added platform references for Devin CLI ([`references/devin-tools.md`](skills/using-superpowers/references/devin-tools.md)) and OpenCode ([`references/opencode-tools.md`](skills/using-superpowers/references/opencode-tools.md)).
+- **Multi-Lingual Documentation Alignment**:
+  - Aligned MCP capability tables (Tools, Prompts, Resources) and multi-harness matrices across all supported languages.
+- **Test Suite Expansion**:
+  - Added automated test assertions for `prompts/list` and `prompts/get` parameter injection.
+
+👉 *For the complete release history, see [CHANGELOG.md](CHANGELOG.md).*
+
+---
+
 ## 🙏 Acknowledgments
 
 This project is a fork and adaptation of the original [Superpowers](https://github.com/obra/superpowers) project by [obra](https://github.com/obra). We are grateful for their pioneering work in defining the agentic skills framework and software development methodology that powers this MCP server.

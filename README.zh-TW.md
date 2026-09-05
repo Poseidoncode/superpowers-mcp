@@ -166,6 +166,46 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
+## 🆕 最近更新
+
+### v6.3.4 (最新版)
+
+- **Universal One-Click 全域安裝引擎 (`src/setup-runner.ts`, `scripts/`)**：
+  - 支援 8 大主流 AI 開發環境的一鍵零依賴配置：Antigravity、Pi Desktop / Pi Agent、Cursor、GitHub Copilot (VS Code)、Hermes Desktop / Agent、Kimi Work / Kimi Code、Claude Desktop 與 Devin Desktop。
+  - 提供 CLI 執行指令 `superpowers-setup` 與 `superpowers-mcp setup`，並提供跨平台一鍵安裝腳本（[`install.sh`](scripts/install.sh) 與 [`install.ps1`](scripts/install.ps1)）。
+  - **明確同意與反病毒架構 (Explicit Consent & Anti-Virus Design)**：嚴格要求 `--target <client>`，徹底廢除無授權的磁碟盲目掃描與全盤修改（移除 `--all`）。
+  - **原子寫入防護 (`safeWriteConfig`)**：採用隨機 8-byte nonce 暫存檔、`flag: "wx"` 獨占建立與 `renameSync` 原子更名，消除並發競爭與半寫入檔案損毀。
+  - **符號連結保護與最小權限**：`realpathSync` 解析目標真實路徑，新目錄嚴格限制 `0o700`、檔案設為 `0o600`，備份檔繼承原始權限。
+  - **注入防護與 JSONC 解析**：所有參數經 `JSON.stringify` 轉譯，JSONC 支援註解/尾隨逗號容錯，並以 `isPlainObject` 防禦 Prototype Pollution 原型鏈攻擊。
+  - **CLI 傳輸隔離**：於 `src/server.ts` 入口前置分流 setup 參數，避免與 MCP Stdio 通訊協定衝突造成輸出污染。
+  - **完整測試套件**：新增 [`tests/setup_test.js`](tests/setup_test.js)（21 項測試 100% 通過）。
+- **Skill Compositions 技能組合與端到端 Pipeline (`src/server.ts`, `docs/`)**：
+  - 新增 3 組全新 MCP 工作流 Prompts：`feature-pipeline`、`structured-debug` 與 `skill-composition`。
+  - 建立 4 語系在地化完整指南（[`docs/skill-compositions.zh-TW.md`](docs/skill-compositions.zh-TW.md)），納入橫向 Mermaid 流程圖與 ASCII 流程指引。
+  - 強化 [`skills/using-superpowers/SKILL.md`](skills/using-superpowers/SKILL.md) 與 [`skills/writing-plans/SKILL.md`](skills/writing-plans/SKILL.md) 之 `Recommended Skill` 標籤與控制器調度協議。
+  - 新增 [`tests/prompts_compositions_test.js`](tests/prompts_compositions_test.js)（7 項測試 100% 通過）。
+- **Prompts 安全加固與生命週期修復 (`src/server.ts`)**：
+  - 升級 `interpolateTemplate` 為單趟統一正則替換，消除二級模板階層展開注入漏洞。
+  - 全面普及 `getStringArg` 32 KB 長度截斷與 `hasOwnProperty` 安全檢查。
+  - `structured-debug` 補齊 Stage 6（審查意見修復）與 Stage 7（分支清理與收尾）。
+- **全面安全性審計與驗證**：
+  - `npm audit` 報告 0 漏洞，精確鎖定 `hono`、`@hono/node-server`、`fast-uri` 與 `qs`；全專案 5 大測試套件（100+ 項斷言）100% 通過；同步更新 [`SECURITY.md`](SECURITY.md)。
+
+### v6.3.3
+
+- **MCP 標準 Prompts 支援 (`src/server.ts`)**：
+  - 實作標準 Prompt 處理常式，註冊 6 組常用 Prompts（`session-start`、`sdd-implementer`、`sdd-task-reviewer`、`sdd-re-review`、`spec-reviewer`、`plan-reviewer`），可直接於 IDE Prompt Picker 中選用。
+- **多 Harness 參考對應表**：
+  - 新增 Devin CLI（[`references/devin-tools.md`](skills/using-superpowers/references/devin-tools.md)）與 OpenCode（[`references/opencode-tools.md`](skills/using-superpowers/references/opencode-tools.md)）之原生工具對應。
+- **多語言文檔對齊**：
+  - 統一各語言 README 中的 MCP 功能支援表（Tools / Prompts / Resources）與多 Harness 支援矩陣。
+- **測試套件擴充**：
+  - 新增 `prompts/list` 與 `prompts/get` 參數注入的自動化測試斷言。
+
+👉 *更多歷史版本更新紀錄，請參閱完整的 [CHANGELOG.md](CHANGELOG.md)。*
+
+---
+
 ## 🙏 致謝
 
 本專案是透過 fork 與改編自 [obra](https://github.com/obra) 的原始 [Superpowers](https://github.com/obra/superpowers) 專案。我們非常感謝他們在定義 Agentic 技能框架與軟體工程工作流上的開創性貢獻，這些構成了本 MCP Server 的基石。

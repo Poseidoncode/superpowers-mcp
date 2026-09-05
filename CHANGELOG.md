@@ -7,27 +7,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [6.3.4] - 2026-09-05
 
-### Skill Compositions & End-to-End Pipelines
-- **New Workflow Prompts (`src/server.ts`)**:
-  - Registered 3 new MCP prompts:
-    - `feature-pipeline`: End-to-end feature development orchestration (brainstorming ➔ writing-plans ➔ worktrees ➔ SDD/TDD ➔ verification ➔ code review ➔ branch finishing).
-    - `structured-debug`: Systematic root-cause debugging with worktree isolation, parallel agent investigation, and TDD bugfixes.
-    - `skill-composition`: Dynamic workflow guide tailored for refactoring, legacy safety nets, or onboarding.
+### Universal One-Click Global Setup Engine (`src/setup-runner.ts`, `scripts/`)
+- **Multi-Harness Targeted Setup**:
+  - Engineered a universal, zero-dependency configuration engine supporting 8 major AI environments:
+    - **Antigravity (Google DeepMind)** (`~/.gemini/config/mcp_config.json`)
+    - **Pi Desktop / Pi Agent** (`~/.pi/agent/mcp.json`)
+    - **Cursor** (`~/.cursor/mcp.json`)
+    - **GitHub Copilot (VS Code)** (`User/mcp.json` with `servers` format and `stdio` type)
+    - **Hermes Desktop / Agent** (`config.yaml` / `%LOCALAPPDATA%\hermes\config.yaml`)
+    - **Kimi Work / Kimi Code** (`~/.kimi-code/mcp.json`)
+    - **Claude Desktop** (`claude_desktop_config.json`)
+    - **Devin Desktop (formerly Windsurf)** (`mcp_config.json`)
+  - Registered CLI binaries in `package.json`: `superpowers-setup` and `superpowers-mcp setup`.
+  - Built shell wrappers [`scripts/install.sh`](scripts/install.sh) (macOS & Linux) and [`scripts/install.ps1`](scripts/install.ps1) (Windows PowerShell) for seamless remote one-line installation (`curl` / `irm`) and local repository execution.
+- **Explicit Consent & Anti-Virus Design**:
+  - Strictly requires explicit target specification via `--target <client>` (or `-t`).
+  - Completely abolished unprompted broad disk scanning or blind crawling (`--all` removed); executing without a target safely prints interactive guidance with zero filesystem reads or writes.
+- **Atomic File Operations & Race Defense (`safeWriteConfig`)**:
+  - Non-destructive atomic write pattern utilizing temporary files scoped to the configuration directory with process ID and a cryptographically secure 8-byte hexadecimal nonce (`crypto.randomBytes(8)`).
+  - Enforces `flag: "wx"` (exclusive creation, eliminating symlink hijacking) followed by atomic commit via `fs.renameSync`.
+- **Symlink Boundary Preservation & Least-Privilege Security**:
+  - Resolves target paths through `fs.realpathSync` to preserve symbolic link destinations while guarding containment boundaries.
+  - Automatically restricts newly created directories to mode `0o700` (`rwx------`) and files to `0o600` (`rw-------`) or source permissions. Pre-write backup files (`.bak`) strictly inherit source permissions.
+- **Injection-Free Serialization & Prototype Pollution Defense**:
+  - All command arguments injected into YAML and JSON are defensively escaped using `JSON.stringify`.
+  - Config parser supports JSONC (comment stripping and trailing comma tolerance) and validates dictionary structures via `isPlainObject`, blocking Prototype Pollution and root Array corruption.
+- **CLI Transport Stdio Isolation**:
+  - `src/server.ts` routes `setup` arguments in `main()` prior to initializing any MCP Stdio transport, preventing protocol deadlock or stdout pollution.
+- **Automated Test Suite (`tests/setup_test.js`)**:
+  - Added 21 comprehensive unit tests validating config formats, JSONC comment handling, YAML injection protection, cross-platform path resolution, anti-bulk target consent, and sandbox atomic writes (100% PASS).
+
+### Skill Compositions & End-to-End Pipelines (`docs/skill-compositions.*`, `src/server.ts`)
+- **New Workflow Prompts**:
+  - Registered 3 new MCP workflow prompts:
+    - `feature-pipeline`: End-to-end feature delivery orchestration (`brainstorming` ➔ `writing-plans` ➔ `using-git-worktrees` ➔ `subagent-driven-development` ➔ `verification-before-completion` ➔ `requesting-code-review` ➔ `finishing-a-development-branch`).
+    - `structured-debug`: Systematic root-cause debugging with worktree isolation, parallel agent investigation, failing reproduction tests (TDD), fix resolution, code review, and branch finishing.
+    - `skill-composition`: Context-aware workflow dispatcher recommending optimal multi-skill compositions for large refactoring, legacy codebase safety nets, or onboarding.
 - **Dedicated Multi-Language Documentation (`docs/`)**:
   - Created localized, comprehensive workflow guides across 4 languages with inter-linking navigation:
-    - `docs/skill-compositions.md` (English)
-    - `docs/skill-compositions.zh-TW.md` (Traditional Chinese)
-    - `docs/skill-compositions.ja.md` (Japanese)
-    - `docs/skill-compositions.ko.md` (Korean)
-  - Added Actionable Quickstart Guide (Method A: IDE MCP Prompts vs Method B: Natural Language) and step-by-step interactive walkthroughs.
+    - [`docs/skill-compositions.md`](docs/skill-compositions.md) (English)
+    - [`docs/skill-compositions.zh-TW.md`](docs/skill-compositions.zh-TW.md) (Traditional Chinese)
+    - [`docs/skill-compositions.ja.md`](docs/skill-compositions.ja.md) (Japanese)
+    - [`docs/skill-compositions.ko.md`](docs/skill-compositions.ko.md) (Korean)
+  - Standardized visual layouts with horizontal Mermaid flowcharts (Pipeline 1: Feature Pipeline, Pipeline 3: Large Refactoring, Pipeline 4: Legacy Safety Net) and ASCII workflow diagrams in all 4 READMEs.
 - **Skill Authoring & Metadata Standards**:
-  - Enhanced `skills/using-superpowers/SKILL.md` with the Skill Compositions & Pipelines section.
-  - Enhanced `skills/writing-plans/SKILL.md` and `skills/subagent-driven-development/implementer-prompt.md` with `Recommended Skill` task metadata standards and controller-to-subagent dispatch protocols.
-- **Documentation Refactoring & De-duplication**:
-  - Merged and unified the 14-skills overview tables across all 4 language READMEs, providing clear SDLC phase mapping, purpose, and community-recommended scenarios.
-  - Refined basic interaction examples vs one-click pipeline commands for maximum readability.
-- **Test Suite Expansion**:
-  - Added `tests/prompts_compositions_test.js` covering all new MCP workflow prompts and assertion validations (100% PASS).
+  - Enhanced [`skills/using-superpowers/SKILL.md`](skills/using-superpowers/SKILL.md) with the Skill Compositions & Pipelines section.
+  - Enhanced [`skills/writing-plans/SKILL.md`](skills/writing-plans/SKILL.md) and [`skills/subagent-driven-development/implementer-prompt.md`](skills/subagent-driven-development/implementer-prompt.md) with `Recommended Skill` task metadata standards and controller-to-subagent dispatch protocols.
+- **Automated Composition Tests (`tests/prompts_compositions_test.js`)**:
+  - Added 7 comprehensive test assertions validating prompt discovery, stage integrity, dynamic scenario focusing, parameter trimming, cascading injection prevention, and unknown prompt rejection (100% PASS).
+
+### MCP Prompts Security Hardening & Lifecycle Fixes (`src/server.ts`)
+- **Cascading Placeholder Injection Defense**:
+  - Upgraded `interpolateTemplate` to a single-pass regular expression replacement engine with sorted, escaped keys, eliminating cascading/nested placeholder expansion vulnerabilities.
+- **Universal String Argument Clamping & Prototype Defense**:
+  - Enforced universal `getStringArg` with a 32 KB clamp (`MAX_PROMPT_ARG_LENGTH = 32 * 1024`) and `hasOwnProperty` validation across all 9 prompts, eliminating ReDoS and memory exhaustion hazards.
+- **Input Sanitization & Balanced Syntax**:
+  - Sanitized `featureName` stripping newlines and resolved unescaped parentheses in `spec-reviewer`.
+- **Complete Debugging Lifecycle**:
+  - Augmented `structured-debug` with Stage 6 (findings resolution via `receiving-code-review`) and Stage 7 (branch finishing and cleanup via `finishing-a-development-branch`).
+
+### Upstream Architecture Alignment & Worktree Compatibility
+- **Architecture Guards & Template Interpolation**:
+  - Aligned upstream architecture guards and dynamic prompt placeholder interpolation for SDD implementers and plan reviewers.
+  - Fully compatible with Git Worktrees (`.worktrees/task-<N>`) and plan shapes (`skeleton-first` vs `task-by-task`).
+  - Extended regression coverage in `tests/run_test.js` verifying prompt arguments and placeholder interpolation.
+
+### Documentation Refactoring & Hygiene
+- **Unified 14-Skills Overview Matrix**:
+  - Unified the 14-skills overview tables across all 4 language READMEs (`README.md`, `README.zh-TW.md`, `README.ja.md`, `README.ko.md`), aligning SDLC phases, core value propositions, and community-recommended scenarios.
+- **One-Click Global Setup Guide**:
+  - Added detailed setup instructions organized by Operating System and AI Agent Harness with exact copy-pasteable commands.
+- **Acknowledgments & Section Streamlining**:
+  - Restored upstream Acknowledgments sections in all 4 language READMEs.
+  - Streamlined README changelog sections to retain the latest 2 releases.
+
+### Comprehensive Security Audit & Verification
+- **Zero-Vulnerability Verification**:
+  - Executed repository-wide security scan; `npm audit` confirms **0 vulnerabilities** with exact dependency overrides for `hono` (^4.13.7), `@hono/node-server` (^2.1.1), `fast-uri` (^4.1.3), and `qs` (^6.16.0).
+  - Confirmed 0 secrets, 0 world-writable files, and 0 dangerous dynamic code evaluations (`eval`, `new Function`, `innerHTML`).
+- **All Test Suites Passing (100% PASS)**:
+  - Validated all 5 test suites (`tests/edge_cases_test.js`, `tests/run_test.js`, `tests/brainstorm_server_test.js`, `tests/prompts_compositions_test.js`, and `tests/setup_test.js`).
+  - Updated [`SECURITY.md`](SECURITY.md) and [`tests/security_audit_report.md`](tests/security_audit_report.md) with the v6.3.4 security status matrix and audit findings.
+
 
 ## [6.3.3] - 2026-08-29
 

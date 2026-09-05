@@ -166,6 +166,46 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
+## 🆕 최근 업데이트
+
+### v6.3.4 (최신)
+
+- **Universal One-Click 글로벌 설정 엔진 (`src/setup-runner.ts`, `scripts/`)**:
+  - 8대 주요 AI 개발 환경(Antigravity, Pi Desktop / Pi Agent, Cursor, GitHub Copilot (VS Code), Hermes Desktop / Agent, Kimi Work / Kimi Code, Claude Desktop, Devin Desktop)에 대한 무의존성 원클릭 자동 구성 지원.
+  - CLI 명령어 `superpowers-setup` 및 `superpowers-mcp setup`을 제공하며, 크로스 플랫폼 설치 스크립트([`install.sh`](scripts/install.sh) 및 [`install.ps1`](scripts/install.ps1)) 개발.
+  - **명시적 동의 및 안티바이러스 설계 (Explicit Consent & Anti-Virus Design)**: `--target <client>`를 필수로 요구하여 무단 디스크 스캔 및 전체 환경 임의 수정을 원천 차단(`--all` 제거).
+  - **원자적 쓰기 방어 (`safeWriteConfig`)**: 무작위 8바이트 nonce 임시 파일, `flag: "wx"`, `renameSync`를 통한 원자적 조작으로 파일 충돌 및 손상 방지.
+  - **심볼릭 링크 보호 및 최소 권한**: `realpathSync`로 링크 대상을 안전하게 확인하며, 새 디렉토리는 `0o700`, 설정 파일은 `0o600`으로 제한하고 백업 파일은 원본 권한을 보존.
+  - **매개변수 인젝션 방어 및 JSONC 파싱**: `JSON.stringify`를 통한 안전한 이스케이프, 주석/후행 쉼표 허용 및 `isPlainObject` 프로토타입 오염 방어.
+  - **CLI Stdio 격리**: `src/server.ts`에서 setup 인자를 사전 분기하여 MCP Stdio 프로토콜 오염 방지.
+  - **자동화 테스트 스위트**: [`tests/setup_test.js`](tests/setup_test.js) 추가(21개 테스트 100% 통과).
+- **Skill Compositions 스킬 구성 및 엔드투엔드 파이프라인 (`src/server.ts`, `docs/`)**:
+  - 3개의 새로운 MCP 워크플로우 프롬프트 추가: `feature-pipeline`, `structured-debug`, `skill-composition`.
+  - 4개 국어 현지화 가이드([`docs/skill-compositions.ko.md`](docs/skill-compositions.ko.md)), 가로형 Mermaid 플로우차트 및 ASCII 워크플로우 다이어그램 추가.
+  - [`skills/using-superpowers/SKILL.md`](skills/using-superpowers/SKILL.md) 및 [`skills/writing-plans/SKILL.md`](skills/writing-plans/SKILL.md)에 `Recommended Skill` 메타데이터 표준 및 컨트롤러-서브에이전트 간 프로토콜 추가.
+  - [`tests/prompts_compositions_test.js`](tests/prompts_compositions_test.js) 추가(7개 테스트 100% 통과).
+- **프롬프트 보안 강화 및 라이프사이클 완성 (`src/server.ts`)**:
+  - `interpolateTemplate`을 단일 패스 정규식 치환으로 업그레이드하여 연쇄적 플레이스홀더 인젝션 위험 제거.
+  - 전체 9개 프롬프트에 32 KB 길이 제한 및 `hasOwnProperty` 검증 적용.
+  - `structured-debug`에 Stage 6(리뷰 조치) 및 Stage 7(브랜치 정리/마무리) 추가.
+- **포괄적 보안 감사 및 검증**:
+  - `npm audit` 취약점 0건 확인, 전체 5대 테스트 스위트(100+ 어서션) 100% 통과, [`SECURITY.md`](SECURITY.md) 갱신.
+
+### v6.3.3
+
+- **MCP 표준 프롬프트 지원 (`src/server.ts`)**:
+  - 표준 프롬프트 핸들러를 구현하여 IDE 프롬프트 선택기에서 사용할 수 있는 6개의 프롬프트(`session-start`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer`) 등록.
+- **멀티 하네스 참조 매핑**:
+  - Devin CLI([`references/devin-tools.md`](skills/using-superpowers/references/devin-tools.md)) 및 OpenCode([`references/opencode-tools.md`](skills/using-superpowers/references/opencode-tools.md))용 네이티브 도구 매핑 추가.
+- **다국어 문서 동기화**:
+  - 모든 언어의 README에서 MCP 기능 지원 표(Tools / Prompts / Resources) 및 멀티 하네스 지원 매트릭스 통일.
+- **테스트 스위트 확장**:
+  - `prompts/list` 및 `prompts/get` 매개변수 주입에 대한 자동화 테스트 어서션 추가.
+
+👉 *이전 버전의 전체 릴리스 내역은 [CHANGELOG.md](CHANGELOG.md)를 참조하세요.*
+
+---
+
 ## 🙏 감사의 말
 
 이 프로젝트는 [obra](https://github.com/obra)의 원본 [Superpowers](https://github.com/obra/superpowers) 프로젝트의 포크 및 각색입니다. 이 MCP 서버의 기반이 되는 에이전틱 스킬 프레임워크와 소프트웨어 엔지니어링 워크플로우를 정의해 준 그들의 선구적인 작업에 감사드립니다.

@@ -32,6 +32,24 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
+## v6.3.4 Security & Hardening Notes
+
+- **Targeted Global Setup & Anti-Virus Design (`src/setup-runner.ts`, `scripts/setup.js`, `scripts/install.sh`, `scripts/install.ps1`)**:
+  - **Explicit Consent Mandate**: Completely eliminated unprompted bulk scanning or blind filesystem crawling (`--all` removed). Configuration now strictly requires `--target <client>` specification. Executing without a target outputs interactive guidance and cleanly exits without touching, reading, or writing any files on the host system.
+  - **Atomic File Operations & Race Defense (`safeWriteConfig`)**: Employs non-destructive atomic write pattern utilizing temporary files scoped to the target directory with process ID and a cryptographically secure 8-byte hexadecimal nonce (`crypto.randomBytes(8)`). Writes enforce `flag: "wx"` (exclusive creation, preventing symlink pre-creation hijacking) followed by atomic commit via `fs.renameSync`. Transient write errors trigger best-effort temporary file cleanup.
+  - **Symlink Boundary Preservation**: Resolves target paths via `fs.realpathSync` to preserve symbolic link destinations while guarding containment boundaries, handling dangling symlinks safely.
+  - **Strict Least-Privilege Permissions**: Automatically creates parent configuration directories with restricted mode `0o700` (`rwx------`). Configuration files are written with `0o600` (`rw-------`) or retain existing target permissions. Pre-write backup files (`.bak`) strictly inherit source permissions.
+  - **Injection-Free Serialization**: All executable commands and argument arrays injected into YAML and JSON configurations are defensively serialized and escaped with `JSON.stringify`, neutralizing parameter breakout and YAML structural injection vectors.
+  - **JSONC Compatibility & Prototype Pollution Defense**: `updateJsonConfig` first performs native `JSON.parse` to preserve raw string literals containing comments (`//`). On parse failure, falls back to comment/trailing comma stripping with strict `isPlainObject` validation, blocking Prototype Pollution and root Array corruption.
+  - **CLI Stdio Isolation**: `src/server.ts` routes `setup` arguments directly in `main()` before initializing any MCP server transports, preventing standard I/O pollution or JSON-RPC protocol corruption.
+  - **Shell Script Hardening**: `scripts/install.sh` enables `set -euo pipefail` and strictly quotes variable expansions (`"$@"`). `scripts/install.ps1` sets `$ErrorActionPreference = "Stop"` and passes arguments via array parameters (`@argsList`).
+- **Prompt Injection & Cascading Template Defense (`src/server.ts`)**:
+  - **Single-Pass Regex Interpolation (`interpolateTemplate`)**: Refactored template substitution engine into a single unified regex with sorted, escaped keys, performing single-pass replacement. This completely eliminates cascading / multi-pass template expansion vulnerabilities where user-injected strings mimic template placeholders (e.g., `<task_description>` inside an argument expanding secondary variables).
+  - **Prompt Argument Clamping & ReDoS Defense (`getStringArg`)**: Implemented safe argument extraction with explicit `hasOwnProperty` validation to neutralize prototype pollution, and strictly clamps string arguments to 32 KB (`MAX_PROMPT_ARG_LENGTH = 32 * 1024`), defending against memory exhaustion and ReDoS attacks.
+  - **Argument Normalization**: Defensive `.trim()` and string coercion preventing type confusion and injection. Unknown prompts are rejected with standard `McpError(ErrorCode.InvalidRequest)`.
+- **Supply Chain & Dependency Hardening**:
+  - `npm audit` reports **0 vulnerabilities**. Exact overrides configured for `hono` (^4.13.7), `@hono/node-server` (^2.1.1), `fast-uri` (^4.1.3), and `qs` (^6.16.0) protect against upstream CVEs.
+
 ## v6.3.2 Security & Hardening Notes
 
 - **MCP Standard Prompts Security & Injection Defense (`src/server.ts`)**:
@@ -94,17 +112,23 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.3.2)
+## Current Security Status (v6.3.4)
 
 | Check | Status |
 | ----- | ------ |
-| npm audit vulnerabilities | :zero: Zero — exact verified overrides for `hono`, `@hono/node-server`, and `fast-uri` |
+| npm audit vulnerabilities | :zero: Zero — exact verified overrides for `hono` (^4.13.7), `@hono/node-server` (^2.1.1), `fast-uri` (^4.1.3), `qs` (^6.16.0) |
 | `innerHTML` usage | :zero: Zero — entire codebase uses safe DOM APIs |
 | `eval` / `new Function` / `document.write` | :zero: Zero occurrences |
 | Command Injection (`execFileSync` in `render-graphs.js` & `server.cjs`) | :white_check_mark: Secured — direct binary execution, shell interpreters eliminated |
-| Hardcoded secrets in tracked files | :zero: Zero — `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*` |
+| Targeted Global Setup & Explicit Consent | :white_check_mark: Secured — anti-virus design; requires explicit `--target <client>`, no blind scanning, safe exit without target |
+| Atomic Config Writes & Race Defense | :white_check_mark: Secured — temporary file write with cryptographically secure random nonce (`crypto.randomBytes(8)`), exclusive creation (`wx`), and atomic `renameSync` |
+| Least-Privilege Directory & File Modes | :white_check_mark: Secured — created configuration dirs restricted to `0o700`, files written with `0o600` or existing mode, backup files preserve source mode |
+| JSONC & Serialization Injection Defense | :white_check_mark: Secured — comment stripping with trailing comma tolerance, `isPlainObject` prototype pollution defense, `JSON.stringify` variable escaping in YAML/JSON |
+| CLI Transport Stdio Isolation | :white_check_mark: Secured — setup CLI intercepted in `main()` before MCP Stdio transport initialization, eliminating protocol pollution |
+| MCP Prompts Cascading Injection Defense | :white_check_mark: Secured — single-pass regex replacement (`interpolateTemplate`) eliminates multi-pass expansion; 32 KB length clamp & `hasOwnProperty` check neutralize prototype pollution and ReDoS |
+| Hardcoded secrets in tracked files | :zero: Zero — `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*`, `task.md` |
 | World-writable files | :zero: Zero |
-| MCP Prompts Injection & Path Traversal | :white_check_mark: Secured — dynamic prompt templating inherits `SkillsManager` double physical containment, `O_NOFOLLOW` / fd identity match, and safe argument sanitization |
+| MCP Tools/Prompts Path Traversal | :white_check_mark: Secured — dynamic prompt templating inherits `SkillsManager` double physical containment, `O_NOFOLLOW` / fd identity match, and safe argument sanitization |
 | Symlink / Path Traversal Defense | :white_check_mark: Secured — bounded `O_NOFOLLOW`/fd reads, `realpath` containment, private state files, canonical temp-deletion guard in v6.2.3, and hardened token-file read (`readPrivateFile`) rejecting symlinked/multi-link `.last-token` in v6.2.4; **unchanged in v6.3.0** (upstream's removal of these controls was deliberately not adopted) |
 | WebSocket Protocol Validation | :white_check_mark: Secured — RFC 6455 handshake check, 125-byte control-frame cap, 10 MB frame cap, 16-client cap, idle timeout, and partial-frame deadline in v6.2.3; unchanged in v6.3.0 |
 | Filesystem Race / Crash Resilience | :white_check_mark: Secured — read-before-headers, try/catch fs paths, watcher self-heal in v6.2.3 |
@@ -113,20 +137,23 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Concurrency & Cache Safety | :white_check_mark: Secured — instance-checked promise lock, last-good cache on transient failure in v6.2.3 |
 | XSS vectors (brainstorming Visual Companion & server) | :white_check_mark: Patched — DOM XSS fixed in v5.1.1, remaining `innerHTML` eliminated in v6.0.0, reflected server-side XSS fixed in v6.0.1, nonce CSP + `nosniff` + HttpOnly-only auth in v6.2.3; remote brand image from upstream v6.3.0 **not adopted** (keeps the local inline SVG, no third-party request) |
 | Shell Command Injection (`BRAINSTORM_OPEN_CMD`) | :white_check_mark: Patched — `cp.execFile` with argv array in v6.0.3 |
-| CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — exact `hono` 4.13.0 override (GHSA-8j4g-w8fx-2239) in v6.2.3 |
+| Shell Script Security (`install.sh`, `install.ps1`) | :white_check_mark: Secured — `set -euo pipefail` and quoted expansions in Bash; `$ErrorActionPreference = "Stop"` and array argument splatting in PowerShell |
+| CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — exact `hono` override (GHSA-8j4g-w8fx-2239) |
 
 ## Comprehensive Security Audit & Verification Report
 
-A full repository security audit was conducted covering dependencies, core MCP server, Brainstorm Companion server, secret hygiene, and automated regression testing.
+A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, secret hygiene, and automated regression testing.
 
 ### 1. Dependencies & Supply Chain
 - **Vulnerability Audit**: `npm audit` returned **0 vulnerabilities**.
-- **Dependency Overrides**: Pinned versions for `hono` (4.13.0), `@hono/node-server` (2.0.11), and `fast-uri` (4.1.2) protect against upstream CVEs (including GHSA-8j4g-w8fx-2239).
+- **Dependency Overrides**: Verified exact overrides for `hono` (^4.13.7), `@hono/node-server` (^2.1.1), `fast-uri` (^4.1.3), and `qs` (^6.16.0) protect against upstream CVEs (including GHSA-8j4g-w8fx-2239).
 
 ### 2. MCP Server, Prompts & Skills Core Engine (`src/server.ts`, `src/skills-manager.ts`)
-- **Prompts Injection & Argument Sanitization**:
+- **Prompts Injection & Cascading Expansion Defense**:
   - `ListPromptsRequestSchema` and `GetPromptRequestSchema` are guarded against prompt injection; all template files are read through hardened `SkillsManager` APIs.
-  - Arguments are evaluated safely with optional chaining and string boundary guards, preventing `undefined` concatenation or prototype pollution.
+  - `interpolateTemplate` utilizes a single-pass regular expression replacement engine with sorted, escaped keys, eliminating cascading or secondary placeholder expansion attacks.
+  - `getStringArg` enforces explicit `hasOwnProperty` validation to prevent prototype pollution and strictly clamps argument strings to 32 KB (`MAX_PROMPT_ARG_LENGTH = 32 * 1024`) to eliminate ReDoS and memory exhaustion hazards.
+  - Arguments are evaluated safely with `.trim()`, type coercion, and boundary guards, preventing `undefined` concatenation.
 - **Path Traversal & Symlink Defense**:
   - `getSafeSkillsPath()` blocks hazardous system directory prefixes (`/etc`, `/var`, `/usr`, `C:\Windows`, etc.).
   - `findSkill()` strictly strips path separators (`/`, `\`, `\0`, `..`), using in-memory Map key lookups so user inputs never enter filesystem read APIs directly.
@@ -149,15 +176,33 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **WebSocket Hardening**:
   - Strict RFC 6455 handshake validation, control frame payload cap (≤125 bytes), 10 MB frame cap, 16 concurrent client limit, and idle/partial-frame socket teardowns.
 
-### 4. Secrets & Git Hygiene
-- **Secret Scanning**: No hardcoded API keys, private keys, or tokens detected in tracked files.
-- **Git Ignore**: Comprehensive rules in `.gitignore` cover `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*`, and ephemeral worktrees.
-- **Working Tree**: Clean git status without untracked artifacts.
+### 4. Universal Global Setup Engine & Installation Scripts (`src/setup-runner.ts`, `scripts/`)
+- **Explicit Consent & Anti-Virus Design**:
+  - Abolished all unprompted bulk scanning or blind directory crawling (`--all` removed). Setup strictly requires `--target <client>`. Running without arguments outputs interactive guidance and cleanly exits without touching or reading the host filesystem.
+- **Atomic Operations & Race Resilience**:
+  - `safeWriteConfig` utilizes temporary files scoped to the target directory containing process ID and cryptographically random 8-byte nonces (`crypto.randomBytes(8)`). Writes enforce `flag: "wx"` (exclusive creation, avoiding symlink hijacking) and commit via atomic `fs.renameSync`.
+- **Symlink Boundary Preservation**:
+  - Target paths are resolved through `fs.realpathSync` to preserve symbolic link destinations while checking directory containment and safely handling dangling symlinks.
+- **Least-Privilege Directory & File Permissions**:
+  - Configuration directories are created with restricted mode `0o700`. Configuration files default to `0o600` or preserve existing modes. Pre-write backup files (`.bak`) inherit source permissions.
+- **Injection-Free Config Serialization**:
+  - Variables and arguments in YAML/JSON are safely escaped with `JSON.stringify`. JSON parser tolerates JSONC comments/trailing commas while verifying `isPlainObject` against prototype pollution and array root corruption.
+- **CLI Transport Stdio Isolation**:
+  - `src/server.ts` routes `setup` arguments in `main()` prior to initializing any MCP Stdio transport, preventing protocol deadlock or stdout pollution.
+- **Shell & PowerShell Script Hardening**:
+  - `scripts/install.sh` enables `set -euo pipefail` and strictly quotes variable expansions (`"$@"`). `scripts/install.ps1` sets `$ErrorActionPreference = "Stop"` and uses typed array parameter splatting.
 
-### 5. Automated Security & Edge-Case Verification
-- **Edge Cases & Security Suite** (`tests/edge_cases_test.js`): Passed (BOM handling, traversal blocking, concurrency locks, dot-named skills, transient failure cache preservation).
-- **MCP Protocol & Prompts Suite** (`tests/run_test.js`): Passed (Initialization, `list_skills`, `read_skill`, malformed URI handling, `prompts/list`, `prompts/get` dynamic injection).
+### 5. Secrets & Git Hygiene
+- **Secret Scanning**: No hardcoded API keys, private keys, or tokens detected in tracked files.
+- **Git Ignore**: Comprehensive rules in `.gitignore` cover `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*`, `task.md`, and ephemeral worktrees.
+- **Working Tree & File Modes**: Clean git status without untracked artifacts. Zero world-writable files.
+
+### 6. Automated Security & Edge-Case Verification
+- **Edge Cases & Security Suite** (`tests/edge_cases_test.js`): Passed 7/7 tests (BOM handling, traversal blocking, concurrency locks, dot-named skills, transient failure cache preservation).
+- **MCP Protocol & Prompts Suite** (`tests/run_test.js`): Passed 7/7 tests (Initialization, `list_skills`, `read_skill`, malformed URI handling, `prompts/list`, `prompts/get` dynamic injection).
 - **Companion Server Suite** (`tests/brainstorm_server_test.js`): **31 passed, 0 failed** (Authentication, token persistence, WS caps, CSP, traversal protection, PID lifecycle).
+- **Compositions & Prompts Injection Suite** (`tests/prompts_compositions_test.js`): Passed 7/7 tests (Workflow prompts coverage, multi-stage integrity, dynamic scenario focus, cascading injection defense, unknown prompt rejection).
+- **Global Setup Engine Suite** (`tests/setup_test.js`): **21 passed, 0 failed** (Copilot & standard JSON, YAML injection defense, JSONC parsing, plain object validation, anti-bulk target consent, cross-platform path resolution, atomic write sandbox & symlink preservation, double invocation defense).
 
 ---
 

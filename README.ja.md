@@ -166,6 +166,46 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
+## 🆕 最近の更新
+
+### v6.3.4（最新）
+
+- **Universal One-Click グローバルセットアップエンジン (`src/setup-runner.ts`, `scripts/`)**：
+  - 8 大主要 AI 環境（Antigravity、Pi Desktop / Pi Agent、Cursor、GitHub Copilot (VS Code)、Hermes Desktop / Agent、Kimi Work / Kimi Code、Claude Desktop、Devin Desktop）向けの依存関係ゼロのワンクリック自動構成。
+  - CLI コマンド `superpowers-setup` および `superpowers-mcp setup` を提供し、クロスプラットフォームのインストーラスクリプト（[`install.sh`](scripts/install.sh) および [`install.ps1`](scripts/install.ps1)）を開発。
+  - **明示的同意とアンチウイルス設計 (Explicit Consent & Anti-Virus Design)**：`--target <client>` を必須とし、未承認のディスク自動スキャンや全環境の一括変更を根絶（`--all` を削除）。
+  - **アトミック書き込み防御 (`safeWriteConfig`)**：ランダム 8 バイト nonce 一時ファイル、`flag: "wx"`、`renameSync` によるアトミック操作で、ファイル競合や破損を防止。
+  - **シンボリックリンク保護と最小特権権限**：`realpathSync` でリンク先を安全に解決。新規ディレクトリは `0o700`、設定ファイルは `0o600` に制限し、バックアップは元のパーミッションを継承。
+  - **パラメータインジェクション防御と JSONC 解析**：`JSON.stringify` で安全にエスケープ。コメントや末尾カンマを許容し、`isPlainObject` でプロトタイプ汚染を防御。
+  - **CLI Stdio 分離**：`src/server.ts` で setup 引数を事前インターセプトし、MCP プロトコルの stdio 汚染を防止。
+  - **自動化テストスイート**：[`tests/setup_test.js`](tests/setup_test.js) を追加（21 テスト 100% 合格）。
+- **Skill Compositions スキル合成とエンドツーエンドパイプライン (`src/server.ts`, `docs/`)**：
+  - 3 つの新しい MCP ワークフロープロンプトを追加：`feature-pipeline`、`structured-debug`、`skill-composition`。
+  - 4 言語による包括的なドキュメント（[`docs/skill-compositions.ja.md`](docs/skill-compositions.ja.md)）と横型 Mermaid フローチャート、ASCII 図を追加。
+  - [`skills/using-superpowers/SKILL.md`](skills/using-superpowers/SKILL.md) および [`skills/writing-plans/SKILL.md`](skills/writing-plans/SKILL.md) に `Recommended Skill` メタデータ標準とコントローラー・サブエージェント間プロトコルを追加。
+  - [`tests/prompts_compositions_test.js`](tests/prompts_compositions_test.js) を追加（7 テスト 100% 合格）。
+- **プロンプトセキュリティ強化とライフサイクルの完結 (`src/server.ts`)**：
+  - `interpolateTemplate` を 1 パス正規表現置換にアップグレードし、連鎖的なプレースホルダー展開攻撃を根絶。
+  - 全 9 プロンプトに 32 KB 長さクランプと `hasOwnProperty` 検証を適用。
+  - `structured-debug` に Stage 6（レビュー修正）と Stage 7（ブランチ整理・完了）を追加。
+- **包括的なセキュリティ監査と検証**：
+  - `npm audit` で脆弱性 0 を確認。全 5 テストスイート（100+ アサーション）が 100% 合格。[`SECURITY.md`](SECURITY.md) を更新。
+
+### v6.3.3
+
+- **MCP 標準プロンプトサポート (`src/server.ts`)**：
+  - 標準プロンプトハンドラーを実装し、IDE プロンプトピッカーで利用可能な 6 つのプロンプト（`session-start`、`sdd-implementer`、`sdd-task-reviewer`、`sdd-re-review`、`spec-reviewer`、`plan-reviewer`）を登録。
+- **マルチハーネスリファレンスマッピング**：
+  - Devin CLI（[`references/devin-tools.md`](skills/using-superpowers/references/devin-tools.md)）および OpenCode（[`references/opencode-tools.md`](skills/using-superpowers/references/opencode-tools.md)）向けのネイティブツールマッピングを追加。
+- **多言語ドキュメントの同期**：
+  - 全言語の README で MCP 機能対応表（Tools / Prompts / Resources）およびマルチハーネス対応マトリックスを統一。
+- **テストスイートの拡張**：
+  - `prompts/list` および `prompts/get` パラメータ注入の自動化テストアサーションを追加。
+
+👉 *これまでの詳細なリリース履歴については、完全な [CHANGELOG.md](CHANGELOG.md) を参照してください。*
+
+---
+
 ## 🙏 謝辞
 
 このプロジェクトは、[obra](https://github.com/obra) によるオリジナルの [Superpowers](https://github.com/obra/superpowers) プロジェクトのフォークおよび適応です。この MCP サーバーの基盤となるエージェンティックスキルフレームワークとソフトウェアエンジニアリングワークフローを定義してくれた彼らの先駆的な仕事に感謝します。
