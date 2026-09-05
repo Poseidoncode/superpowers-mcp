@@ -21,23 +21,21 @@
 
 ---
 
-## 3. 四大標準技能組合流水線 (Standard Pipelines)
-
-```mermaid
-flowchart TD
-    subgraph FeaturePipeline["1. 端到端新功能開發管線 (Feature Development Pipeline)"]
-        F1[brainstorming] --> F2[writing-plans]
-        F2 --> F3[using-git-worktrees]
-        F3 --> F4[subagent-driven-development / executing-plans]
-        F4 --> F5[test-driven-development]
-        F5 --> F6[verification-before-completion]
-        F6 --> F7[requesting-code-review]
-        F7 --> F8[finishing-a-development-branch]
-    end
-```
+## 3. 四大標準工作流流水線 (Four Standard Workflow Pipelines)
 
 ### Pipeline 1: 端到端新功能開發 (Feature Development Pipeline)
 **適用於：** 從零開發新功能、新增模組或重構核心流程。
+
+```mermaid
+flowchart LR
+    F1[brainstorming] --> F2[writing-plans]
+    F2 --> F3[using-git-worktrees]
+    F3 --> F4[subagent-driven-development / executing-plans]
+    F4 --> F5[test-driven-development]
+    F5 --> F6[verification-before-completion]
+    F6 --> F7[requesting-code-review]
+    F7 --> F8[finishing-a-development-branch]
+```
 
 | 步驟 | 技能 (Skill) | 職責與產出 |
 | :--- | :--- | :--- |
@@ -78,6 +76,16 @@ flowchart LR
 ### Pipeline 3: 大型重構與系統遷移 (Large Refactoring & Migration Pipeline)
 **適用於：** 核心架構重構、框架升級或微服務拆分。
 
+```mermaid
+flowchart LR
+    R1[brainstorming] --> R2["writing-plans (skeleton-first)"]
+    R2 --> R3[using-git-worktrees]
+    R3 --> R4[subagent-driven-development]
+    R4 --> R5[verification-before-completion]
+    R5 --> R6[requesting-code-review]
+    R6 --> R7[finishing-a-development-branch]
+```
+
 1. **`brainstorming`**：定義新舊介面相容性、過渡策略與驗證標準。
 2. **`writing-plans` (採用 Skeleton-First 模式)**：規劃端到端最小骨架，並拆解各子系統階段任務。
 3. **`using-git-worktrees`**：建立重構專用長效 Worktree。
@@ -89,6 +97,14 @@ flowchart LR
 
 ### Pipeline 4: 舊專案工程防護網建立 (Legacy Codebase Safety Net)
 **適用於：** 缺乏單元測試或架構混亂的遺留代碼庫。
+
+```mermaid
+flowchart LR
+    L1[brainstorming] --> L2[writing-plans]
+    L2 --> L3["test-driven-development (characterization)"]
+    L3 --> L4[systematic-debugging]
+    L4 --> L5[verification-before-completion]
+```
 
 1. **`brainstorming`**：辨識系統關鍵路徑（Critical Path）與高風險模組。
 2. **`writing-plans`**：制定防護測試（Characterization Tests）補充計畫。

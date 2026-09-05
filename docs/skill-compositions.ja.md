@@ -23,21 +23,21 @@
 
 ## 3. 4 つの標準ワークフローパイプライン (Standard Pipelines)
 
-```mermaid
-flowchart TD
-    subgraph FeaturePipeline["1. エンドツーエンド新機能開発パイプライン (Feature Development Pipeline)"]
-        F1[brainstorming] --> F2[writing-plans]
-        F2 --> F3[using-git-worktrees]
-        F3 --> F4[subagent-driven-development / executing-plans]
-        F4 --> F5[test-driven-development]
-        F5 --> F6[verification-before-completion]
-        F6 --> F7[requesting-code-review]
-        F7 --> F8[finishing-a-development-branch]
-    end
-```
+## 3. 4つの標準スキル構成パイプライン (Four Standard Workflow Pipelines)
 
 ### パイプライン 1: エンドツーエンド新機能開発 (Feature Development Pipeline)
 **推奨用途：** 新機能のスクラッチ開発、主要モジュールの追加、コアプロセスのリファクタリング。
+
+```mermaid
+flowchart LR
+    F1[brainstorming] --> F2[writing-plans]
+    F2 --> F3[using-git-worktrees]
+    F3 --> F4[subagent-driven-development / executing-plans]
+    F4 --> F5[test-driven-development]
+    F5 --> F6[verification-before-completion]
+    F6 --> F7[requesting-code-review]
+    F7 --> F8[finishing-a-development-branch]
+```
 
 | ステップ | スキル (Skill) | 責務と成果物 |
 | :--- | :--- | :--- |
@@ -78,6 +78,16 @@ flowchart LR
 ### パイプライン 3: 大規模リファクタリング & システム移行 (Large Refactoring & Migration Pipeline)
 **推奨用途：** コアアーキテクチャの再構築、フレームワーク移行、サービス分離。
 
+```mermaid
+flowchart LR
+    R1[brainstorming] --> R2["writing-plans (skeleton-first)"]
+    R2 --> R3[using-git-worktrees]
+    R3 --> R4[subagent-driven-development]
+    R4 --> R5[verification-before-completion]
+    R5 --> R6[requesting-code-review]
+    R6 --> R7[finishing-a-development-branch]
+```
+
 1. **`brainstorming`**：インターフェース互換性、移行手順、同等性検証基準を定義。
 2. **`writing-plans` (Skeleton-First モード)**：全サブシステムを貫通する最小限のエンドツーエンド骨格を設計。
 3. **`using-git-worktrees`**：移行作業専用の長期 Worktree を構築。
@@ -89,6 +99,14 @@ flowchart LR
 
 ### パイプライン 4: レガシーコードベース安全網の構築 (Legacy Codebase Safety Net)
 **推奨用途：** 単体テストが不足している、または構造が乱雑なレガシーコードベース。
+
+```mermaid
+flowchart LR
+    L1[brainstorming] --> L2[writing-plans]
+    L2 --> L3["test-driven-development (characterization)"]
+    L3 --> L4[systematic-debugging]
+    L4 --> L5[verification-before-completion]
+```
 
 1. **`brainstorming`**：システムの境界、既存動作の仕様化目標を特定。
 2. **`writing-plans`**：仕様化テスト（Characterization Tests）作成計画を策定。

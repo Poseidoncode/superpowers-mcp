@@ -84,7 +84,9 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ### 3. 동적 워크플로우 가이드 (Dynamic Workflow Guide)
 - **원클릭 명령어:** "`skill-composition`을 적용하여 현재 상황 [리팩토링/마이그레이션/레거시 코드 보호]에 맞는 절차를 안내해줘"
-- **특징:** 대규모 리팩토링, 레거시 시스템 안전망 구축, 온보딩에 맞는 최적의 파이프라인을 동적으로 추천.
+- **특징:** 대규모 리팩토링, 레거시 시스템 안전망 구축, 온보딩에 맞는 최적의 파이프라인을 동적으로 추천:
+  - **대규모 리팩토링 및 마이그레이션 (Pipeline 3):** `brainstorming` ➔ `writing-plans (skeleton-first)` ➔ `using-git-worktrees` ➔ `subagent-driven-development` ➔ `verification-before-completion` ➔ `requesting-code-review` ➔ `finishing-a-development-branch`
+  - **레거시 코드베이스 안전망 (Pipeline 4):** `brainstorming` ➔ `writing-plans` ➔ `test-driven-development (characterization)` ➔ `systematic-debugging` ➔ `verification-before-completion`
 
 
 ---

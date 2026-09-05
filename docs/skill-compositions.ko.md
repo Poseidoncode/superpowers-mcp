@@ -23,21 +23,21 @@
 
 ## 3. 4대 표준 워크플로우 파이프라인 (Standard Pipelines)
 
-```mermaid
-flowchart TD
-    subgraph FeaturePipeline["1. 엔드투엔드 새 기능 개발 파이프라인 (Feature Development Pipeline)"]
-        F1[brainstorming] --> F2[writing-plans]
-        F2 --> F3[using-git-worktrees]
-        F3 --> F4[subagent-driven-development / executing-plans]
-        F4 --> F5[test-driven-development]
-        F5 --> F6[verification-before-completion]
-        F6 --> F7[requesting-code-review]
-        F7 --> F8[finishing-a-development-branch]
-    end
-```
+## 3. 4대 표준 스킬 조합 파이프라인 (Four Standard Workflow Pipelines)
 
 ### 파이프라인 1: 엔드투엔드 새 기능 개발 (Feature Development Pipeline)
 **권장 시나리오:** 새 기능 초기 개발, 주요 모듈 추가, 핵심 프로세스 리팩토링.
+
+```mermaid
+flowchart LR
+    F1[brainstorming] --> F2[writing-plans]
+    F2 --> F3[using-git-worktrees]
+    F3 --> F4[subagent-driven-development / executing-plans]
+    F4 --> F5[test-driven-development]
+    F5 --> F6[verification-before-completion]
+    F6 --> F7[requesting-code-review]
+    F7 --> F8[finishing-a-development-branch]
+```
 
 | 단계 | 스킬 (Skill) | 역할 및 산출물 |
 | :--- | :--- | :--- |
@@ -78,6 +78,16 @@ flowchart LR
 ### 파이프라인 3: 대규모 리팩토링 및 시스템 마이그레이션 (Large Refactoring & Migration Pipeline)
 **권장 시나리오:** 핵심 아키텍처 재구축, 프레임워크 업그레이드, 서비스 분리.
 
+```mermaid
+flowchart LR
+    R1[brainstorming] --> R2["writing-plans (skeleton-first)"]
+    R2 --> R3[using-git-worktrees]
+    R3 --> R4[subagent-driven-development]
+    R4 --> R5[verification-before-completion]
+    R5 --> R6[requesting-code-review]
+    R6 --> R7[finishing-a-development-branch]
+```
+
 1. **`brainstorming`**: 인터페이스 호환성, 전환 전략, 동등성 검증 기준 정의.
 2. **`writing-plans` (Skeleton-First 모드)**: 모든 서브시스템을 관통하는 최소 엔드투엔드 뼈대 설계.
 3. **`using-git-worktrees`**: 마이그레이션 전용 장기 Worktree 구성.
@@ -89,6 +99,14 @@ flowchart LR
 
 ### 파이프라인 4: 레거시 코드베이스 안전망 구축 (Legacy Codebase Safety Net)
 **권장 시나리오:** 단위 테스트가 부족하거나 구조가 복잡한 레거시 코드베이스.
+
+```mermaid
+flowchart LR
+    L1[brainstorming] --> L2[writing-plans]
+    L2 --> L3["test-driven-development (characterization)"]
+    L3 --> L4[systematic-debugging]
+    L4 --> L5[verification-before-completion]
+```
 
 1. **`brainstorming`**: 핵심 비즈니스 경로와 고위험 모듈 식별.
 2. **`writing-plans`**: 특성화 테스트(Characterization Tests) 추가 로드맵 수립.

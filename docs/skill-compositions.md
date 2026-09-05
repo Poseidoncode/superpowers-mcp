@@ -24,21 +24,19 @@ When composing skills, always enforce these four safety mechanisms:
 
 ## 3. Four Standard Workflow Pipelines
 
-```mermaid
-flowchart TD
-    subgraph FeaturePipeline["1. Feature Development Pipeline"]
-        F1[brainstorming] --> F2[writing-plans]
-        F2 --> F3[using-git-worktrees]
-        F3 --> F4[subagent-driven-development / executing-plans]
-        F4 --> F5[test-driven-development]
-        F5 --> F6[verification-before-completion]
-        F6 --> F7[requesting-code-review]
-        F7 --> F8[finishing-a-development-branch]
-    end
-```
-
 ### Pipeline 1: End-to-End Feature Development
 **Ideal for:** Building new features, major modules, or core subsystem enhancements.
+
+```mermaid
+flowchart LR
+    F1[brainstorming] --> F2[writing-plans]
+    F2 --> F3[using-git-worktrees]
+    F3 --> F4[subagent-driven-development / executing-plans]
+    F4 --> F5[test-driven-development]
+    F5 --> F6[verification-before-completion]
+    F6 --> F7[requesting-code-review]
+    F7 --> F8[finishing-a-development-branch]
+```
 
 | Step | Skill | Responsibility & Deliverable |
 | :--- | :--- | :--- |
@@ -79,6 +77,16 @@ flowchart LR
 ### Pipeline 3: Large Refactoring & System Migration
 **Ideal for:** Architectural refactors, framework migrations, or service decoupling.
 
+```mermaid
+flowchart LR
+    R1[brainstorming] --> R2["writing-plans (skeleton-first)"]
+    R2 --> R3[using-git-worktrees]
+    R3 --> R4[subagent-driven-development]
+    R4 --> R5[verification-before-completion]
+    R5 --> R6[requesting-code-review]
+    R6 --> R7[finishing-a-development-branch]
+```
+
 1. **`brainstorming`**: Define interface contracts, transition strategies, and parity validation criteria.
 2. **`writing-plans` (Skeleton-First Mode)**: Design the thinnest end-to-end slice across all subsystems first.
 3. **`using-git-worktrees`**: Establish dedicated long-lived migration worktrees.
@@ -90,6 +98,14 @@ flowchart LR
 
 ### Pipeline 4: Legacy Codebase Safety Net
 **Ideal for:** Legacy codebases lacking automated test coverage or consistent patterns.
+
+```mermaid
+flowchart LR
+    L1[brainstorming] --> L2[writing-plans]
+    L2 --> L3["test-driven-development (characterization)"]
+    L3 --> L4[systematic-debugging]
+    L4 --> L5[verification-before-completion]
+```
 
 1. **`brainstorming`**: Identify critical business paths and high-risk modules.
 2. **`writing-plans`**: Create a roadmap for adding characterization and boundary tests.

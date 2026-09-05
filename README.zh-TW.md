@@ -84,7 +84,9 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ### 3. 動態技能導引 (Dynamic Workflow Guide)
 - **一鍵指令：**「請套用 `skill-composition`，我目前的情境是 [重構/遷移/接手舊專案]」
-- **流程特色：** 針對大型重構、舊代碼防護網建立或團隊新人上手，動態推薦最佳步驟。
+- **流程特色：** 針對大型重構、舊代碼防護網建立或團隊新人上手，動態推薦最佳步驟：
+  - **大型重構與遷移 (Pipeline 3)：** `brainstorming` ➔ `writing-plans (skeleton-first)` ➔ `using-git-worktrees` ➔ `subagent-driven-development` ➔ `verification-before-completion` ➔ `requesting-code-review` ➔ `finishing-a-development-branch`
+  - **舊專案工程防護網 (Pipeline 4)：** `brainstorming` ➔ `writing-plans` ➔ `test-driven-development (characterization)` ➔ `systematic-debugging` ➔ `verification-before-completion`
 
 
 ---
