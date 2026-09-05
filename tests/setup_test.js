@@ -120,6 +120,29 @@ it("should parse and tolerate JSONC with comments and trailing commas", () => {
     assert.ok(parsed.mcpServers.superpowers);
 });
 
+it("should defend against polynomial ReDoS (CodeQL js/polynomial-redos) and process inputs in linear time", () => {
+    // Attack payload from CodeQL alert: starts with '/*' and with many repetitions of 'a/*' without closing '*/'
+    const attackPayload = "/*" + "a/*".repeat(50000);
+    const start = Date.now();
+    const result = stripJsonComments(attackPayload);
+    const elapsed = Date.now() - start;
+
+    assert.ok(elapsed < 100, `ReDoS payload took ${elapsed}ms, must be < 100ms`);
+    assert.strictEqual(result, "");
+
+    // Test with valid JSON and heavy repeated comment markers inside string literals
+    const jsonWithStringComments = JSON.stringify({
+        url: "https://example.com/api//v1/*test*/",
+        tricky: "/* not a comment */, }",
+        normal: 123
+    });
+    const sanitized = stripJsonComments(jsonWithStringComments);
+    const parsed = JSON.parse(sanitized);
+    assert.strictEqual(parsed.url, "https://example.com/api//v1/*test*/");
+    assert.strictEqual(parsed.tricky, "/* not a comment */, }");
+    assert.strictEqual(parsed.normal, 123);
+});
+
 it("should recover gracefully when root or mcpServers is null or Array", () => {
     // null root
     const updatedNull = updateJsonConfig("null", "json-mcpServers", "npx", ["-y", "superpowers-mcp"]);

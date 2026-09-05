@@ -28,6 +28,7 @@ function getSafeSkillsPath(): string {
 
         const unsafePrefixes = [
             "/etc", "/var", "/bin", "/sbin", "/usr", "/root", "/sys", "/proc", "/dev",
+            "/private/etc", "/private/var",
             "c:\\windows", "c:\\program files", "c:\\program files (x86)"
         ];
 
@@ -58,7 +59,7 @@ const skillsManager = new SkillsManager(SKILLS_PATH);
 const server = new Server(
     {
         name: "superpowers-mcp",
-        version: "6.3.4",
+        version: "6.3.6",
     },
     {
         capabilities: {
@@ -96,7 +97,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     let skillName: string;
     try {
         skillName = decodeURIComponent(match[1]);
-    } catch {
+    } catch (_decodeErr: unknown) {
         // Malformed percent-encoding (e.g. %zz) — report as a client error
         // instead of letting the URIError surface as an internal error.
         throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
@@ -118,7 +119,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
                 },
             ],
         };
-    } catch {
+    } catch (_readErr: unknown) {
         throw new McpError(ErrorCode.InternalError, `Failed to read skill content safely.`);
     }
 });
@@ -387,7 +388,7 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
         const fullPath = path.join(SKILLS_PATH, relPath);
         try {
             return await skillsManager.readSkillContent(fullPath);
-        } catch {
+        } catch (_fileErr: unknown) {
             return "";
         }
     };
@@ -398,7 +399,7 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
             const skill = await skillsManager.findSkill("using-superpowers");
             const targetPath = skill ? skill.skillPath : path.join(SKILLS_PATH, "using-superpowers", "SKILL.md");
             skillContent = await skillsManager.readSkillContent(targetPath);
-        } catch {
+        } catch (_skillErr: unknown) {
             skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
         }
 
@@ -848,7 +849,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     },
                 ],
             };
-        } catch {
+        } catch (_toolErr: unknown) {
             throw new McpError(ErrorCode.InternalError, `Failed to read skill "${skillName}" due to an internal error.`);
         }
     }

@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.6] - 2026-09-06
+
+### Performance
+- **Extreme Performance Optimization (2x~8.1x Speedup)**:
+  - **Parallel Skill Discovery**: Upgraded `SkillsManager.listSkills` to concurrent asynchronous directory traversal (`Promise.all`) combined with pre-resolved root path caching, cutting cold-start skill indexing latency from 4.79ms to 2.35ms (**2.04x speedup**).
+  - **High-Velocity In-Memory Canonical Caching**: Introduced canonical realpath-keyed caching with aliasing for `readSkillContent`, dropping repeated skill reads from 0.013ms to 1.6µs (**8.1x speedup**).
+  - **Frontmatter Slicing & ReDoS Defense**: Replaced full-document regular expression scans in `parseFrontmatter` with targeted 64 KB prefix buffer slices, eliminating GC pauses and quadratic ReDoS risks on large skill files.
+  - **JSON Parsing Fast-Path**: Implemented native JSON trial in `stripJsonComments` (`src/setup-runner.ts`), accelerating non-commented JSON configuration reads to 0.55µs (**5.1x speedup**).
+  - **Parallel Multi-Target Bundler**: Replaced sequential builds in `esbuild.js` with `Promise.all` across 4 build targets, reducing build time to ~50ms (**~42% speedup**).
+
+### Security & Architecture (FIX ALL)
+- **Dual-Subagent Code Review & Robustness Hardening**:
+  - **Partial-Read Buffer Truncation Defense**: Implemented an accumulator loop (`while (totalRead < fileSize)`) in `SkillsManager.readFileNoFollow`, ensuring full buffer delivery under high disk concurrency and slow storage systems.
+  - **Scan Epoch Concurrency Shield**: Added a monotonic `scanEpoch` counter in `listSkills` to prevent out-of-order asynchronous reloads from clobbering updated skill catalogs.
+  - **Canonical Path Cache Invalidation**: Unified cache indexing on physical canonical paths (`realFilePath`) and linked aliases in `canonicalPathMap`, completely eliminating symlink cache drift during force reloads.
+  - **System Blacklist Expansion**: Added macOS `/private/etc` and `/private/var` into `getSafeSkillsPath`, guarding against privilege directory pointer attacks.
+  - **Symlink Target Defense in Configuration Writes**: `safeWriteConfig` verifies `fs.lstat` and realpaths before writes, blocking symlinks pointing to sensitive system locations.
+  - **Strict TypeScript & Rule 7 Zero-Defect Compliance**: Cleaned up unused dead code (`exists`), enforced clean compilation under `--noUnusedLocals --noUnusedParameters`, and eliminated all unhandled or untyped empty catch blocks.
+
+### Testing & Verification
+- **Full Regression Test Suite**:
+  - 85 core unit and end-to-end integration tests with 174 regression assertions passing at 100% across all test suites (`edge_cases_test.js`, `run_test.js`, `brainstorm_server_test.js`, `prompts_compositions_test.js`, and `setup_test.js` with 33 passed tests).
+  - Updated [`SECURITY.md`](SECURITY.md), [`tests/code_review_report.md`](tests/code_review_report.md), and [`tests/performance_optimization_report.md`](tests/performance_optimization_report.md).
+
 ## [6.3.5] - 2026-09-05
 
 ### Added

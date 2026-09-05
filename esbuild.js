@@ -57,14 +57,21 @@ const setupRunnerConfig = {
 
 async function build() {
     if (isWatch) {
-        const srvCtx = await esbuild.context(serverConfig);
-        await srvCtx.watch();
-        console.log("Watching for changes...");
+        const contexts = await Promise.all([
+            esbuild.context(serverConfig),
+            esbuild.context(managerConfig),
+            esbuild.context(setupConfig),
+            esbuild.context(setupRunnerConfig),
+        ]);
+        await Promise.all(contexts.map((ctx) => ctx.watch()));
+        console.log("Watching for changes across all targets...");
     } else {
-        await esbuild.build(serverConfig);
-        await esbuild.build(managerConfig);
-        await esbuild.build(setupConfig);
-        await esbuild.build(setupRunnerConfig);
+        await Promise.all([
+            esbuild.build(serverConfig),
+            esbuild.build(managerConfig),
+            esbuild.build(setupConfig),
+            esbuild.build(setupRunnerConfig),
+        ]);
 
         // Make server.js and setup.js executable safely across platforms
         const executablePaths = [

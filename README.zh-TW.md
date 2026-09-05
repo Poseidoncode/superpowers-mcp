@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.3.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.3.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -175,7 +175,27 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.3.5 (最新版)
+### v6.3.6 (最新版)
+
+- **極致效能躍升優化 (2x~8.1x 加速)**：
+  - **並行技能索引與快取前置**：`SkillsManager.listSkills` 升級為非同步並行目錄遍歷 (`Promise.all`) 搭配根目錄預解析快取，冷啟動技能索引延遲由 4.79ms 銳減至 2.35ms（**2.04x 速度提升**）。
+  - **極速記憶體 Canonical 快取**：針對 `readSkillContent` 引入以實體真實路徑為鍵的 Canonical 快取與別名映射機制，二次技能讀取由 0.013ms 驟降至 1.6µs（**8.1x 速度提升**）。
+  - **Frontmatter 切片與 ReDoS 防護**：`parseFrontmatter` 改以 64 KB 前綴緩衝區局部切片取代全檔正則匹配，徹底消除大檔案 GC 停頓與二次方 ReDoS 風險。
+  - **JSON 解析高速直通路徑**：在 `stripJsonComments` (`src/setup-runner.ts`) 引入原生 JSON 嘗試，無註解設定檔讀取速度提升至 0.55µs（**5.1x 速度提升**）。
+  - **並行多目標打包編譯**：`esbuild.js` 採用 `Promise.all` 並行編譯 4 大產物，全專案打包時間降至 ~50ms（**~42% 速度提升**）。
+- **雙子 Subagent 深度 Code Review 與全面缺陷加固 (FIX ALL)**：
+  - **Partial-Read 緩衝區截斷防禦**：`SkillsManager.readFileNoFollow` 實作累加式讀取迴圈（`while (totalRead < fileSize)`），杜絕高併發磁碟 I/O 或虛擬檔案系統下的無聲截斷。
+  - **Scan Epoch 並發版本防護**：`listSkills` 引入遞增的 `scanEpoch` 代數計數器，防止背景慢速掃描覆寫較新的快取狀態。
+  - **Canonical 快取一致性保證**：以實體真實路徑 (`realFilePath`) 為核心鍵值並透過 `canonicalPathMap` 維護別名映射，徹底消除符號連結別名的快取漂移 (Cache Drift)。
+  - **系統黑名單防禦擴展**：`getSafeSkillsPath` 補齊 macOS `/private/etc` 與 `/private/var`，杜絕攻擊者透過環境變數逃逸至敏感系統目錄。
+  - **設定檔寫入符號連結逃逸防禦**：`safeWriteConfig` 在寫入前透過 `fs.lstat` 與真實路徑解析，嚴格拒絕指向敏感系統路徑的符號連結偽造寫入。
+  - **嚴格 TypeScript 與 Rule 7 零瑕疵合規**：徹底清理廢棄死代碼（`exists` 私有方法），全面通過 `--noUnusedLocals --noUnusedParameters`，並消除全專案所有無型別/空白 catch 區塊。
+- **自動化測試套件擴充與基準回歸**：
+  - 全套件 85 項核心單元/端到端測試與 174 項回歸斷言 100% 通過（包含 `setup_test.js` 33 項測試全部通過），並產出 [`SECURITY.md`](SECURITY.md)、[`tests/code_review_report.md`](tests/code_review_report.md) 與 [`tests/performance_optimization_report.md`](tests/performance_optimization_report.md)。
+- **多語系文檔全面對齊**：
+  - 4 語系 README（[`README.md`](README.md)、[`README.zh-TW.md`](README.zh-TW.md)、[`README.ja.md`](README.ja.md)、[`README.ko.md`](README.ko.md)）同步支援環境清單、效能指標與一鍵指令表格。
+
+### v6.3.5
 
 - **新增 7 款主流 AI 開發環境一鍵安裝 (`src/setup-runner.ts`, `scripts/install.sh`)**：
   - 全域配置引擎支援擴充至 15 款 AI Agent 與 IDE 環境：
@@ -194,9 +214,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - 完成專案全面安全掃描與審計，更新 [`SECURITY.md`](SECURITY.md)（173 項自動化回歸斷言 100% 通過）。
 - **自動化測試套件擴充 (`tests/setup_test.js`)**：
   - 單元測試由 21 項大幅擴增至 32 項（100% 通過），補齊 Claude Desktop、Kimi Work 與 Hermes Desktop 的端到端沙盒測試與別名驗證。
-- **多語系文檔全面對齊**：
-  - 4 語系 README（[`README.md`](README.md)、[`README.zh-TW.md`](README.zh-TW.md)、[`README.ja.md`](README.ja.md)、[`README.ko.md`](README.ko.md)）同步支援環境清單與指令表格。
-  - 清理 [`tests/global_setup_verification.md`](tests/global_setup_verification.md) 殘留數據。
 
 ### v6.3.4
 

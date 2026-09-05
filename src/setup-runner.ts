@@ -319,12 +319,110 @@ export function isPlainObject(val: unknown): val is Record<string, unknown> {
 
 /**
  * Strips comments and trailing commas to tolerate JSONC formatted configurations (e.g. VS Code).
+ * Implemented as a deterministic O(N) single-pass scanner to eliminate polynomial ReDoS (CWE-1333).
  */
-export function stripJsonComments(content: string): string {
-    return content
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/(^|[^:])\/\/.*$/gm, "$1")
-        .replace(/,\s*([\]}])/g, "$1");
+export function stripJsonComments(content: string, skipFastPath = false): string {
+    if (!content) {
+        return "";
+    }
+
+    // 若未明確略過且原內容已是標準合法 JSON（無註解與尾隨逗號），直接直通返回，零開銷
+    if (!skipFastPath) {
+        try {
+            JSON.parse(content);
+            return content;
+        } catch (_parseErr: unknown) {
+            // 含註解或尾隨逗號，走單趟線性掃描器
+        }
+    }
+
+    const len = content.length;
+    const output: string[] = [];
+
+    let inString = false;
+    let isEscaped = false;
+    let inSingleComment = false;
+    let inMultiComment = false;
+    let lastCommaIndex = -1;
+
+    for (let i = 0; i < len; i++) {
+        const ch = content[i];
+        const next = i + 1 < len ? content[i + 1] : "";
+
+        if (inSingleComment) {
+            if (ch === "\n" || ch === "\r") {
+                inSingleComment = false;
+                output.push(ch);
+            }
+            continue;
+        }
+
+        if (inMultiComment) {
+            if (ch === "*" && next === "/") {
+                inMultiComment = false;
+                i++; // Skip '/'
+            }
+            continue;
+        }
+
+        if (inString) {
+            output.push(ch);
+            if (isEscaped) {
+                isEscaped = false;
+            } else if (ch === "\\") {
+                isEscaped = true;
+            } else if (ch === '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        // Not in comment or string
+        if (ch === '"') {
+            inString = true;
+            isEscaped = false;
+            lastCommaIndex = -1;
+            output.push(ch);
+            continue;
+        }
+
+        if (ch === "/" && next === "/") {
+            inSingleComment = true;
+            i++; // Skip next '/'
+            continue;
+        }
+
+        if (ch === "/" && next === "*") {
+            inMultiComment = true;
+            i++; // Skip next '*'
+            continue;
+        }
+
+        // Handle trailing commas
+        if (ch === ",") {
+            lastCommaIndex = output.length;
+            output.push(ch);
+            continue;
+        }
+
+        if (ch === "}" || ch === "]") {
+            if (lastCommaIndex !== -1) {
+                output[lastCommaIndex] = " ";
+                lastCommaIndex = -1;
+            }
+            output.push(ch);
+            continue;
+        }
+
+        if (ch !== " " && ch !== "\t" && ch !== "\n" && ch !== "\r") {
+            // Any non-whitespace character other than } or ] resets lastCommaIndex
+            lastCommaIndex = -1;
+        }
+
+        output.push(ch);
+    }
+
+    return output.join("");
 }
 
 /**
@@ -458,7 +556,7 @@ export function updateJsonConfig(
         } catch (_nativeErr: unknown) {
             // If standard parse fails, fallback to JSONC comment and trailing comma stripping
             try {
-                const sanitized = stripJsonComments(existingContent);
+                const sanitized = stripJsonComments(existingContent, true);
                 const parsed = JSON.parse(sanitized);
                 if (isPlainObject(parsed)) {
                     json = parsed;
@@ -528,8 +626,26 @@ export function safeWriteConfig(configPath: string, newContent: string, backup =
                 const linkTarget = fs.readlinkSync(configPath);
                 targetFilePath = path.resolve(path.dirname(configPath), linkTarget);
             }
+            const normalizedTarget = path.normalize(path.resolve(targetFilePath)).toLowerCase();
+            const tempDir = path.normalize(path.resolve(os.tmpdir())).toLowerCase();
+            const isInsideTemp = normalizedTarget === tempDir || normalizedTarget.startsWith(tempDir + path.sep);
+            const unsafePrefixes = [
+                "/etc", "/bin", "/sbin", "/usr", "/root", "/sys", "/proc", "/dev",
+                "/private/etc",
+                "c:\\windows"
+            ];
+            if (!isInsideTemp && (
+                unsafePrefixes.some((p) => normalizedTarget === p || normalizedTarget.startsWith(p + path.sep)) ||
+                normalizedTarget === "/var" || (normalizedTarget.startsWith("/var" + path.sep) && !normalizedTarget.startsWith("/var/folders" + path.sep)) ||
+                normalizedTarget === "/private/var" || (normalizedTarget.startsWith("/private/var" + path.sep) && !normalizedTarget.startsWith("/private/var/folders" + path.sep))
+            )) {
+                throw new Error(`Refusing to write to unsafe symlink target: ${targetFilePath}`);
+            }
         }
     } catch (_lstatErr) {
+        if (_lstatErr instanceof Error && _lstatErr.message.includes("Refusing to write to unsafe symlink target")) {
+            throw _lstatErr;
+        }
         // Fall back to original configPath if stat fails
     }
 

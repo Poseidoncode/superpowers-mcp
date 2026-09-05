@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.3.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.3.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -175,7 +175,27 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.3.5（最新）
+### v6.3.6（最新）
+
+- **極限のパフォーマンス最適化（2倍〜8.1倍の高速化）**：
+  - **スキルの並行インデックスと事前キャッシュ**：`SkillsManager.listSkills` を非同期並行ディレクトリ走査（`Promise.all`）とルートパス事前解決キャッシュにアップグレードし、コールドスタート時のインデックス遅延を 4.79ms から 2.35ms に短縮（**2.04倍の高速化**）。
+  - **超高速インメモリ Canonical キャッシュ**：`readSkillContent` において物理実パスをキーとする Canonical キャッシュとエイリアスマッピングを導入し、同一スキルの再読み込み時間を 0.013ms から 1.6µs に短縮（**8.1倍の高速化**）。
+  - **Frontmatter スライシングと ReDoS 防御**：`parseFrontmatter` においてファイル全体の一括正規表現走査を 64 KB のプレフィックスバッファ切り出しに置き換え、大規模ファイルでの GC 停止と二次関数的 ReDoS リスクを根絶。
+  - **JSON パース高速パス**：`stripJsonComments` (`src/setup-runner.ts`) にネイティブ JSON 試行を導入し、コメントのない設定ファイルの読み込み時間を 0.55µs に短縮（**5.1倍の高速化**）。
+  - **マルチターゲット並行ビルド**：`esbuild.js` で 4 つの独立アーティファクトを `Promise.all` で並行コンパイルし、ビルド時間を ~50ms に短縮（**~42% 高速化**）。
+- **デュアル Subagent 深度コードレビューと包括的欠陥修正 (FIX ALL)**：
+  - **Partial-Read バッファ切り捨て防御**：`SkillsManager.readFileNoFollow` に累積読み込みループ（`while (totalRead < fileSize)`）を実装し、高負荷 I/O や仮想ファイルシステムでの暗黙の Markdown 切り捨てを防止。
+  - **Scan Epoch 並行競合シールド**：`listSkills` に単調増加の `scanEpoch` カウンタを導入し、非同期の古いスキャンが最新のキャッシュ状態を上書きするレースコンディションを解消。
+  - **Canonical キャッシュ整合性の保証**：実物理パス（`realFilePath`）をマスターキーとし、`canonicalPathMap` でエイリアスを追跡することで、強制リロード時のシンボリックリンクキャッシュ乖離（Cache Drift）を根絶。
+  - **システムディレクトリブラックリストの拡張**：`getSafeSkillsPath` に macOS 固有の `/private/etc` および `/private/var` を追加し、特権ディレクトリへのパスエスケープを防止。
+  - **設定書き込み時のシンボリックリンク先検証**：`safeWriteConfig` で `fs.lstat` と実パス解決を実施し、機密システム領域へのシンボリックリンク書き込みを拒絕。
+  - **厳格な TypeScript と Rule 7 ゼロ欠陥準拠**：未使用のデッドコード（`exists`）を完全削除し、`--noUnusedLocals --noUnusedParameters` に合格。型なし・空の catch ブロックをすべて排除。
+- **自動化テストスイートの拡張と回帰検証**：
+  - 85 件のコアユニット/結合テストと 174 件の回帰アサーションが 100% 合格（`setup_test.js` は 33 件すべて合格）。[`SECURITY.md`](SECURITY.md)、[`tests/code_review_report.md`](tests/code_review_report.md)、[`tests/performance_optimization_report.md`](tests/performance_optimization_report.md) を整備。
+- **多言語ドキュメントの同期**：
+  - 4 言語すべての README（[`README.md`](README.md)、[`README.zh-TW.md`](README.zh-TW.md)、[`README.ja.md`](README.ja.md)、[`README.ko.md`](README.ko.md)）でサポート環境一覧、パフォーマンス指標、ワンクリックコマンド表を同期。
+
+### v6.3.5
 
 - **7 つの新しい AI エージェント・エディタ環境のワンクリックインストール対応 (`src/setup-runner.ts`, `scripts/install.sh`)**：
   - 構成エンジンを拡張し、合計 15 種類の AI 開発環境に対応：
@@ -194,9 +214,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - プロジェクト全体のセキュリティ監査を完了し、[`SECURITY.md`](SECURITY.md) を更新（173 件の自動化アサーション 100% 合格）。
 - **テストスイートの大幅拡充 (`tests/setup_test.js`)**：
   - 単元テストを 21 件から 32 件に拡充（100% 合格）。Claude Desktop、Kimi Work、Hermes Desktop のエンドツーエンドサンドボックステストを追加。
-- **多言語ドキュメントの同期**：
-  - 4 言語すべての README（[`README.md`](README.md)、[`README.zh-TW.md`](README.zh-TW.md)、[`README.ja.md`](README.ja.md)、[`README.ko.md`](README.ko.md)）でサポート環境一覧とコマンドテーブルを同期。
-  - [`tests/global_setup_verification.md`](tests/global_setup_verification.md) の残存データを整理。
 
 ### v6.3.4
 

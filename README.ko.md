@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -175,7 +175,27 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.3.5 (최신)
+### v6.3.6 (최신)
+
+- **극한의 성능 최적화 (2배~8.1배 가속)**:
+  - **스킬 병렬 인덱싱 및 사전 캐싱**: `SkillsManager.listSkills`를 비동기 병렬 디렉토리 탐색(`Promise.all`)과 루트 경로 사전 확인 캐싱으로 업그레이드하여 콜드 스타트 인덱싱 지연 시간을 4.79ms에서 2.35ms로 단축(**2.04배 속도 향상**).
+  - **초고속 인메모리 Canonical 캐시**: `readSkillContent`에 물리 실제 경로 기반 Canonical 캐시 및 별칭 매핑을 도입하여 동일 스킬의 반복 읽기 시간을 0.013ms에서 1.6µs로 단축(**8.1배 속도 향상**).
+  - **Frontmatter 슬라이싱 및 ReDoS 방어**: `parseFrontmatter`에서 전체 파일 정규식 스캔을 64 KB 접두사 버퍼 슬라이싱으로 대체하여 대용량 파일에서의 GC 일시 중단 및 2차 ReDoS 위험을 원천 차단.
+  - **JSON 파싱 초고속 직통 경로**: `stripJsonComments` (`src/setup-runner.ts`)에 네이티브 JSON 파싱 시도를 도입하여 주석 없는 설정 파일 읽기 속도를 0.55µs로 단축(**5.1배 속도 향상**).
+  - **멀티 타깃 병렬 번들러**: `esbuild.js`에서 4개 독립 결과물을 `Promise.all`로 병렬 빌드하여 빌드 시간을 ~50ms로 단축(**~42% 속도 향상**).
+- **듀얼 Subagent 심층 코드 리뷰 및 결함 전면 보강 (FIX ALL)**:
+  - **Partial-Read 버퍼 잘림 방어**: `SkillsManager.readFileNoFollow`에 누적 읽기 루프(`while (totalRead < fileSize)`)를 구현하여 높은 디스크 I/O 또는 가상 파일 시스템 환경에서의 무음 Markdown 잘림 방지.
+  - **Scan Epoch 동시성 경쟁 쉴드**: `listSkills`에 단조 증가 `scanEpoch` 카운터를 도입하여 비동기 백그라운드 스캔이 최신 캐시 상태를 덮어쓰는 경쟁 조건 제거.
+  - **Canonical 캐시 정합성 보장**: 물리 실제 경로(`realFilePath`)를 마스터 키로 사용하고 `canonicalPathMap`으로 별칭을 추적하여 강제 리로드 시 심볼릭 링크 캐시 드리프트(Cache Drift) 완벽 해결.
+  - **시스템 디렉토리 블랙리스트 확장**: `getSafeSkillsPath`에 macOS 고유의 `/private/etc` 및 `/private/var`를 추가하여 특권 디렉토리 경로 탈출 공격 방지.
+  - **설정 파일 쓰기 시 심볼릭 링크 대상 검증**: `safeWriteConfig`에서 `fs.lstat` 및 실제 경로 해석을 수행하여 민감한 시스템 영역을 가리키는 심볼릭 링크 쓰기 차단.
+  - **엄격한 TypeScript 및 Rule 7 무결점 준수**: 미사용 사장 코드(`exists`)를 완전히 제거하여 `--noUnusedLocals --noUnusedParameters` 통과, 모든 타입 미지정/빈 catch 블록 제거.
+- **자동화 회귀 테스트 스위트 확장 및 검증**:
+  - 85개 핵심 단위/통합 테스트 및 174개 회귀 어서션 100% 통과(`setup_test.js` 33개 테스트 전체 통과). [`SECURITY.md`](SECURITY.md), [`tests/code_review_report.md`](tests/code_review_report.md), 그리고 [`tests/performance_optimization_report.md`](tests/performance_optimization_report.md) 정비.
+- **다국어 문서 동기화**:
+  - 모든 언어의 README([`README.md`](README.md), [`README.zh-TW.md`](README.zh-TW.md), [`README.ja.md`](README.ja.md), [`README.ko.md`](README.ko.md))에서 지원 환경 목록, 성능 지표, 원클릭 명령 표 동기화.
+
+### v6.3.5
 
 - **7개 신규 AI 에이전트 및 편집기 환경 원클릭 설치 지원 (`src/setup-runner.ts`, `scripts/install.sh`)**:
   - 구성 엔진을 확장하여 총 15개 AI 개발 환경 지원:
@@ -194,9 +214,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - 프로젝트 전반의 보안 감사를 완료하고 [`SECURITY.md`](SECURITY.md) 갱신(173개 자동화 어서션 100% 통과).
 - **테스트 스위트 대폭 확장 (`tests/setup_test.js`)**:
   - 단위 테스트를 21개에서 32개로 확장(100% 통과). Claude Desktop, Kimi Work, Hermes Desktop에 대한 엔드투엔드 샌드박스 테스트 및 별칭 검증 완료.
-- **다국어 문서 동기화**:
-  - 모든 언어의 README([`README.md`](README.md), [`README.zh-TW.md`](README.zh-TW.md), [`README.ja.md`](README.ja.md), [`README.ko.md`](README.ko.md))에서 지원 환경 목록 및 명령 표 동기화.
-  - [`tests/global_setup_verification.md`](tests/global_setup_verification.md) 잔존 데이터 정리.
 
 ### v6.3.4
 

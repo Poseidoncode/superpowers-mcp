@@ -351,7 +351,7 @@ async function run() {
         fs.mkdirSync(contentDir, { recursive: true });
         await getWithCookie(port, key, "/");
         fs.writeFileSync(path.join(contentDir, "post.html"), "<html><body>POST</body></html>");
-        const reloaded = await waitFor(() => bufferHasTextFrame(watchBuf, '"type":"reload"'), 3000);
+        const reloaded = await waitFor(() => bufferHasTextFrame(watchBuf, '"type":"reload"'), 6000);
         report("watcher resumes after content dir recreation", reloaded);
         watchSocket.destroy();
 

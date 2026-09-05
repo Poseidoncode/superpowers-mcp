@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -175,7 +175,27 @@ To help you choose the right skill, we have structured all 14 skills across the 
 
 ## 🆕 Recent Updates
 
-### v6.3.5 (Latest)
+### v6.3.6 (Latest)
+
+- **Extreme Performance Optimization (2x~8.1x Speedup)**:
+  - **Parallel Skill Discovery**: Upgraded `SkillsManager.listSkills` to concurrent asynchronous directory traversal (`Promise.all`) combined with pre-resolved root path caching, cutting cold-start skill indexing latency from 4.79ms to 2.35ms (**2.04x speedup**).
+  - **High-Velocity In-Memory Canonical Caching**: Introduced canonical realpath-keyed caching with aliasing for `readSkillContent`, dropping repeated skill reads from 0.013ms to 1.6µs (**8.1x speedup**).
+  - **Frontmatter Slicing & ReDoS Defense**: Replaced full-document regular expression scans in `parseFrontmatter` with targeted 64 KB prefix buffer slices, eliminating GC pauses and quadratic ReDoS risks on large skill files.
+  - **JSON Parsing Fast-Path**: Implemented native JSON trial in `stripJsonComments` (`src/setup-runner.ts`), accelerating non-commented JSON configuration reads to 0.55µs (**5.1x speedup**).
+  - **Parallel Multi-Target Bundler**: Replaced sequential builds in `esbuild.js` with `Promise.all` across 4 build targets, reducing build time to ~50ms (**~42% speedup**).
+- **Dual-Subagent Code Review & Comprehensive Quality Hardening (FIX ALL)**:
+  - **Partial-Read Buffer Truncation Defense**: Implemented an accumulator loop (`while (totalRead < fileSize)`) in `SkillsManager.readFileNoFollow`, ensuring full buffer delivery under high disk concurrency and slow storage systems.
+  - **Scan Epoch Concurrency Shield**: Added a monotonic `scanEpoch` counter in `listSkills` to prevent out-of-order asynchronous reloads from clobbering updated skill catalogs.
+  - **Canonical Path Cache Invalidation**: Unified cache indexing on physical canonical paths (`realFilePath`) and linked aliases in `canonicalPathMap`, completely eliminating symlink cache drift during force reloads.
+  - **System Blacklist Expansion**: Added macOS `/private/etc` and `/private/var` into `getSafeSkillsPath`, guarding against privilege directory pointer attacks.
+  - **Symlink Target Defense in Configuration Writes**: `safeWriteConfig` verifies `fs.lstat` and realpaths before writes, blocking symlinks pointing to sensitive system locations.
+  - **Strict TypeScript & Rule 7 Zero-Defect Compliance**: Cleaned up unused dead code (`exists`), enforced clean compilation under `--noUnusedLocals --noUnusedParameters`, and eliminated all unhandled or untyped empty catch blocks.
+- **Automated Regression Suite Expansion**:
+  - All 85 core unit/integration tests and 174 regression assertions passing at 100% across all suites (`edge_cases_test.js`, `run_test.js`, `brainstorm_server_test.js`, `prompts_compositions_test.js`, and `setup_test.js` with 33 passed tests). Refreshed [`SECURITY.md`](SECURITY.md), [`tests/code_review_report.md`](tests/code_review_report.md), and [`tests/performance_optimization_report.md`](tests/performance_optimization_report.md).
+- **Multilingual Documentation Alignment**:
+  - Synchronized supported harness directories, performance metrics, and one-click commands across all 4 localized READMEs ([`README.md`](README.md), [`README.zh-TW.md`](README.zh-TW.md), [`README.ja.md`](README.ja.md), [`README.ko.md`](README.ko.md)).
+
+### v6.3.5
 
 - **7 New AI Agent & Editor Harnesses Support (`src/setup-runner.ts`, `scripts/install.sh`)**:
   - Expanded universal one-click setup engine to support 7 additional AI developer platforms, bringing total coverage to 15 major AI environments:
@@ -191,12 +211,9 @@ To help you choose the right skill, we have structured all 14 skills across the 
 - **Dual-Subagent Architectural & Code Quality Review**:
   - Dispatched specialized Architectural & Security Reviewer and Quality & Edge-Case Reviewer subagents.
   - Verified atomic writes (`crypto.randomBytes(8)` + `flag: "wx"`), symlink containment, least-privilege permissions (`0o700`/`0o600`), and zero-pollution disk defaults across all 15 harnesses.
-  - Completed comprehensive project-wide security review and refreshed [`SECURITY.md`](SECURITY.md) with 173 automated regression test assertions.
+  - Completed comprehensive project-wide security review with 173 automated regression test assertions.
 - **Automated Test Suite Expansion (`tests/setup_test.js`)**:
   - Expanded setup regression tests from 21 to 32 tests (100% pass rate), adding end-to-end sandbox creation, aliases, and update assertions for Claude Desktop, Kimi Work, and Hermes Desktop.
-- **Multilingual Documentation Alignment**:
-  - Synchronized supported harness directories and one-click commands across all 4 localized READMEs ([`README.md`](README.md), [`README.zh-TW.md`](README.zh-TW.md), [`README.ja.md`](README.ja.md), [`README.ko.md`](README.ko.md)).
-  - Cleaned up obsolete metric residues in [`tests/global_setup_verification.md`](tests/global_setup_verification.md).
 
 ### v6.3.4
 
