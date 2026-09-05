@@ -57,7 +57,7 @@ const skillsManager = new SkillsManager(SKILLS_PATH);
 const server = new Server(
     {
         name: "superpowers-mcp",
-        version: "6.3.3",
+        version: "6.3.4",
     },
     {
         capabilities: {
@@ -309,6 +309,49 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                     },
                 ],
             },
+            {
+                name: "feature-pipeline",
+                description: "Feature Development Pipeline Prompt. Chains brainstorming, writing-plans, git-worktrees, SDD/TDD, verification, code review, and branch finishing into a structured workflow.",
+                arguments: [
+                    {
+                        name: "feature_name",
+                        description: "Name or title of the feature to develop",
+                        required: false,
+                    },
+                    {
+                        name: "requirements",
+                        description: "Initial feature requirements, constraints, or description",
+                        required: false,
+                    },
+                ],
+            },
+            {
+                name: "structured-debug",
+                description: "Structured Troubleshooting Pipeline Prompt. Chains systematic debugging, worktree isolation, parallel agent investigation, TDD fix, full verification, and review.",
+                arguments: [
+                    {
+                        name: "issue_description",
+                        description: "Description of the bug, error logs, or symptoms",
+                        required: false,
+                    },
+                    {
+                        name: "failing_tests",
+                        description: "Names or paths of failing tests",
+                        required: false,
+                    },
+                ],
+            },
+            {
+                name: "skill-composition",
+                description: "Skill Composition & Workflow Guide Prompt. Recommends multi-skill compositions for feature development, debugging, refactoring, or legacy safety net.",
+                arguments: [
+                    {
+                        name: "scenario",
+                        description: "Development scenario (feature, debug, refactor, legacy-safety)",
+                        required: false,
+                    },
+                ],
+            },
         ],
     };
 });
@@ -512,6 +555,154 @@ ${skillContent}
                     content: {
                         type: "text",
                         text: `${rendered}${legacyAppend}${legacySpecAppend}`,
+                    },
+                },
+            ],
+        };
+    }
+
+    if (promptName === "feature-pipeline") {
+        const featureName = args.feature_name || "(Unspecified feature)";
+        const requirements = args.requirements ? `\n### Requirements / Context:\n${args.requirements}\n` : "";
+
+        const text = `# Feature Development Pipeline
+
+You are executing an end-to-end feature development workflow using Superpowers skills.
+
+**Target Feature:** ${featureName}
+${requirements}
+## Mandatory Execution Stages:
+
+1. **Stage 1: Requirements & Architecture Discovery**
+   - **Invoke Skill:** \`superpowers:brainstorming\`
+   - Clarify user intent, requirements, constraints, and architecture decisions.
+   - Produce a design specification document (e.g., in \`docs/superpowers/specs/\`).
+
+2. **Stage 2: Plan Construction**
+   - **Invoke Skill:** \`superpowers:writing-plans\`
+   - Decompose the spec into bite-sized, independently testable tasks.
+   - Specify Recommended Skills (e.g. \`superpowers:test-driven-development\`) for each task.
+   - Save plan to \`docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md\`.
+
+3. **Stage 3: Workspace Isolation**
+   - **Invoke Skill:** \`superpowers:using-git-worktrees\`
+   - Create an isolated Git worktree for this feature development to keep main branch pristine.
+
+4. **Stage 4: Execution & Implementation**
+   - **Invoke Skill:** \`superpowers:subagent-driven-development\` (or \`superpowers:executing-plans\`)
+   - For each task:
+     - Follow \`superpowers:test-driven-development\` (Red -> Green -> Refactor).
+     - Run task-level verification and self-review.
+     - Dispatch fresh task reviewer per task.
+
+5. **Stage 5: Full Suite Verification**
+   - **Invoke Skill:** \`superpowers:verification-before-completion\`
+   - Run complete repository test suite, linter, and type checks. Do NOT skip.
+
+6. **Stage 6: Code Review**
+   - **Invoke Skill:** \`superpowers:requesting-code-review\` (and \`superpowers:receiving-code-review\`)
+   - Generate review package and resolve all findings.
+
+7. **Stage 7: Branch Finishing & Cleanup**
+   - **Invoke Skill:** \`superpowers:finishing-a-development-branch\`
+   - Merge/PR, remove temporary worktree, and clean up.`;
+
+        return {
+            description: "Feature Development Pipeline Prompt",
+            messages: [
+                {
+                    role: "user",
+                    content: {
+                        type: "text",
+                        text,
+                    },
+                },
+            ],
+        };
+    }
+
+    if (promptName === "structured-debug") {
+        const issueDescription = args.issue_description ? `\n### Issue Description / Logs:\n${args.issue_description}\n` : "";
+        const failingTests = args.failing_tests ? `\n### Failing Tests:\n${args.failing_tests}\n` : "";
+
+        const text = `# Structured Troubleshooting Pipeline
+
+You are executing a rigorous root-cause debugging process for complex failures or multiple failing tests.
+${issueDescription}${failingTests}
+## Mandatory Troubleshooting Stages:
+
+1. **Stage 1: Systematic Root Cause Analysis**
+   - **Invoke Skill:** \`superpowers:systematic-debugging\`
+   - Gather exact error traces, logs, and state.
+   - Decompose into testable, mutually exclusive hypotheses.
+
+2. **Stage 2: Workspace Isolation for Investigation**
+   - **Invoke Skill:** \`superpowers:using-git-worktrees\`
+   - If investigating multiple independent hypotheses in parallel, create separate worktrees to prevent test interference and race conditions.
+
+3. **Stage 3: Parallel Hypothesis Verification (Optional / Recommended for multi-bug)**
+   - **Invoke Skill:** \`superpowers:dispatching-parallel-agents\`
+   - Dispatch subagents into isolated worktrees to prove/disprove hypotheses.
+
+4. **Stage 4: Test-Driven Bugfix**
+   - **Invoke Skill:** \`superpowers:test-driven-development\`
+   - Write a minimal failing reproduction test first (RED).
+   - Apply the fix until test passes (GREEN).
+   - Refactor without altering semantics.
+
+5. **Stage 5: Full Regression Verification**
+   - **Invoke Skill:** \`superpowers:verification-before-completion\`
+   - Run entire repository test suite to confirm zero regressions.
+
+6. **Stage 6: Code Review**
+   - **Invoke Skill:** \`superpowers:requesting-code-review\`
+   - Review fix delta and safety regression tests.`;
+
+        return {
+            description: "Structured Troubleshooting Pipeline Prompt",
+            messages: [
+                {
+                    role: "user",
+                    content: {
+                        type: "text",
+                        text,
+                    },
+                },
+            ],
+        };
+    }
+
+    if (promptName === "skill-composition") {
+        const scenario = args.scenario ? `\n### Selected Scenario:\n${args.scenario}\n` : "";
+
+        const text = `# Superpowers Skill Composition Guide
+
+You are selecting or executing a multi-skill workflow pipeline.
+${scenario}
+## Available Workflow Pipelines (see docs/skill-compositions.md for full details):
+
+1. **New Feature Development:**
+   \`brainstorming\` ➔ \`writing-plans\` ➔ \`using-git-worktrees\` ➔ \`subagent-driven-development\` (TDD) ➔ \`verification-before-completion\` ➔ \`requesting-code-review\` ➔ \`finishing-a-development-branch\`
+
+2. **Structured Debugging & Multi-failure Troubleshooting:**
+   \`systematic-debugging\` ➔ \`using-git-worktrees\` ➔ \`dispatching-parallel-agents\` ➔ \`test-driven-development\` ➔ \`verification-before-completion\` ➔ \`requesting-code-review\`
+
+3. **Large Refactoring & System Migration:**
+   \`brainstorming\` ➔ \`writing-plans\` (skeleton-first) ➔ \`using-git-worktrees\` ➔ \`subagent-driven-development\` ➔ \`verification-before-completion\` ➔ \`requesting-code-review\`
+
+4. **Legacy Codebase Safety Net:**
+   \`brainstorming\` ➔ \`writing-plans\` ➔ \`test-driven-development\` (characterization tests) ➔ \`systematic-debugging\` ➔ \`verification-before-completion\`
+
+Use \`read_skill(skill_name)\` to inspect any skill before starting.`;
+
+        return {
+            description: "Superpowers Skill Composition Guide Prompt",
+            messages: [
+                {
+                    role: "user",
+                    content: {
+                        type: "text",
+                        text,
                     },
                 },
             ],

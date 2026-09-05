@@ -30,6 +30,15 @@ When multiple skills apply, process skills come first — they set the approach,
 - "Let's build X" → superpowers:brainstorming first, then implementation skills.
 - "Fix this bug" → superpowers:systematic-debugging first, then domain skills.
 
+## Skill Compositions & Pipelines
+
+Complex engineering workflows chain multiple skills end-to-end (see `docs/skill-compositions.md`):
+
+- **Feature Pipeline:** `brainstorming` → `writing-plans` → `using-git-worktrees` → `subagent-driven-development` (with `test-driven-development`) → `verification-before-completion` → `requesting-code-review` → `finishing-a-development-branch`
+- **Troubleshooting Pipeline:** `systematic-debugging` → `using-git-worktrees` → `dispatching-parallel-agents` → `test-driven-development` → `verification-before-completion` → `requesting-code-review`
+- **Refactoring Pipeline:** `brainstorming` → `writing-plans` (skeleton-first) → `using-git-worktrees` → `subagent-driven-development` → `verification-before-completion` → `requesting-code-review`
+
+
 ## Red Flags
 
 These thoughts mean STOP—you're rationalizing:

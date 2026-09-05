@@ -17,6 +17,7 @@ Subagent (general-purpose):
 
     Read your task brief first: [BRIEF_FILE]
     It contains the full task text from the plan.
+    If your task brief specifies a **Recommended Skill** (e.g. `superpowers:test-driven-development`), adhere strictly to that skill's workflow and principles during implementation.
 
     ## Context
 

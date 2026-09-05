@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.4] - 2026-09-05
+
+### Skill Compositions & End-to-End Pipelines
+- **New Workflow Prompts (`src/server.ts`)**:
+  - Registered 3 new MCP prompts:
+    - `feature-pipeline`: End-to-end feature development orchestration (brainstorming ➔ writing-plans ➔ worktrees ➔ SDD/TDD ➔ verification ➔ code review ➔ branch finishing).
+    - `structured-debug`: Systematic root-cause debugging with worktree isolation, parallel agent investigation, and TDD bugfixes.
+    - `skill-composition`: Dynamic workflow guide tailored for refactoring, legacy safety nets, or onboarding.
+- **Dedicated Multi-Language Documentation (`docs/`)**:
+  - Created localized, comprehensive workflow guides across 4 languages with inter-linking navigation:
+    - `docs/skill-compositions.md` (English)
+    - `docs/skill-compositions.zh-TW.md` (Traditional Chinese)
+    - `docs/skill-compositions.ja.md` (Japanese)
+    - `docs/skill-compositions.ko.md` (Korean)
+  - Added Actionable Quickstart Guide (Method A: IDE MCP Prompts vs Method B: Natural Language) and step-by-step interactive walkthroughs.
+- **Skill Authoring & Metadata Standards**:
+  - Enhanced `skills/using-superpowers/SKILL.md` with the Skill Compositions & Pipelines section.
+  - Enhanced `skills/writing-plans/SKILL.md` and `skills/subagent-driven-development/implementer-prompt.md` with `Recommended Skill` task metadata standards and controller-to-subagent dispatch protocols.
+- **Documentation Refactoring & De-duplication**:
+  - Merged and unified the 14-skills overview tables across all 4 language READMEs, providing clear SDLC phase mapping, purpose, and community-recommended scenarios.
+  - Refined basic interaction examples vs one-click pipeline commands for maximum readability.
+- **Test Suite Expansion**:
+  - Added `tests/prompts_compositions_test.js` covering all new MCP workflow prompts and assertion validations (100% PASS).
+
 ## [6.3.3] - 2026-08-29
 
 ### MCP Protocol & Multi-Harness Expansion

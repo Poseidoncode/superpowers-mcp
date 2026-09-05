@@ -2,7 +2,7 @@
   "name": "superpowers-mcp",
   "displayName": "Superpowers MCP",
   "description": "Superpowers skills library (TDD, debugging, collaboration workflows) as an MCP server for VSCode and Antigravity",
-  "version": "6.3.3",
+  "version": "6.3.4",
   "publisher": "superpowers",
   "license": "MIT",
   "repository": {
@@ -39,7 +39,7 @@
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "pretest": "npm run build",
-    "test": "node tests/edge_cases_test.js && node tests/run_test.js && node tests/brainstorm_server_test.js",
+    "test": "node tests/edge_cases_test.js && node tests/run_test.js && node tests/brainstorm_server_test.js && node tests/prompts_compositions_test.js",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

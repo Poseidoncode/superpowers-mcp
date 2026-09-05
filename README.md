@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -14,26 +14,23 @@ This document summarizes the information and usage instructions for packaging th
 ### Supported Environments & Harnesses
 
 - **MCP-Native AI Editors & IDEs**: **Antigravity (AGY)**, **Cursor**, **VSCode**, **Windsurf**, **Claude Desktop / Claude Code**.
-- **CLI & Autonomous Agents**: **Devin CLI**, **Hermes Agent**, **OpenCode**, **Kimi CLI**, **Pi CLI**, **Gemini CLI**.
 
 ### MCP Capabilities Provided
 
-| Protocol Feature | Items / Capabilities | Description |
+| Protocol Feature | Items / Count | Description |
 | :--- | :--- | :--- |
-| **Tools** | `list_skills`, `read_skill` | Discover and load any of the 14 Superpowers skills on demand. |
-| **Prompts** | `session-start`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` | Ready-to-use adversarial review and subagent orchestrator prompts in your IDE prompt list. |
-| **Resources** | `skill://superpowers/<skill-name>` | Direct URI-based skill access for MCP-compliant hosts. |
+| **Tools** | `list_skills`, `read_skill` | Discover, search, and load full skill instructions and checklists on demand. |
+| **Prompts** | 9 Native Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
+| **Resources** | 14 Direct Skill URIs | `skill://superpowers/<skill-name>` (Standard direct URI access) |
 
-### Chatting with the AI Agent
+### Chatting with the AI Agent (Basic Usage)
 
 Once installed or configured, your AI Agent will automatically discover and invoke `Superpowers Skills` and `Prompts`.
 
-**Example prompts to your agent:**
-
-- "List all superpowers skills"
-- "Use read_skill to read the brainstorming skill, and then help me analyze the implementation of this feature"
-- "Apply the session-start prompt" (Initializes the full Superpowers workflow context)
-- "Run Subagent-Driven Development for docs/plans/feature-plan.md"
+**Basic Interaction Examples:**
+- **Initialize Engineering Discipline:** "Apply `session-start` prompt" (Injects Superpowers rules & context)
+- **Discover Available Skills:** "List all superpowers skills"
+- **Load an Atomic Skill:** "Use `read_skill` to load the `brainstorming` skill and help me explore requirements"
 
 ---
 
@@ -67,107 +64,51 @@ This is the easiest way as it handles path resolution automatically.
 
 ---
 
-## 💡 Common Skills & Scenarios
+## 🔄 Skill Compositions & Workflow Pipelines
 
-| Skill Name | Community Recommended Scenario | Core Value |
-| :--- | :--- | :--- |
-| `brainstorming` | Before starting a new feature, exploring requirements and design. | Prevents the AI from jumping straight into writing code. |
-| `writing-plans` | Before multi-file refactoring or complex migrations. | Establishes a clear execution blueprint. |
-| `systematic-debugging` | When encountering any errors or abnormal behavior. | Enforces "root cause analysis" instead of guessing. |
-| `test-driven-development` | When implementing logically challenging features. | Ensures code is accompanied by tests, achieving Red-Green-Refactor. |
-| `verification-before-completion` | Before claiming "it's fixed" or "it's done". | Evidence-based completion confirmation. |
+For complex, multi-step engineering tasks, use these **one-click end-to-end pipelines** where the AI guides you step-by-step (see detailed guide: [`docs/skill-compositions.md`](docs/skill-compositions.md)):
 
----
+### 1. New Feature Development Pipeline
+```
+brainstorming ➔ writing-plans ➔ using-git-worktrees ➔ subagent-driven-development (TDD) ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
+```
+- **One-Click Command:** "Please apply `feature-pipeline` to build [Feature Name]"
+- **Workflow:** Clarifies requirements (Spec) ➔ Decomposes plan ➔ Isolates worktree ➔ Implements via fresh subagents & TDD ➔ Runs full test suite ➔ Conducts code review ➔ Finishes branch.
 
-## 🔄 Recommended Prompt Sequences
+### 2. Structured Troubleshooting Pipeline
+```
+systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review
+```
+- **One-Click Command:** "Please apply `structured-debug` to investigate this error: [Paste Trace / Logs]"
+- **Workflow:** Hypothesizes root causes ➔ Isolates worktrees for parallel agents ➔ Authors failing reproduction tests ➔ Applies targeted fix ➔ Confirms zero regressions.
 
-### 1. New Feature Development Sequence
-1. "Read the brainstorming skill to confirm requirements and architecture."
-2. "Read the writing-plans skill to create an execution plan with specific steps."
-3. "Read the test-driven-development skill to implement the feature with tests."
-4. "Read the verification-before-completion skill to run test suites and ensure everything works."
+### 3. Dynamic Workflow Guide
+- **One-Click Command:** "Please apply `skill-composition` for [Refactoring / Migration / Legacy Codebase]"
+- **Workflow:** Dynamically recommends the optimal multi-skill composition for large refactors, migration safety nets, or onboarding.
 
-### 2. Emergency Hotfix Sequence
-1. "Read the systematic-debugging skill to locate the root cause of the current issue."
-2. "Read the test-driven-development skill to write a failing test for the bug and fix it."
-3. "Read the verification-before-completion skill to validate the applied hotfix."
 
 ---
 
-## 📋 Supported Skills Overview (14 Total)
+## 📋 Supported Skills Overview (14 Core Skills & Scenarios)
 
-To help you choose the right skill, we've categorized them into 6 logical phases of software development:
+To help you choose the right skill, we have structured all 14 skills across the Software Development Lifecycle (SDLC), merging core capabilities and community-recommended scenarios:
 
-### 🚀 1. Planning & Design
-- `brainstorming`: Software design and requirements analysis process
-  - Visual Companion for browser-based mockups and design reviews (just-in-time)
-- `writing-plans`: Creating detailed implementation plans
-
-### 💻 2. Implementation & Debugging
-- `executing-plans`: Executing created implementation plans
-- `test-driven-development`: TDD (Test-Driven Development) workflow
-- `systematic-debugging`: Systematic debugging and root cause analysis
-
-### 🛡️ 3. Quality & Review
-- `verification-before-completion`: Evidence-based verification before completion
-- `requesting-code-review`: Initiating pre-checks for code reviews
-- `receiving-code-review`: Receiving and addressing code review feedback
-- `finishing-a-development-branch`: Finalizing and integrating feature branches
-
-### 🌿 4. Version Control
-- `using-git-worktrees`: Managing multiple branches using Git Worktrees
-
-### 🤖 5. Advanced Agent Controls
-
-These skills are designed for orchestrating complex meta-execution patterns within supported IDEs (like Antigravity or Cursor).
-
-- **`subagent-driven-development`**: Driving sub-agents to execute tasks
-  - **Usage**: Used to execute a predefined plan task-by-task. The system spawns a fresh "implementer" sub-agent per task, followed by a consolidated **task reviewer** (spec compliance + code quality) sub-agent, plus a **whole-branch final review** at the end. A **Pre-Flight Plan Review** scans for task conflicts before execution begins. Plans run in plan-scoped workspaces (`.superpowers/sdd/<plan>/`), the controller rules on conflicts and records them in the ledger instead of stopping, and small same-shape tasks are batched into a single dispatch.
-  - **Model Selection**: Choose sub-agent models based on task complexity — cheaper models for mechanical work, capable models for architecture and subtle concurrency changes.
-  - **Example**: "Read the subagent-driven-development skill, then execute the tasks listed in docs/plans/feature-plan.md one by one."
-- **`dispatching-parallel-agents`**: Dispatching tasks to parallel agents
-  - **Usage**: Used for tackling multiple *independent* issues (e.g., 3 unrelated failing tests or 3 separate web research topics). The AI will adopt a parallel-execution mindset, addressing each task independently without crossing state or experiencing context pollution, significantly speeding up output generation.
-  - **Debugging Example**: "Read the dispatching-parallel-agents skill, then dispatch 3 parallel agents to investigate the independently failing tests A, B, and C."
-  - **Research Example**: "Read the dispatching-parallel-agents skill, then search the web for React 19 features, Vue 3.5 updates, and Svelte 5 Runes in parallel — summarize each independently."
-
-### ⚙️ 6. Customization & Meta
-- `using-superpowers`: Guidelines and self-checks for using Superpowers
-- `writing-skills`: Writing and expanding new custom skills
+| # | SDLC Phase | Skill Name | What It Does (Purpose & Core Value) | Recommended Scenario |
+| :-: | :--- | :--- | :--- | :--- |
+| 1 | **🚀 Planning & Design** | **`brainstorming`** | **Requirements & Architecture Design**: Explores options and constraints before coding; outputs Design Specs; includes Visual Companion browser UI review. | Before starting any new feature or major change; prevents jumping straight into code. |
+| 2 | **🚀 Planning & Design** | **`writing-plans`** | **Implementation Planning**: Decomposes specs into bite-sized, testable tasks annotated with Recommended Skills and file contracts. | Before multi-file refactoring, complex migrations, or major implementations. |
+| 3 | **💻 Implementation** | **`executing-plans`** | **In-Session Plan Execution**: Executes planned tasks step-by-step with checkpoint reviews in the current session. | Batch execution of plans within the same session without spawning subagents. |
+| 4 | **💻 Implementation** | **`subagent-driven-development`** | **Subagent-Driven Development (SDD)**: Dispatches fresh, context-isolated subagents per task with dual-layer adversarial reviews. | Recommended execution model for complex plans to eliminate context pollution. |
+| 5 | **💻 Implementation** | **`test-driven-development`** | **Test-Driven Development (TDD)**: Enforces strict Red ➔ Green ➔ Refactor cycles ensuring robust test coverage. | When implementing logically challenging features or critical algorithms. |
+| 6 | **🔍 Debugging** | **`systematic-debugging`** | **Systematic Root Cause Debugging**: Deconstructs complex errors into testable hypotheses with validation experiments. | When encountering any unexpected error, test failure, or intermittent bug. |
+| 7 | **🛡️ Quality & Review** | **`verification-before-completion`** | **Evidence-Based Verification**: Mandates running the full repository test suite, linter, and type checks. | Before claiming "it works" or "it is done"; provides tangible proof of completion. |
+| 8 | **🛡️ Quality & Review** | **`requesting-code-review`** | **Initiating Code Reviews**: Packages diffs and reports for multi-dimensional architectural and quality reviews. | Before merging branches or finalizing tasks to ensure architectural integrity. |
+| 9 | **🛡️ Quality & Review** | **`receiving-code-review`** | **Processing Review Feedback**: Systematically evaluates review feedback, applies fixes, and records rulings. | When addressing review findings systematically without losing context. |
+| 10 | **🛡️ Quality & Review** | **`finishing-a-development-branch`** | **Branch Integration & Cleanup**: Manages PR/merge, cleans up Git worktrees, and deletes temporary branches cleanly. | After all verifications pass to cleanly integrate the feature into the main branch. |
+| 11 | **🌿 Version Control** | **`using-git-worktrees`** | **Physical Git Isolation**: Creates isolated worktree directories for features or debugging to prevent race conditions. | When working on concurrent tasks or running parallel multi-agent investigations. |
+| 12 | **🤖 Advanced Agents** | **`dispatching-parallel-agents`** | **Parallel Agent Orchestration**: Dispatches concurrent subagents in isolated workspaces to investigate multiple hypotheses simultaneously. | When facing multiple failing tests or investigating independent theories in parallel. |
+| 13 | **🤖 Advanced Agents** | **`using-superpowers`** | **Superpowers Foundation & Discipline**: Establishes mandatory skill discovery, loading discipline, and priority rules. | Automatically loaded at session start to enforce software engineering standards. |
+| 14 | **🤖 Advanced Agents** | **`writing-skills`** | **Skill Authoring & Maintenance**: Guides the creation, testing, and packaging of new Superpowers skills. | When creating custom skills or enhancing existing skill instructions. |
 
 ---
 
-## 🆕 Recent Updates
-
-### v6.3.3 (Latest)
-
-- **MCP Standard Prompts Support (`src/server.ts`)**:
-  - Implemented standard prompt handlers, registering 6 prompts (`session-start`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer`) for native IDE prompt-picker usage.
-- **Multi-Harness Reference Mappings**:
-  - Added platform references for Devin CLI (`references/devin-tools.md`) and OpenCode (`references/opencode-tools.md`).
-- **Multi-Lingual Documentation Alignment**:
-  - Aligned MCP capability tables (Tools, Prompts, Resources) and multi-harness matrices across all supported languages.
-- **Test Suite Expansion**:
-  - Added automated test assertions for `prompts/list` and `prompts/get` parameter injection.
-
-### v6.3.2
-
-- **writing-plans — Two Plan Shapes Router & Skeleton-First Plans**:
-  - `skills/writing-plans/SKILL.md` introduces the **Two Plan Shapes** router (`task-by-task` default vs `skeleton-first` alternative) to determine architecture upfront.
-  - New [`skills/writing-plans/skeleton-first-plans.md`](skills/writing-plans/skeleton-first-plans.md) defines the Walking Skeleton pattern (Task 1 builds the thinnest running end-to-end slice across all subsystems), Task Contracts (strict interfaces and observable behaviors without code scripts), and deliberate `Tier: mechanical | judgment` tagging.
-- **subagent-driven-development (SDD) — Wave Dispatch & Parallel Worktree Protocol**:
-  - SDD controller performs **Dispatch Plan** scanning on skeleton-first plans, grouping mutually file-disjoint tasks into waves for concurrent dispatch.
-  - **Parallel Worktree Protocol**: Runs concurrent tasks in dedicated `.worktrees/task-<N>` worktrees, with sequential plan-order merges and automatic rebase-to-fix loops on merge conflict or test regression.
-  - Step 5 adds the post-completion `Plan holds` / `Amendment:` check line, ensuring in-flight tasks complete cleanly while downstream tasks inherit updated plan contracts.
-- **SDD — Tier-Driven Model Selection**:
-  - SDD dispatcher and `implementer-prompt.md` respect task `Tier:` markings (`mechanical` → fastest/cheapest tier; `judgment` → standard tier), saving tokens without redundant re-adjudication.
-- **writing-skills — Binary Execution Hardening (`render-graphs.js`)**:
-  - Replaced `execSync` shell execution with direct `execFileSync('dot', ['-Tsvg'], ...)` to eliminate shell injection risks. Added 10MB buffer limits, Windows CRLF support (`\r?\n`), and Windows `winget` installation guidance.
-- **Tests & Verification**: Full regression suites pass 100% across MCP protocol, Security Edge Cases, SDD Bash (11 assertions), PowerShell (70 assertions), and Graphviz rendering.
-
-👉 *For the complete release history, see [CHANGELOG.md](CHANGELOG.md).*
-
----
-
-## 🙏 Acknowledgments
-
-This project is a fork and adaptation of the original [Superpowers](https://github.com/obra/superpowers) project by [obra](https://github.com/obra). We are grateful for their work in defining the agentic skills framework and software development methodology that powers this MCP server.

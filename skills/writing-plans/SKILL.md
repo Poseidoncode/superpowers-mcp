@@ -108,6 +108,8 @@ include this section.]
 ````markdown
 ### Task N: [Component Name]
 
+**Recommended Skill:** `superpowers:test-driven-development` (or relevant skill)
+
 **Files:**
 - Create: `exact/path/to/file.py`
 - Modify: `exact/path/to/existing.py:123-145`
@@ -118,6 +120,7 @@ include this section.]
 - Produces: [what later tasks rely on — exact function names, parameter
   and return types. A task's implementer sees only their own task; this
   block is how they learn the names and types neighboring tasks use.]
+
 
 - [ ] **Step 1: Write the failing test**
 
