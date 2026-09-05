@@ -13,7 +13,9 @@ This document summarizes the information and usage instructions for packaging th
 
 ### Supported Environments & Harnesses
 
-- **MCP-Native AI Editors & IDEs**: **Antigravity (AGY)**, **Cursor**, **VSCode**, **Windsurf**, **Claude Desktop / Claude Code**.
+- **AI Code Editors & IDEs**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **Devin Desktop**, **MiniMax Code Desktop**, **Codex**.
+- **AI Desktop Applications & Harnesses**: **Hermes Desktop**, **Kimi Work**.
+- **Local & Self-Hosted AI Platforms**: **AnythingLLM**, **LibreChat**.
 
 ### MCP Capabilities Provided
 
@@ -36,7 +38,7 @@ Once installed or configured, your AI Agent will automatically discover and invo
 
 ## 🛠️ MCP Configuration
 
-Add the following settings to your IDE (e.g., Cursor, Antigravity, or VSCode MCP settings). 
+Add the following settings to your IDE or MCP client (e.g., Cursor, Antigravity, VSCode, AnythingLLM, etc.). 
 
 ### Method : NPX / BUNX (Recommended)
 

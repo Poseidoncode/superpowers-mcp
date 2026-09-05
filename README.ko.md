@@ -13,7 +13,9 @@
 
 ### 지원 환경 및 에이전트 플랫폼
 
-- **MCP 네이티브 AI 편집기 & IDE**: **Antigravity (AGY)**, **Cursor**, **VSCode**, **Windsurf**, **Claude Desktop / Claude Code**.
+- **AI 코드 편집기 & IDE**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **Devin Desktop**, **MiniMax Code Desktop**, **Codex**.
+- **AI 데스크톱 앱 & 에이전트 도구**: **Hermes Desktop**, **Kimi Work**.
+- **자체 호스팅 & 로컬 AI 플랫폼**: **AnythingLLM**, **LibreChat**.
 
 ### 제공되는 MCP 프로토콜 기능
 
@@ -36,7 +38,7 @@
 
 ## 🛠️ MCP 구성
 
-다음 설정을 IDE(Cursor, Antigravity 또는 VSCode MCP 설정 등)에 추가하세요.
+다음 설정을 IDE 또는 MCP 클라이언트(예: Cursor, Antigravity, VSCode, AnythingLLM 등)의 MCP 설정에 추가하세요.
 
 ### 방법: NPX / BUNX (권장)
 

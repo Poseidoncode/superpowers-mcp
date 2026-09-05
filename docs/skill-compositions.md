@@ -140,7 +140,7 @@ When the controller agent dispatches a task subagent:
 
 ## 5. Native MCP Prompts Reference
 
-`superpowers-mcp` provides native, ready-to-use MCP prompts across IDEs (Cursor, Antigravity, VS Code, Windsurf, Claude Desktop):
+`superpowers-mcp` provides native, ready-to-use MCP prompts across IDEs (Cursor, Antigravity, VS Code, Devin Desktop):
 
 | MCP Prompt | Arguments | Purpose |
 | :--- | :--- | :--- |
@@ -161,7 +161,7 @@ When the controller agent dispatches a task subagent:
 With `superpowers-mcp` installed, you **do not need to memorize or invoke 14 individual skill names manually**. Choose one of two simple ways to get started:
 
 ### Method A: One-Click via IDE MCP Prompts (Recommended)
-In Cursor, Antigravity, VS Code, Claude Desktop, or Windsurf:
+In Cursor, Antigravity, VS Code, or Devin Desktop:
 1. **New Feature Development**: Type `/feature-pipeline` or select `feature-pipeline` from the MCP prompts menu and provide your feature goal.
 2. **Troubleshooting & Bugfixes**: Select `structured-debug` and paste the error logs or failing test names.
 3. **Custom / Architecture Tasks**: Select `skill-composition` to let the AI recommend the best pipeline for your scenario.

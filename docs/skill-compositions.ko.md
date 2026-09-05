@@ -141,7 +141,7 @@ flowchart LR
 
 ## 5. 네이티브 MCP Prompts 레퍼런스
 
-`superpowers-mcp`는 주요 IDE(Cursor, Antigravity, VS Code, Claude Desktop 등)에서 즉시 사용할 수 있는 표준 Prompts를 제공합니다:
+`superpowers-mcp`는 주요 IDE(Cursor, Antigravity, VS Code, Devin Desktop 등)에서 즉시 사용할 수 있는 표준 Prompts를 제공합니다:
 
 | MCP Prompt 명 | 매개변수 | 용도 |
 | :--- | :--- | :--- |
@@ -162,7 +162,7 @@ flowchart LR
 `superpowers-mcp`를 설정하면 **14개의 개별 스킬 이름을 일일이 기억할 필요가 없습니다**. 아래의 두 가지 간단한 방법으로 시작할 수 있습니다:
 
 ### 방법 A: IDE의 MCP Prompts 사용 (가장 권장, 원클릭 시작)
-Cursor, Antigravity, VS Code, Claude Desktop, Windsurf 등의 대화창에서:
+Cursor, Antigravity, VS Code, Devin Desktop 등의 대화창에서:
 1. **새 기능 개발**: `/feature-pipeline`을 입력하거나 Prompts 메뉴에서 `feature-pipeline`을 선택하고 요구사항을 전달합니다.
 2. **버그 해결 / 테스트 실패**: `structured-debug`를 선택하고 오류 로그 또는 실패한 테스트를 붙여넣습니다.
 3. **적절한 흐름을 모를 때**: `skill-composition`을 선택하여 현재 상황에 맞는 맞춤형 파이프라인을 추천받습니다.

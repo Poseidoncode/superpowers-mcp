@@ -139,7 +139,7 @@ flowchart LR
 
 ## 5. MCP Prompts 跨平台支援
 
-為了讓 Cursor, Antigravity, VS Code MCP, Claude Desktop 等客戶端能一鍵發起技能組合，`superpowers-mcp` 原生提供了標準 MCP Prompts：
+為了讓 Cursor, Antigravity, VS Code, Devin Desktop 等客戶端能一鍵發起技能組合，`superpowers-mcp` 原生提供了標準 MCP Prompts：
 
 | MCP Prompt 名稱 | 參數 | 用途 |
 | :--- | :--- | :--- |
@@ -160,7 +160,7 @@ flowchart LR
 只要安裝了 `superpowers-mcp`，您**完全不需要手動記住 14 個技能名稱**。有以下兩種最簡單的使用方式：
 
 ### 方式 A：使用 IDE 的 MCP Prompts 功能（最推薦、一鍵啟動）
-在 Cursor, Antigravity, VS Code, Claude Desktop 或 Windsurf 的對話框中：
+在 Cursor, Antigravity, VS Code 或 Devin Desktop 的對話框中：
 1. **開發新功能**：輸入 `/feature-pipeline` 或在 Prompts 選單中選擇 `feature-pipeline`，並輸入您的功能需求。
 2. **排查 Bug / 失敗測試**：選擇 `structured-debug`，貼上錯誤訊息或測試檔案。
 3. **不知道選什麼流程**：選擇 `skill-composition`，讓 AI 針對您的情境為您推薦專屬步驟。

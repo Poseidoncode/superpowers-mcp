@@ -13,7 +13,9 @@
 
 ### サポート環境とエージェントプラットフォーム
 
-- **MCP ネイティブ AI エディター & IDE**: **Antigravity (AGY)**、**Cursor**、**VSCode**、**Windsurf**、**Claude Desktop / Claude Code**。
+- **AI コードエディター & IDE**: **Antigravity (AGY)**、**Cursor**、**VSCode** (GitHub Copilot)、**Devin Desktop**、**MiniMax Code Desktop**、**Codex**。
+- **AI デスクトップアプリ & ハーネス**: **Hermes Desktop**、**Kimi Work**。
+- **セルフホスト & ローカル AI プラットフォーム**: **AnythingLLM**、**LibreChat**。
 
 ### 提供される MCP 機能
 
@@ -36,7 +38,7 @@
 
 ## 🛠️ MCP 設定
 
-以下の設定を IDE（Cursor、Antigravity、VSCode の MCP 設定など）に追加してください。
+以下の設定を IDE や MCP クライアント（Cursor、Antigravity、VSCode、AnythingLLM など）の設定に追加してください。
 
 ### 方法：NPX / BUNX（推奨）
 

@@ -13,7 +13,9 @@
 
 ### 支援的環境與 Agent 平台
 
-- **MCP 原生 AI 編輯器與 IDE**：**Antigravity (AGY)**、**Cursor**、**VSCode**、**Windsurf**、**Claude Desktop / Claude Code**。
+- **AI 程式碼編輯器與 IDE**：**Antigravity (AGY)**、**Cursor**、**VSCode**（GitHub Copilot）、**Devin Desktop**、**MiniMax Code Desktop**、**Codex**。
+- **AI 桌面應用與 Agent 工具**：**Hermes Desktop**、**Kimi Work**。
+- **開源與私有化 AI 平台**：**AnythingLLM**、**LibreChat**。
 
 ### 提供之 MCP 協議功能
 
@@ -36,7 +38,7 @@
 
 ## 🛠️ MCP 配置
 
-將以下設定加入您的 IDE（例如 Cursor, Antigravity, 或 VSCode 的 MCP 設定）。
+將以下設定加入您的 IDE 或 MCP 客戶端（例如 Cursor、Antigravity、VSCode、AnythingLLM 等）。
 
 ### 方法：NPX / BUNX（推薦）
 

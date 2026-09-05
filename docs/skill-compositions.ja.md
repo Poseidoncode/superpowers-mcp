@@ -141,7 +141,7 @@ flowchart LR
 
 ## 5. ネイティブ MCP Prompts 一覧
 
-`superpowers-mcp` は主要な MCP クライアント（Cursor、Antigravity、VS Code、Claude Desktop など）で利用可能な標準 Prompts を提供します：
+`superpowers-mcp` は主要な MCP クライアント（Cursor、Antigravity、VS Code、Devin Desktop など）で利用可能な標準 Prompts を提供します：
 
 | MCP Prompt 名 | 引数 | 用途 |
 | :--- | :--- | :--- |
@@ -162,7 +162,7 @@ flowchart LR
 `superpowers-mcp` を設定すれば、**14 個の個別スキル名を覚える必要は一切ありません**。以下の 2 つの方法で簡単に利用できます：
 
 ### 方法 A: IDE の MCP Prompts を使用（推奨・ワンクリック起動）
-Cursor、Antigravity、VS Code、Claude Desktop、Windsurf などのチャット入力欄で：
+Cursor、Antigravity、VS Code、Devin Desktop などのチャット入力欄で：
 1. **新機能開発**：`/feature-pipeline` と入力するか、Prompts 一覧から `feature-pipeline` を選択して要件を入力します。
 2. **バグ修正・テスト失敗**：`structured-debug` を選択し、エラーログやテスト名を貼り付けます。
 3. **ワークフローに迷った時**：`skill-composition` を選択すると、現在の状況に応じた最適なパイプラインが自動提案されます。
