@@ -126,6 +126,17 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 // Prompts
 // ---------------------------------------------------------------------------
 
+function interpolateTemplate(template: string, replacements: Record<string, string | undefined>): string {
+    let result = template;
+    for (const [key, value] of Object.entries(replacements)) {
+        if (value !== undefined && value !== "") {
+            // Replace exact literal key occurrences
+            result = result.split(key).join(value);
+        }
+    }
+    return result;
+}
+
 server.setRequestHandler(ListPromptsRequestSchema, async () => {
     return {
         prompts: [
@@ -138,13 +149,38 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                 description: "Subagent-Driven Development (SDD) Implementer Prompt. Directs a subagent to implement a specific task using TDD and self-verification.",
                 arguments: [
                     {
-                        name: "task_description",
-                        description: "Description or brief of the task to implement",
+                        name: "brief_file",
+                        description: "Path to the task brief file (scripts/task-brief PLAN N)",
+                        required: false,
+                    },
+                    {
+                        name: "task_name",
+                        description: "Name or description of the task to implement",
+                        required: false,
+                    },
+                    {
+                        name: "report_file",
+                        description: "Path where the implementer should write its detailed report",
+                        required: false,
+                    },
+                    {
+                        name: "work_dir",
+                        description: "Working directory path for implementation",
+                        required: false,
+                    },
+                    {
+                        name: "model",
+                        description: "Model tier/name selection for implementer",
                         required: false,
                     },
                     {
                         name: "plan_file",
-                        description: "Path to the plan file or task brief",
+                        description: "Legacy alias: Path to the task brief or plan file",
+                        required: false,
+                    },
+                    {
+                        name: "task_description",
+                        description: "Legacy alias: Task description",
                         required: false,
                     },
                 ],
@@ -154,13 +190,48 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                 description: "Subagent-Driven Development (SDD) Task Reviewer Prompt. Evaluates task implementation against specification and code quality.",
                 arguments: [
                     {
+                        name: "brief_file",
+                        description: "Path to the task brief file",
+                        required: false,
+                    },
+                    {
+                        name: "report_file",
+                        description: "Path to the implementer's report file",
+                        required: false,
+                    },
+                    {
+                        name: "diff_file",
+                        description: "Path to the review package diff file",
+                        required: false,
+                    },
+                    {
+                        name: "base_sha",
+                        description: "Base commit SHA before this task",
+                        required: false,
+                    },
+                    {
+                        name: "head_sha",
+                        description: "Head commit SHA for this task",
+                        required: false,
+                    },
+                    {
+                        name: "global_constraints",
+                        description: "Binding global constraints copied verbatim from the plan or spec",
+                        required: false,
+                    },
+                    {
+                        name: "model",
+                        description: "Reviewer model selection",
+                        required: false,
+                    },
+                    {
                         name: "task_description",
-                        description: "Description of the task being reviewed",
+                        description: "Legacy alias: Description of the task being reviewed",
                         required: false,
                     },
                     {
                         name: "review_target",
-                        description: "Files, commit SHAs, or review package to examine",
+                        description: "Legacy alias: Review target or diff path",
                         required: false,
                     },
                 ],
@@ -170,13 +241,43 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                 description: "SDD Scoped Re-Review Prompt. Reviews only fix-round deltas and previous feedback to prevent context bloat.",
                 arguments: [
                     {
+                        name: "brief_file",
+                        description: "Path to the task brief file",
+                        required: false,
+                    },
+                    {
+                        name: "report_file",
+                        description: "Path to the implementer's report file with fix notes",
+                        required: false,
+                    },
+                    {
+                        name: "diff_file",
+                        description: "Path to the scoped review package diff file over fix range",
+                        required: false,
+                    },
+                    {
                         name: "previous_findings",
                         description: "Previous reviewer findings that needed fixing",
                         required: false,
                     },
                     {
+                        name: "base_sha",
+                        description: "Base commit SHA for the fix round",
+                        required: false,
+                    },
+                    {
+                        name: "head_sha",
+                        description: "Current head commit SHA",
+                        required: false,
+                    },
+                    {
+                        name: "model",
+                        description: "Re-reviewer model selection",
+                        required: false,
+                    },
+                    {
                         name: "fix_summary",
-                        description: "Summary of changes made to address previous findings",
+                        description: "Legacy alias: Summary of changes made to address previous findings",
                         required: false,
                     },
                 ],
@@ -187,7 +288,7 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                 arguments: [
                     {
                         name: "spec_file",
-                        description: "Path or content of the specification document to review",
+                        description: "Path to the specification document to review (docs/superpowers/specs/...",
                         required: false,
                     },
                 ],
@@ -198,7 +299,12 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                 arguments: [
                     {
                         name: "plan_file",
-                        description: "Path or content of the plan document to review",
+                        description: "Path to the implementation plan document to review",
+                        required: false,
+                    },
+                    {
+                        name: "spec_file",
+                        description: "Path to the reference specification document",
                         required: false,
                     },
                 ],
@@ -221,21 +327,13 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     };
 
     if (promptName === "session-start") {
-        const skill = await skillsManager.findSkill("using-superpowers");
         let skillContent = "";
-        if (skill) {
-            try {
-                skillContent = await skillsManager.readSkillContent(skill.skillPath);
-            } catch {
-                skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
-            }
-        } else {
-            const usingSuperpowersPath = path.join(SKILLS_PATH, "using-superpowers", "SKILL.md");
-            try {
-                skillContent = await skillsManager.readSkillContent(usingSuperpowersPath);
-            } catch {
-                skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
-            }
+        try {
+            const skill = await skillsManager.findSkill("using-superpowers");
+            const targetPath = skill ? skill.skillPath : path.join(SKILLS_PATH, "using-superpowers", "SKILL.md");
+            skillContent = await skillsManager.readSkillContent(targetPath);
+        } catch {
+            skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
         }
 
         const sessionContext = `<EXTREMELY_IMPORTANT>
@@ -262,8 +360,25 @@ ${skillContent}
 
     if (promptName === "sdd-implementer") {
         const template = await readPromptFileSafe("subagent-driven-development/implementer-prompt.md");
-        const taskDesc = args.task_description ? `\n\n### Target Task:\n${args.task_description}` : "";
-        const planFile = args.plan_file ? `\n\n### Plan / Brief File:\n${args.plan_file}` : "";
+        const briefFile = args.brief_file || args.plan_file;
+        const taskName = args.task_name || args.task_description;
+        const reportFile = args.report_file;
+        const workDir = args.work_dir;
+        const model = args.model;
+
+        const rendered = interpolateTemplate(template, {
+            "[BRIEF_FILE]": briefFile,
+            "[task name]": taskName,
+            "[REPORT_FILE]": reportFile,
+            "[directory]": workDir,
+            "[MODEL]": model,
+        });
+
+        const legacyAppends = [
+            args.task_description && !rendered.includes(args.task_description) ? `\n\n### Target Task:\n${args.task_description}` : "",
+            args.plan_file && !rendered.includes(args.plan_file) ? `\n\n### Plan / Brief File:\n${args.plan_file}` : "",
+        ].join("");
+
         return {
             description: "Subagent-Driven Development Implementer Prompt",
             messages: [
@@ -271,7 +386,7 @@ ${skillContent}
                     role: "user",
                     content: {
                         type: "text",
-                        text: `${template}${taskDesc}${planFile}`,
+                        text: `${rendered}${legacyAppends}`,
                     },
                 },
             ],
@@ -280,8 +395,29 @@ ${skillContent}
 
     if (promptName === "sdd-task-reviewer") {
         const template = await readPromptFileSafe("subagent-driven-development/task-reviewer-prompt.md");
-        const taskDesc = args.task_description ? `\n\n### Reviewed Task:\n${args.task_description}` : "";
-        const target = args.review_target ? `\n\n### Review Target:\n${args.review_target}` : "";
+        const briefFile = args.brief_file;
+        const reportFile = args.report_file;
+        const diffFile = args.diff_file || args.review_target;
+        const baseSha = args.base_sha;
+        const headSha = args.head_sha;
+        const globalConstraints = args.global_constraints;
+        const model = args.model;
+
+        const rendered = interpolateTemplate(template, {
+            "[BRIEF_FILE]": briefFile,
+            "[REPORT_FILE]": reportFile,
+            "[DIFF_FILE]": diffFile,
+            "[BASE_SHA]": baseSha,
+            "[HEAD_SHA]": headSha,
+            "[GLOBAL_CONSTRAINTS]": globalConstraints,
+            "[MODEL]": model,
+        });
+
+        const legacyAppends = [
+            args.task_description && !rendered.includes(args.task_description) ? `\n\n### Reviewed Task:\n${args.task_description}` : "",
+            args.review_target && !rendered.includes(args.review_target) ? `\n\n### Review Target:\n${args.review_target}` : "",
+        ].join("");
+
         return {
             description: "Subagent-Driven Development Task Reviewer Prompt",
             messages: [
@@ -289,7 +425,7 @@ ${skillContent}
                     role: "user",
                     content: {
                         type: "text",
-                        text: `${template}${taskDesc}${target}`,
+                        text: `${rendered}${legacyAppends}`,
                     },
                 },
             ],
@@ -298,8 +434,29 @@ ${skillContent}
 
     if (promptName === "sdd-re-review") {
         const template = await readPromptFileSafe("subagent-driven-development/re-review-prompt.md");
-        const findings = args.previous_findings ? `\n\n### Previous Findings:\n${args.previous_findings}` : "";
-        const summary = args.fix_summary ? `\n\n### Fix Summary:\n${args.fix_summary}` : "";
+        const briefFile = args.brief_file;
+        const reportFile = args.report_file;
+        const diffFile = args.diff_file;
+        const findings = args.previous_findings;
+        const baseSha = args.base_sha || args.fix_base_sha;
+        const headSha = args.head_sha;
+        const model = args.model;
+
+        const rendered = interpolateTemplate(template, {
+            "[BRIEF_FILE]": briefFile,
+            "[REPORT_FILE]": reportFile,
+            "[DIFF_FILE]": diffFile,
+            "[FINDINGS]": findings,
+            "[BASE_SHA]": baseSha,
+            "[HEAD_SHA]": headSha,
+            "[MODEL]": model,
+        });
+
+        const legacyAppends = [
+            args.previous_findings && !rendered.includes(args.previous_findings) ? `\n\n### Previous Findings:\n${args.previous_findings}` : "",
+            args.fix_summary ? `\n\n### Fix Summary:\n${args.fix_summary}` : "",
+        ].join("");
+
         return {
             description: "SDD Scoped Re-Review Prompt",
             messages: [
@@ -307,7 +464,7 @@ ${skillContent}
                     role: "user",
                     content: {
                         type: "text",
-                        text: `${template}${findings}${summary}`,
+                        text: `${rendered}${legacyAppends}`,
                     },
                 },
             ],
@@ -316,7 +473,12 @@ ${skillContent}
 
     if (promptName === "spec-reviewer") {
         const template = await readPromptFileSafe("brainstorming/spec-document-reviewer-prompt.md");
-        const specFile = args.spec_file ? `\n\n### Target Specification:\n${args.spec_file}` : "";
+        const specFile = args.spec_file;
+        const rendered = interpolateTemplate(template, {
+            "[SPEC_FILE_PATH]": specFile,
+        });
+        const legacyAppend = specFile && !rendered.includes(specFile) ? `\n\n### Target Specification:\n${specFile}` : "";
+
         return {
             description: "Brainstorming Spec Document Reviewer Prompt",
             messages: [
@@ -324,7 +486,7 @@ ${skillContent}
                     role: "user",
                     content: {
                         type: "text",
-                        text: `${template}${specFile}`,
+                        text: `${rendered}${legacyAppend}`,
                     },
                 },
             ],
@@ -333,7 +495,15 @@ ${skillContent}
 
     if (promptName === "plan-reviewer") {
         const template = await readPromptFileSafe("writing-plans/plan-document-reviewer-prompt.md");
-        const planFile = args.plan_file ? `\n\n### Target Implementation Plan:\n${args.plan_file}` : "";
+        const planFile = args.plan_file;
+        const specFile = args.spec_file;
+        const rendered = interpolateTemplate(template, {
+            "[PLAN_FILE_PATH]": planFile,
+            "[SPEC_FILE_PATH]": specFile,
+        });
+        const legacyAppend = planFile && !rendered.includes(planFile) ? `\n\n### Target Implementation Plan:\n${planFile}` : "";
+        const legacySpecAppend = specFile && !rendered.includes(specFile) ? `\n\n### Reference Specification:\n${specFile}` : "";
+
         return {
             description: "Writing-Plans Plan Document Reviewer Prompt",
             messages: [
@@ -341,7 +511,7 @@ ${skillContent}
                     role: "user",
                     content: {
                         type: "text",
-                        text: `${template}${planFile}`,
+                        text: `${rendered}${legacyAppend}${legacySpecAppend}`,
                     },
                 },
             ],
@@ -451,6 +621,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
+
+    const shutdown = async () => {
+        try {
+            await server.close();
+        } catch {
+            // Ignore close errors during termination
+        }
+        process.exit(0);
+    };
+
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
 }
 
 main().catch((err) => {

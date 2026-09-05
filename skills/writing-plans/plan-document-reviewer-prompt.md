@@ -22,6 +22,7 @@ Subagent (general-purpose):
     | Completeness | TODOs, placeholders, incomplete tasks, missing steps |
     | Spec Alignment | Plan covers spec requirements, no major scope creep |
     | Task Decomposition | Tasks have clear boundaries, steps are actionable |
+    | Architecture | File structure has units with clear boundaries, no files growing too large to reason about |
     | Buildability | Could an engineer follow this plan without getting stuck? |
 
     ## Calibration

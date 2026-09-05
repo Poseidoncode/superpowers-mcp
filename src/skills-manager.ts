@@ -223,7 +223,7 @@ export class SkillsManager {
             }
 
             const stat = await fs.stat(realFilePath);
-            if (!stat.isFile() || stat.nlink !== 1) throw new Error("Skill path is not a regular file");
+            if (!stat.isFile() || stat.nlink < 1) throw new Error("Skill path is not a regular file");
             if (stat.size > MAX_SKILL_FILE_BYTES) throw new Error("Skill file exceeds size limit");
             return { realFilePath, stat };
         };
@@ -244,7 +244,7 @@ export class SkillsManager {
             const actual = await fd.stat();
             if (
                 !actual.isFile() ||
-                actual.nlink !== 1 ||
+                actual.nlink < 1 ||
                 actual.dev !== confirmed.stat.dev ||
                 actual.ino !== confirmed.stat.ino ||
                 actual.size > MAX_SKILL_FILE_BYTES

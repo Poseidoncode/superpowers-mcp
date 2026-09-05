@@ -10,6 +10,13 @@ function sendRequest(req) {
     server.stdin.write(JSON.stringify(req) + "\n");
 }
 
+const watchdog = setTimeout(() => {
+    console.error("❌ Test timed out after 10 seconds");
+    server.kill();
+    process.exit(1);
+}, 10000);
+watchdog.unref();
+
 server.stdout.on("data", (data) => {
     buffer += data.toString();
     const lines = buffer.split("\n");
@@ -106,8 +113,8 @@ server.stdout.on("data", (data) => {
                         params: {
                             name: "sdd-implementer",
                             arguments: {
-                                task_description: "Implement user authentication",
-                                plan_file: "docs/plans/auth.md"
+                                brief_file: ".superpowers/sdd/briefs/task-1.md",
+                                task_name: "Implement user authentication"
                             }
                         }
                     });
@@ -118,17 +125,43 @@ server.stdout.on("data", (data) => {
             } else if (response.id === 6) {
                 if (response.result && response.result.messages && response.result.messages.length > 0) {
                     const text = response.result.messages[0].content.text;
-                    if (text.includes("Target Task:") && text.includes("Implement user authentication")) {
-                        console.log("✅ prompts/get sdd-implementer OK");
-                        server.kill();
-                        console.log("\n🎉 ALL TESTS PASSED SUCCESSFULLY!");
-                        process.exit(0);
+                    if (text.includes(".superpowers/sdd/briefs/task-1.md") && text.includes("Implement user authentication")) {
+                        console.log("✅ prompts/get sdd-implementer OK (placeholder interpolation verified)");
+                        // Next, test plan-reviewer with spec_file
+                        sendRequest({
+                            jsonrpc: "2.0",
+                            id: 7,
+                            method: "prompts/get",
+                            params: {
+                                name: "plan-reviewer",
+                                arguments: {
+                                    plan_file: "docs/plans/2026-09-05-auth.md",
+                                    spec_file: "docs/specs/2026-09-05-auth-spec.md"
+                                }
+                            }
+                        });
                     } else {
                         console.error("❌ prompts/get output missing expected arguments", text);
                         process.exit(1);
                     }
                 } else {
                     console.error("❌ prompts/get failed", response);
+                    process.exit(1);
+                }
+            } else if (response.id === 7) {
+                if (response.result && response.result.messages && response.result.messages.length > 0) {
+                    const text = response.result.messages[0].content.text;
+                    if (text.includes("docs/plans/2026-09-05-auth.md") && text.includes("docs/specs/2026-09-05-auth-spec.md")) {
+                        console.log("✅ prompts/get plan-reviewer OK (spec_file & plan_file interpolation verified)");
+                        server.kill();
+                        console.log("\n🎉 ALL TESTS PASSED SUCCESSFULLY!");
+                        process.exit(0);
+                    } else {
+                        console.error("❌ plan-reviewer prompt output missing spec/plan files", text);
+                        process.exit(1);
+                    }
+                } else {
+                    console.error("❌ prompts/get plan-reviewer failed", response);
                     process.exit(1);
                 }
             }
