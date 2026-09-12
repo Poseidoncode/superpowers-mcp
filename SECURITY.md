@@ -139,7 +139,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.3.7)
+## Current Security Status (v6.3.7 - Verified: 2026-09-12)
 
 | Check | Status |
 | ----- | ------ |
@@ -172,8 +172,9 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Shell Command Injection (`BRAINSTORM_OPEN_CMD`) | :white_check_mark: Patched — `cp.execFile` with argv array in v6.0.3 |
 | Shell Script Security (`install.sh`, `install.ps1`) | :white_check_mark: Secured — `set -euo pipefail` and quoted expansions in Bash; `$ErrorActionPreference = "Stop"` and array argument splatting in PowerShell |
 | CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — exact `hono` override (GHSA-8j4g-w8fx-2239) |
+| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-12) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 270/270 automated test assertions passed |
 
-## Comprehensive Security Audit & Verification Report
+## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-12)
 
 A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, secret hygiene, and automated regression testing.
 
@@ -252,7 +253,7 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **MCP Surface Coverage Suite** (`tests/mcp_coverage_test.js`): **14 checks** (one resource per skill on disk, each resource serves that skill's own content, prompt inventory matches all four READMEs exactly, composition guide references only real surfaces).
 - **Upstream Drift Suite** (`tests/drift_test.js`): **10 checks** (the offline CLI run is one of them); the committed baseline (`tests/upstream-sync-baseline.json`) records the upstream blob SHAs of every adopted skill file, so a deleted import, a lost upstream lineage or a stale ignore entry fails here. Network mode (`npm run drift`) compares the baseline against upstream without writing anything.
 - **Brainstorm Host Defaults Bash Suite** (`tests/brainstorming/test-start-server-env-hosts.sh`): **11 passed, 0 failed** (env-supplied bind/url hosts, flag precedence, empty values, and the non-loopback refusal).
-- **Total Automated Regression Floor**: **264 automated test assertions, 100% pass rate, 0 regressions**.
+- **Total Automated Regression Floor**: **270 automated test assertions across Node.js (145), Bash (35), and PowerShell (90), 100% pass rate, 0 regressions**.
 
 ---
 
