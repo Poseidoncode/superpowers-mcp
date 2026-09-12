@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.3.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.3.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -173,21 +173,37 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
-## 🔧 アップストリームへの追従
+## プロジェクトの由来
 
-この fork は上流 [`obra/superpowers`](https://github.com/obra/superpowers) のスキル内容をレビュー済みバッチで取り込みます。最後の同期時点の上流 blob SHA は [`tests/upstream-sync-baseline.json`](tests/upstream-sync-baseline.json) に記録されています。
-
-```bash
-npm run drift                    # ベースラインと上流を比較し、変更点を一覧表示
-npm run drift:record             # レビュー済み同期の後にベースラインを更新
-node scripts/upstream-drift.js   # オフライン：ベースライン整合性 + ローカル網羅率
-```
-
-レポートは、上流で変更されたファイル、上流の追加・削除、追跡対象だがローカルに無いファイル、fork 独自の追加を分けて表示します。意図的に採用しない上流スキルは drift ではなく「判断待ち」として報告され、`npm run drift:record -- --ignore <skill>` で記録します。取り込み済みの上流ファイルが削除されたり、スキルの上流系譜が失われると `npm test` が失敗します。GitHub tree が途中で切れた場合、レポートモードは結果を部分的と明示して `--fail-on-drift` を抑止し、record モードは書き込み自体を拒否して最後の完全なベースラインを保護します。
+このプロジェクトは [`obra/superpowers`](https://github.com/obra/superpowers) のスキル内容をレビューしたうえで取り込んでいます。同期手順はメンテナー向けの[アップストリーム同期ガイド](docs/maintainers/upstream-sync.md)を参照してください。
 
 ## 🆕 最近の更新
 
-### v6.3.7（最新）
+### v6.3.8（最新）
+
+- **ユニバーサルセットアップエンジンの並行安全性・Inode 防御・シンボリックリンク脱出防止**：
+  - **Allowed Roots 境界隔離**：設定の書き込み先を明示的な許可ルート（`homeDir`、`appData`、`localAppData`）内に限定し、親ディレクトリシンボリックリンク経由の脱出攻撃を遮断。
+  - **楽観的並行競合検知**：アトミックな `fs.renameSync` の直前にディスク内容と `expectedContent` を照合し、マルチプロセス競合による新しい設定の上書きを防止。
+  - **ディレクトリ Inode & Dev TOCTOU 防御**：一時ファイル書き込み前後でディレクトリのデバイス ID と inode を検証し、ディレクトリ差し替え攻撃を無効化。
+  - **Fail-Closed 厳格構文検証**：JSON のルートまたはサーバー項目が Plain Object でない場合は即座に拒絶し、プロトタイプ汚染を防止。
+- **コアスキルエンジンの確定性ソートと動的キャッシュ再検証**：
+  - **確定性ディレクトリ走査と衝突防止**：ディレクトリをアルファベット順に確定ソートし、競合キーを即座に検知して重複を安全にスキップ。
+  - **自動キャッシュ再検証 (`CACHE_REVALIDATE_MS = 1000`)**：ディスクの変更を 1 秒以内に自動検知・同期し、サーバー再起動なしで編集を反映。
+  - **大文字小文字フォールディングと正規パス防御**：`src/server.ts` が darwin/win32 で大文字小文字フォールディングと `fs.realpathSync` を実行し、システム保護ディレクトリを確実に遮断。
+- **RFC 6455 WebSocket プロトコル強化と弾力性ログ圧縮**：
+  - `CONTINUATION` (0x00) 分割メッセージの再構築を完全サポートし、制御フレームの分割禁止（`opcode >= 0x8 && !fin`）と非標準 RSV 拡張の排除を徹底。
+  - 末尾弾力性ログ圧縮：イベントログが 1 MB 上限に達した際、改行区切りの直近レコードを保持したままローテーションし、履歴の全損を回避。
+  - 秘密ファイル記述子を `O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW` で安全にオープン。
+- **Shell および PowerShell スクリプトのコマンドインジェクション防御**：
+  - `find-polluter.sh` および `find-polluter.ps1`：配列展開引数受け渡し (`"${TEST_COMMAND[@]}"`、`& $testCommand @testCommandArgs`) と空白セーフな読み込みループにより、シェルインジェクションを根絶。
+  - `sdd-workspace`：`cd` 実行前に `CDPATH=''` をリセットし、環境変数によるディレクトリハイジャックを防止。
+  - `sdd-workspace.ps1`：BOM なし UTF-8 (`[System.Text.UTF8Encoding]::new($false)`) でプランマーカーを保存し、Unicode パスの完全性を保護。
+- **プロジェクトの由来とメンテナーガイドの分離**：
+  - アップストリーム同期手順を [`docs/maintainers/upstream-sync.md`](docs/maintainers/upstream-sync.md) に独立させ、ルート文書を整理。
+- **全自動回帰テストの基盤**：
+  - テストスイートを **274 の全自動アサーション**（Node.js: 145、Bash: 35、PowerShell: 94）に拡張し、100% の合格率を維持。
+
+### v6.3.7
 
 - **上流同期 — バッチ 1〜3（obra/superpowers）**：
   - **スキルの自動ルーティング**：`systematic-debugging` と `test-driven-development` の description にトリガーフレーズ（`"tdd"`、`"systematic debug"` など）と相互クロスルートを追加し、MCP クライアントでのスキル選択精度を向上。

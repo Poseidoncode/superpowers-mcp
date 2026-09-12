@@ -1,17 +1,19 @@
 #!/usr/bin/env pwsh
 # Bisection script to find which test creates unwanted files/state.
-# Usage: ./find-polluter.ps1 <file_or_dir_to_check> <test_pattern>
+# Usage: ./find-polluter.ps1 <file_or_dir_to_check> <test_pattern> <test command and arguments>
 
 $ErrorActionPreference = "Stop"
 
-if ($args.Count -ne 2) {
-    Write-Output "Usage: ./find-polluter.ps1 <file_to_check> <test_pattern>"
-    Write-Output "Example: ./find-polluter.ps1 '.git' 'src/**/*.test.ts'"
+if ($args.Count -lt 3) {
+    Write-Output "Usage: ./find-polluter.ps1 <file_to_check> <test_pattern> <test command and arguments>"
+    Write-Output "Example: ./find-polluter.ps1 '.git' 'src/**/*.test.ts' npx vitest run"
     exit 1
 }
 
 $pollutionCheck = $args[0]
 $testPattern = $args[1]
+$testCommand = $args[2]
+$testCommandArgs = if ($args.Count -gt 3) { @($args[3..($args.Count - 1)]) } else { @() }
 
 Write-Output "Searching for test that creates: $pollutionCheck"
 Write-Output "Test pattern: $testPattern"
@@ -53,7 +55,7 @@ foreach ($testFile in $testFiles) {
     }
 
     Write-Output "[$count/$total] Testing: $($testFile.FullName)"
-    & npm test $testFile.FullName *> $null
+    & $testCommand @testCommandArgs $testFile.FullName *> $null
 
     if (Test-Path -LiteralPath $pollutionCheck) {
         Write-Output ""

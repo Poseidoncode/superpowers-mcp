@@ -9,6 +9,7 @@ export interface SkillMeta {
 }
 
 const MAX_SKILL_FILE_BYTES = 10 * 1024 * 1024;
+const CACHE_REVALIDATE_MS = 1000;
 
 export class SkillsManager {
     private skillsPath: string;
@@ -18,6 +19,7 @@ export class SkillsManager {
     private contentCache = new Map<string, string>();
     private canonicalPathMap = new Map<string, string>();
     private scanEpoch = 0;
+    private lastSuccessfulScanAt = 0;
 
     constructor(skillsPath: string) {
         this.skillsPath = path.resolve(skillsPath);
@@ -87,7 +89,8 @@ export class SkillsManager {
      * 非同步併發列出技能，實作快取、並行併發鎖（安全鎖釋放）與 O(1) 雙向鍵索引
      */
     public async listSkills(forceReload = false): Promise<SkillMeta[]> {
-        if (this.cachedSkills && !forceReload) {
+        const cacheIsFresh = Date.now() - this.lastSuccessfulScanAt < CACHE_REVALIDATE_MS;
+        if (this.cachedSkills && !forceReload && cacheIsFresh) {
             return this.cachedSkills;
         }
 
@@ -136,7 +139,7 @@ export class SkillsManager {
             const entries = await fs.readdir(this.skillsPath, { withFileTypes: true });
             const skillCandidates = entries.filter((entry) => entry.isDirectory() || entry.isSymbolicLink());
 
-            await Promise.all(
+            const loaded = await Promise.all(
                 skillCandidates.map(async (entry) => {
                     const skillDir = path.join(this.skillsPath, entry.name);
                     const skillFile = path.join(skillDir, "SKILL.md");
@@ -154,17 +157,7 @@ export class SkillsManager {
                             description,
                             skillPath: skillFile,
                         };
-                        skills.push(item);
-                        // O(1) 雙向大小寫不敏感匹配
-                        newSkillMap.set(item.name.toLowerCase(), item);
-                        const dirName = path.basename(path.dirname(item.skillPath)).toLowerCase();
-                        newSkillMap.set(dirName, item);
-
-                        // 預熱 canonical 快取，杜絕別名快取漂移
-                        const resolvedPath = path.resolve(skillFile);
-                        newContentCache.set(realFilePath, body);
-                        newCanonicalMap.set(resolvedPath, realFilePath);
-                        newCanonicalMap.set(realFilePath, realFilePath);
+                        return { item, body, realFilePath, directoryName: entry.name };
                     } catch (err: unknown) {
                         const isEnoent =
                             err &&
@@ -174,9 +167,30 @@ export class SkillsManager {
                         if (!isEnoent) {
                             process.stderr.write(`Warning: Failed to read skill file in directory "${entry.name}"\n`);
                         }
+                        return null;
                     }
                 })
             );
+            for (const result of loaded.filter((value) => value !== null).sort((a, b) =>
+                a!.directoryName < b!.directoryName ? -1 : a!.directoryName > b!.directoryName ? 1 : 0
+            )) {
+                const { item, body, realFilePath, directoryName } = result!;
+                const keys = new Set([item.name.toLowerCase(), directoryName.toLowerCase()]);
+                const conflict = [...keys].find((key) => newSkillMap.has(key));
+                if (conflict) {
+                    process.stderr.write(
+                        `Warning: Skipping skill directory "${directoryName}" because name or alias "${conflict}" is already registered\n`
+                    );
+                    continue;
+                }
+                skills.push(item);
+                for (const key of keys) newSkillMap.set(key, item);
+
+                const resolvedPath = path.resolve(item.skillPath);
+                newContentCache.set(realFilePath, body);
+                newCanonicalMap.set(resolvedPath, realFilePath);
+                newCanonicalMap.set(realFilePath, realFilePath);
+            }
             scanned = true;
         } catch (_dirErr) {
             process.stderr.write(`Error reading skills directory: ${String(_dirErr)}\n`);
@@ -186,12 +200,9 @@ export class SkillsManager {
         if (scanned && epoch === this.scanEpoch) {
             this.skillMap = newSkillMap;
             this.cachedSkills = skills.sort((a, b) => a.name.localeCompare(b.name));
-            for (const [k, v] of newContentCache.entries()) {
-                this.contentCache.set(k, v);
-            }
-            for (const [k, v] of newCanonicalMap.entries()) {
-                this.canonicalPathMap.set(k, v);
-            }
+            this.lastSuccessfulScanAt = Date.now();
+            this.contentCache = newContentCache;
+            this.canonicalPathMap = newCanonicalMap;
         }
         return this.cachedSkills ?? [];
     }
@@ -320,6 +331,9 @@ export class SkillsManager {
      * 讀取並去除 YAML frontmatter 的 Markdown 內容 (非同步 + 快取 + BOM 處理 + realpath 軟連結邊界檢查)
      */
     public async readSkillContent(skillPath: string, forceReload = false): Promise<string> {
+        if (!forceReload && this.cachedSkills && Date.now() - this.lastSuccessfulScanAt >= CACHE_REVALIDATE_MS) {
+            await this.listSkills(true);
+        }
         const resolvedSkillPath = path.isAbsolute(skillPath)
             ? path.resolve(skillPath)
             : path.resolve(this.skillsPath, skillPath);
@@ -371,5 +385,6 @@ export class SkillsManager {
         this.skillMap.clear();
         this.contentCache.clear();
         this.canonicalPathMap.clear();
+        this.lastSuccessfulScanAt = 0;
     }
 }

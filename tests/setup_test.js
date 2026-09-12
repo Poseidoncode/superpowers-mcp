@@ -143,18 +143,15 @@ it("should defend against polynomial ReDoS (CodeQL js/polynomial-redos) and proc
     assert.strictEqual(parsed.normal, 123);
 });
 
-it("should recover gracefully when root or mcpServers is null or Array", () => {
-    // null root
-    const updatedNull = updateJsonConfig("null", "json-mcpServers", "npx", ["-y", "superpowers-mcp"]);
-    const parsedNull = JSON.parse(updatedNull);
-    assert.ok(parsedNull.mcpServers.superpowers);
-
-    // array mcpServers
-    const originalArray = JSON.stringify({ mcpServers: [] });
-    const updatedArray = updateJsonConfig(originalArray, "json-mcpServers", "npx", ["-y", "superpowers-mcp"]);
-    const parsedArray = JSON.parse(updatedArray);
-    assert.ok(parsedArray.mcpServers.superpowers);
-    assert.ok(!Array.isArray(parsedArray.mcpServers));
+it("should fail closed when root or mcpServers has an incompatible shape", () => {
+    assert.throws(
+        () => updateJsonConfig("null", "json-mcpServers", "npx", ["-y", "superpowers-mcp"]),
+        /root must be an object/
+    );
+    assert.throws(
+        () => updateJsonConfig(JSON.stringify({ mcpServers: [{ keep: "me" }] }), "json-mcpServers", "npx", ["-y", "superpowers-mcp"]),
+        /field "mcpServers" must be an object/
+    );
 });
 
 it("should throw a clear error on completely malformed JSON", () => {
@@ -210,6 +207,29 @@ mcp_servers:
     const updated = updateYamlConfig(existing, "npx", [], true);
     assert.ok(!updated.includes("superpowers:"), "Should not contain superpowers");
     assert.ok(updated.includes("other:"), "Should preserve other server");
+
+    const nestedName = `mcp_servers:
+  other:
+    superpowers:
+      command: "belongs-to-other"
+`;
+    const nestedNameResult = updateYamlConfig(nestedName, "npx", [], true);
+    assert.ok(nestedNameResult.includes("belongs-to-other"), "Must not remove a nested key that merely has the same name");
+});
+
+it("should reject YAML shapes the updater cannot preserve safely", () => {
+    assert.throws(
+        () => updateYamlConfig("profile:\n  mcp_servers:\n    existing:\n      command: old\n", "npx", []),
+        /root-level block mapping/
+    );
+    assert.throws(
+        () => updateYamlConfig("mcp_servers: {}\nother: true\n", "npx", []),
+        /root-level block mapping/
+    );
+    assert.throws(
+        () => updateYamlConfig("mcp_servers:\n  one: {}\nmcp_servers:\n  two: {}\n", "npx", []),
+        /duplicate mcp_servers keys/
+    );
 });
 
 // 4. Platform Path Resolvers & Unknown Target Defense
@@ -769,7 +789,7 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
         const symlinkPath = path.join(tmpDir, "symlink_config.json");
         try {
             fs.symlinkSync(realTarget, symlinkPath);
-            safeWriteConfig(symlinkPath, JSON.stringify({ mcpServers: { superpowers: { command: "npx" } } }));
+            safeWriteConfig(symlinkPath, JSON.stringify({ mcpServers: { superpowers: { command: "npx" } } }), false, [tmpDir]);
             assert.ok(fs.lstatSync(symlinkPath).isSymbolicLink(), "Must preserve symlink");
             const updatedContent = JSON.parse(fs.readFileSync(realTarget, "utf8"));
             assert.ok(updatedContent.mcpServers.superpowers, "Must update real target file through symlink");
@@ -778,6 +798,31 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
         } catch (symlinkErr) {
             console.log("  ℹ️ Symlink creation skipped on restricted OS");
         }
+
+        // A symlinked parent must not redirect a targeted setup write outside
+        // the selected home/configuration roots.
+        const boundedHome = path.join(tmpDir, "bounded-home");
+        const redirectedDir = path.join(tmpDir, "redirected-config");
+        fs.mkdirSync(boundedHome);
+        fs.mkdirSync(redirectedDir);
+        fs.symlinkSync(redirectedDir, path.join(boundedHome, ".cursor"));
+        const redirectedResult = await runSetup({ platform: "darwin", homeDir: boundedHome, target: "cursor" });
+        assert.strictEqual(redirectedResult[0].status, "error");
+        assert.match(redirectedResult[0].message, /outside allowed roots/);
+        assert.ok(!fs.existsSync(path.join(redirectedDir, "mcp.json")), "must not write through a parent symlink outside home");
+        console.log("  ✅ PASS: parent-directory symlink cannot redirect setup outside allowed roots");
+        passed++;
+
+        // Expected-content verification detects a stale read before rename.
+        const racedConfig = path.join(tmpDir, "raced.json");
+        fs.writeFileSync(racedConfig, "newer content");
+        assert.throws(
+            () => safeWriteConfig(racedConfig, "replacement", false, [tmpDir], "older content"),
+            /changed concurrently/
+        );
+        assert.strictEqual(fs.readFileSync(racedConfig, "utf8"), "newer content");
+        console.log("  ✅ PASS: concurrent config changes are not overwritten");
+        passed++;
 
         // Test --remove on non-existent file: must be idempotent and NEVER create directories or files
         const emptyHome = path.join(tmpDir, "empty_home");

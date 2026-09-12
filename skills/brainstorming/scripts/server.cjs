@@ -6,7 +6,7 @@ const net = require('net');
 
 // ========== WebSocket Protocol (RFC 6455) ==========
 
-const OPCODES = { TEXT: 0x01, CLOSE: 0x08, PING: 0x09, PONG: 0x0A };
+const OPCODES = { CONTINUATION: 0x00, TEXT: 0x01, CLOSE: 0x08, PING: 0x09, PONG: 0x0A };
 const WS_MAGIC = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const MAX_FRAME_PAYLOAD_BYTES = 10 * 1024 * 1024;
 // Bound concurrent WebSocket clients (each holds a frame buffer up to
@@ -52,6 +52,8 @@ function encodeFrame(opcode, payload) {
 function decodeFrame(buffer) {
   if (buffer.length < 2) return null;
 
+  const fin = (buffer[0] & 0x80) !== 0;
+  const rsv = buffer[0] & 0x70;
   const secondByte = buffer[1];
   const opcode = buffer[0] & 0x0F;
   const masked = (secondByte & 0x80) !== 0;
@@ -59,6 +61,10 @@ function decodeFrame(buffer) {
   let offset = 2;
 
   if (!masked) throw new Error('Client frames must be masked');
+  if (rsv !== 0) throw new Error('WebSocket extensions are not supported');
+  if (![OPCODES.CONTINUATION, OPCODES.TEXT, OPCODES.CLOSE, OPCODES.PING, OPCODES.PONG].includes(opcode)) {
+    throw new Error('Unsupported WebSocket opcode');
+  }
 
   if (payloadLen === 126) {
     if (buffer.length < 4) return null;
@@ -83,6 +89,9 @@ function decodeFrame(buffer) {
   if (opcode >= 0x8 && payloadLen > 125) {
     throw new Error('WebSocket control frame payload exceeds 125 bytes');
   }
+  if (opcode >= 0x8 && !fin) {
+    throw new Error('WebSocket control frames must not be fragmented');
+  }
 
   const maskOffset = offset;
   const dataOffset = offset + 4;
@@ -95,7 +104,7 @@ function decodeFrame(buffer) {
     data[i] = buffer[dataOffset + i] ^ mask[i % 4];
   }
 
-  return { opcode, payload: data, bytesConsumed: totalLen };
+  return { fin, opcode, payload: data, bytesConsumed: totalLen };
 }
 
 // ========== Configuration ==========
@@ -351,7 +360,7 @@ function openPrivateAppendFile(filePath) {
   }
 
   let fd = null;
-  const appendFlags = fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT | noFollow;
+  const appendFlags = fs.constants.O_RDWR | fs.constants.O_APPEND | fs.constants.O_CREAT | noFollow;
   try {
     if (!before) {
       try {
@@ -762,6 +771,9 @@ function handleUpgrade(req, socket) {
   let buffer = Buffer.alloc(0);
   let closed = false;
   let partialFrameTimer = null;
+  let fragmentedOpcode = null;
+  let fragmentedPayloads = [];
+  let fragmentedBytes = 0;
   clients.add(socket);
 
   const clearPartialFrameTimer = () => {
@@ -820,7 +832,36 @@ function handleUpgrade(req, socket) {
 
       switch (result.opcode) {
         case OPCODES.TEXT:
-          handleMessage(result.payload.toString());
+          if (fragmentedOpcode !== null) {
+            closeSocket(1002);
+            return;
+          }
+          if (result.fin) {
+            handleMessage(result.payload.toString());
+          } else {
+            fragmentedOpcode = OPCODES.TEXT;
+            fragmentedPayloads = [result.payload];
+            fragmentedBytes = result.payload.length;
+          }
+          break;
+        case OPCODES.CONTINUATION:
+          if (fragmentedOpcode === null) {
+            closeSocket(1002);
+            return;
+          }
+          fragmentedBytes += result.payload.length;
+          if (fragmentedBytes > MAX_FRAME_PAYLOAD_BYTES) {
+            closeSocket(1009);
+            return;
+          }
+          fragmentedPayloads.push(result.payload);
+          if (result.fin) {
+            const message = Buffer.concat(fragmentedPayloads, fragmentedBytes);
+            fragmentedOpcode = null;
+            fragmentedPayloads = [];
+            fragmentedBytes = 0;
+            handleMessage(message.toString());
+          }
           break;
         case OPCODES.CLOSE:
           closeSocket();
@@ -834,6 +875,7 @@ function handleUpgrade(req, socket) {
           closeSocket(1003);
           return;
       }
+      if (fragmentedOpcode !== null) armPartialFrameTimer();
     }
   });
 
@@ -866,7 +908,16 @@ function appendEvent(event) {
   try {
     const current = fs.fstatSync(fd);
     if (current.size + lineBytes > MAX_EVENTS_FILE_BYTES) {
+      const keepBytes = MAX_EVENTS_FILE_BYTES - lineBytes;
+      const existing = Buffer.alloc(Math.min(current.size, MAX_EVENTS_FILE_BYTES));
+      const bytesRead = fs.readSync(fd, existing, 0, existing.length, Math.max(0, current.size - existing.length));
+      let retained = existing.subarray(Math.max(0, bytesRead - keepBytes), bytesRead);
+      if (retained.length < bytesRead) {
+        const firstNewline = retained.indexOf(0x0a);
+        retained = firstNewline >= 0 ? retained.subarray(firstNewline + 1) : Buffer.alloc(0);
+      }
       fs.ftruncateSync(fd, 0);
+      if (retained.length > 0) fs.writeSync(fd, retained);
     }
     fs.writeSync(fd, line);
   } catch (e) {
@@ -894,8 +945,12 @@ function handleMessage(text) {
     ? logLine
     : JSON.stringify({ source: 'user-event', truncated: true });
   console.log(logOutput);
-  if (event && event.choice) {
-    appendEvent(event);
+  if (event && typeof event === 'object') {
+    if (event.choice) {
+      appendEvent(event);
+    } else if (event.type === 'choice' && event.value) {
+      appendEvent({ ...event, choice: event.value });
+    }
   }
 }
 

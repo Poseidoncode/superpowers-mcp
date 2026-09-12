@@ -23,8 +23,17 @@ function getSafeSkillsPath(): string {
     const envPath = process.env.SKILLS_PATH;
     if (envPath) {
         const resolved = path.resolve(envPath);
-        const normalized = path.normalize(resolved).toLowerCase();
-        const root = path.parse(resolved).root.toLowerCase();
+        let canonical = resolved;
+        let canonicalized = true;
+        try {
+            canonical = fs.realpathSync(resolved);
+        } catch (_realpathErr: unknown) {
+            canonicalized = false;
+        }
+        const foldCase = (value: string): string =>
+            process.platform === "darwin" || process.platform === "win32" ? value.toLowerCase() : value;
+        const normalized = foldCase(path.normalize(canonical));
+        const root = foldCase(path.parse(canonical).root);
 
         const unsafePrefixes = [
             "/etc", "/var", "/bin", "/sbin", "/usr", "/root", "/sys", "/proc", "/dev",
@@ -33,15 +42,19 @@ function getSafeSkillsPath(): string {
         ];
 
         const isUnsafe =
+            !canonicalized ||
             normalized === root ||
             unsafePrefixes.some(
-                (p) => normalized === p || normalized.startsWith(p + path.sep)
+                (p) => {
+                    const prefix = foldCase(path.normalize(p));
+                    return normalized === prefix || normalized.startsWith(prefix + path.sep);
+                }
             );
 
         if (isUnsafe) {
             process.stderr.write(`Warning: Potentially unsafe SKILLS_PATH: "${envPath}". Fallback to default.\n`);
         } else {
-            return resolved;
+            return canonical;
         }
     }
 
@@ -59,7 +72,7 @@ const skillsManager = new SkillsManager(SKILLS_PATH);
 const server = new Server(
     {
         name: "superpowers-mcp",
-        version: "6.3.7",
+        version: "6.3.8",
     },
     {
         capabilities: {

@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.3.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.3.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -173,21 +173,37 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
-## 🔧 與上游保持同步
+## 專案來源
 
-本 fork 以逐批審閱的方式引進上游 [`obra/superpowers`](https://github.com/obra/superpowers) 的技能內容；最後同步時的上游 blob SHA 記錄在 [`tests/upstream-sync-baseline.json`](tests/upstream-sync-baseline.json)。
-
-```bash
-npm run drift                    # 對比基線與上游，列出已變動項目
-npm run drift:record             # 審閱同步完成後更新基線
-node scripts/upstream-drift.js   # 離線：基線完整性 + 本地覆蓋率
-```
-
-報告會分別列出：上游變更、上游新增、上游移除、基線追蹤但本地缺漏的檔案，以及 fork 專屬新增。刻意不採用的上游技能會列為「待決策」而非 drift，並可用 `npm run drift:record -- --ignore <skill>` 記錄。當已引進的上游檔案被刪除、或某技能失去上游系譜時，`npm test` 會失敗。若 GitHub tree 回應遭截斷，報告模式會標示結果不完整並停用 `--fail-on-drift`；record 模式則直接拒絕寫入，避免不完整清單覆蓋最後一份完整基線。
+本專案引進並審閱 [`obra/superpowers`](https://github.com/obra/superpowers) 的技能內容。維護者可參閱[上游同步指南](docs/maintainers/upstream-sync.md)了解同步程序。
 
 ## 🆕 最近更新
 
-### v6.3.7 (最新版)
+### v6.3.8 (最新版)
+
+- **全域安裝引擎並行安全、Inode 防禦與符號連結跳脫隔離**：
+  - **Allowed Roots 邊界隔離**：強制限制目的地路徑必須在使用者允許目錄（`homeDir`、`appData`、`localAppData`），杜絕父層符號連結跳脫攻擊。
+  - **樂觀並行衝突檢測**：在原子 `fs.renameSync` 前比對磁碟檔案與 `expectedContent`，防止多行程競態覆寫較新的設定檔。
+  - **目錄 Inode & Dev TOCTOU 防禦**：比對暫存檔案目錄之真實裝置與 inode 識別碼，防止目錄置換攻擊。
+  - **Fail-Closed 嚴格解析防護**：JSON 根目錄或伺服器欄位非 Plain Object 時即刻拒絕，阻斷原型污染與畸形設定。
+- **核心技能引擎確定性排序與動態快取驗證**：
+  - **目錄確定性排序與別名衝突防禦**：目錄按字母確定性排序並即時阻擋衝突鍵名，杜絕隨機覆寫與快取錯位。
+  - **自動快取驗證 (`CACHE_REVALIDATE_MS = 1000`)**：磁碟變更在 1 秒內自動同步，無需重啟 MCP 伺服器即可反映檔案編輯。
+  - **大小寫折疊與真實路徑防禦**：`src/server.ts` 在 darwin/win32 進行大小寫折疊與 `fs.realpathSync` 驗證，徹底攔截系統保護目錄（`/private/etc`、`/private/var`、`C:\Windows`）。
+- **RFC 6455 WebSocket 協議加固與日誌彈性壓縮**：
+  - 完整支援 `CONTINUATION` (0x00) 分段訊息重組，並嚴格驗證控制幀不得分段 (`opcode >= 0x8 && !fin`)，阻絕非標準 RSV 擴展。
+  - 尾部彈性日誌壓縮：日誌達 1 MB 上限時保留最新換行對齊記錄，避免整檔抹除遺失事件上下文。
+  - 私有檔案描述元以 `O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW` 安全開啟。
+- **Shell 與 PowerShell 腳本指令注入防禦**：
+  - `find-polluter.sh` 與 `find-polluter.ps1`：指令參數陣列化展開 (`"${TEST_COMMAND[@]}"`、`& $testCommand @testCommandArgs`) 搭配含空白檔名安全讀取迴圈，杜絕 Shell 注入。
+  - `sdd-workspace`：執行 `cd` 前重設 `CDPATH=''`，阻絕環境變數目錄劫持。
+  - `sdd-workspace.ps1`：以 UTF-8 without BOM (`[System.Text.UTF8Encoding]::new($false)`) 寫入計畫標記，確保無損 Unicode 路徑往返。
+- **專案來源與維護者指南分流**：
+  - 將上游同步作業流程獨立移至 [`docs/maintainers/upstream-sync.md`](docs/maintainers/upstream-sync.md)，保持根目錄文檔清晰聚焦。
+- **全自動化回歸測試底線**：
+  - 擴展測試套件至 **274 項自動化斷言全數通過**（Node.js: 145 項、Bash: 35 項、PowerShell: 94 項），維持 100% 通過率。
+
+### v6.3.7
 
 - **上游同步 — 第 1–3 批（obra/superpowers）**：
   - **技能自動路由**：`systematic-debugging` 與 `test-driven-development` 的 description 新增觸發詞（`"tdd"`、`"systematic debug"` 等）與兄弟技能交叉導引，提升 MCP 客戶端的技能選擇準確度。

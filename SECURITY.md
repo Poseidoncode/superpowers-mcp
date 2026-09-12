@@ -32,6 +32,28 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
+## v6.3.8 Security Hardening, Race Defense & Concurrency Inode Verification Notes
+
+- **Universal Global Setup Concurrency, Inode Defense & Symlink Escape Neutralization (`src/setup-runner.ts`)**:
+  - **Allowed Roots Boundary Containment (`safeWriteConfig`)**: Enforces explicit allowed destination root boundaries (`allowedRoots: [homeDir, appData, localAppData]`). Checks `path.relative` against canonical realpaths to guarantee that configuration files cannot be redirected outside authorized roots through malicious parent-directory symlinks.
+  - **Protected System Targets Filtering**: Blocks writes to `/etc`, `/bin`, `/sbin`, `/usr`, `/root`, `/sys`, `/proc`, `/dev`, `/private/etc`, `/var`, `/private/var`, and `C:\Windows` unless located safely within `os.tmpdir()`.
+  - **Optimistic Concurrency & Race Conflict Defense**: Verifies disk content against `expectedContent` immediately prior to atomic `fs.renameSync`, throwing an actionable error if configuration changed concurrently to prevent stale overwrites.
+  - **Directory Inode & Device TOCTOU Verification**: Re-checks parent directory canonical path, device ID (`dev`), and inode (`ino`) before and after temporary file creation, blocking directory swap attacks during configuration commits.
+  - **Fail-Closed Configuration Validation**: `updateJsonConfig` strictly validates that the root and `mcpServers`/`servers`/`mcp` fields are objects, failing closed on invalid shapes; `updateYamlConfig` rejects duplicate keys and non-root blocks.
+- **Skills Core Engine Collision Defense & Dynamic Cache Revalidation (`src/skills-manager.ts`, `src/server.ts`)**:
+  - **Deterministic Sorting & Name Collision Defense**: Catalogs directories in deterministic alphabetical order and detects alias/name collisions in `newSkillMap`, emitting diagnostic warnings and skipping duplicates rather than arbitrarily overwriting memory caches.
+  - **Automatic Cache Revalidation (`CACHE_REVALIDATE_MS = 1000`)**: Transparently re-reads disk state when cache age exceeds 1 second, allowing on-disk edits to reflect immediately without requiring MCP server restarts.
+  - **Platform Case-Folding & Canonical `SKILLS_PATH` Defense (`src/server.ts`)**: Applies platform case-folding (`darwin`, `win32`) and validates paths via `fs.realpathSync` (`canonicalized`) before checking against unsafe prefixes, ensuring symlinks to system roots cannot bypass blacklist checks.
+- **RFC 6455 WebSocket Protocol & Resilient Stream Hardening (`skills/brainstorming/scripts/server.cjs`, `helper.js`)**:
+  - **Fragmented Message Reassembly**: Added support for `CONTINUATION` (opcode `0x00`) frames with payload size aggregation (`fragmentedBytes`), enforcing `MAX_FRAME_PAYLOAD_BYTES` limits across fragmented chunks.
+  - **RFC 6455 Compliance**: Strictly validates that control frames (`opcode >= 0x8`) must not be fragmented (`fin === true`) and carry ≤125 bytes. Rejects frames with non-zero RSV bits (`rsv !== 0`) and unsupported opcodes.
+  - **Resilient Tail Event Compaction (`appendEvent`)**: When `events.jsonl` exceeds `MAX_EVENTS_FILE_BYTES`, retains recent newline-delimited records rather than clearing the entire history, preserving recent context while preventing file bloat.
+  - **Secure Append Mode**: Opens event files with `O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW` ensuring atomic file truncation and read operations.
+- **Shell & PowerShell Script Command Injection Defense & Unicode Resiliency**:
+  - **Test Runner Command Injection Defense (`find-polluter.sh`, `find-polluter.ps1`)**: Supports caller-supplied test commands through safe array expansion (`"${TEST_COMMAND[@]}"` and `& $testCommand @testCommandArgs`), while using `while IFS= read -r` loops to safely parse test paths containing spaces.
+  - **CDPATH Redirection Sanitization (`sdd-workspace`)**: Sanitizes `CDPATH=''` before all `cd` operations, neutralizing directory redirection attacks in environments with configured `CDPATH`.
+  - **Lossless Unicode Plan Marker Persistence (`sdd-workspace.ps1`)**: Writes plan marker files with `[System.Text.UTF8Encoding]::new($false)` (UTF-8 without BOM), ensuring lossless Unicode path round-tripping across PowerShell executions.
+
 ## v6.3.7 Upstream Sync, Git-Safety & Regression Guard Notes
 
 - **Content-only synchronization**: Batches 1–4 import reviewed upstream `obra/superpowers` skill text and modify the SDD helper scripts (`sdd-workspace`, `review-package` and their `.ps1` twins) — trigger phrases, no-test-command evidence law, brainstorming intent gates, planning-handoff review, saved-plan review gate, plan-checkbox bookkeeping, remote-safety boundary, Discoveries ledger, deferred-findings export, greenfield scripts, TDD characterization guard, moved-content link re-resolution, and the SDD review-file contract (reviewers write the full report to a review file and answer in under 15 lines). Beyond the version constant, the release changes three surfaces outside that imported text: the `review_file` argument on `sdd-task-reviewer` / `sdd-re-review`, which is derived from the report or brief file when omitted and replaced by that derived sibling when the requested path normalises to either (so a reviewer is never pointed at the implementer's report); the previously silent `[FIX_BASE_SHA]` placeholder, now fed by the `fix_base_sha` alias (alongside the pre-existing `base_sha` argument) on `sdd-re-review`; and the skill-script host defaults in `skills/brainstorming/scripts/start-server.sh` / `.ps1`, whose non-loopback values are refused before launch on the PowerShell path and by the companion server on the bash path. The v6.3.6 attack surface, input validation, and permission model remain in force.
@@ -126,7 +148,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Input Validation**: `BRAINSTORM_TOKEN` must match `^[0-9a-f]{32,}$` (weak operator-supplied tokens are rejected and regenerated); `BRAINSTORM_PORT` must be an integer in 1024–65535; `BRAINSTORM_HOST` and `BRAINSTORM_URL_HOST` must be loopback values.
 - **Resource Bounds**: screens larger than 20 MB are skipped and read through a bounded fd loop, skill files larger than 10 MB are rejected, the per-session events log is capped at 1 MB, user-event log lines are capped at 4096 UTF-8 bytes, and WebSocket connections have idle and partial-frame timeouts.
 - **Security Headers**: `X-Content-Type-Options: nosniff` and a per-response nonce CSP are applied; screen HTML cannot execute unnonce'd scripts and the auth key is never placed in page-readable storage.
-- **Process-Lifecycle Safety**: `start-server.sh/.ps1` verify a PID is a live brainstorm server of this session (server-instance-id + cmdline match, same as stop-server) before signalling it, with process-start revalidation to narrow PID-reuse races; `stop-server.sh` canonicalizes paths before deleting temp sessions so `/tmp/../` tricks cannot escape the temp root. The companion refuses non-loopback plain HTTP binds. In `--project-dir` mode the session key is persisted to an owner-only `.last-token` and reused across restarts (v6.2.4); ephemeral sessions rotate the key per invocation.
+- **Process-Lifecycle Safety**: `start-server.sh/.ps1` verify a PID is a live brainstorm server of this session (server-instance-id + cmdline identity proof before signalling in v6.2.3), with process-start revalidation to narrow PID-reuse races; `stop-server.sh` canonicalizes paths before deleting temp sessions so `/tmp/../` tricks cannot escape the temp root. The companion refuses non-loopback plain HTTP binds. In `--project-dir` mode the session key is persisted to an owner-only `.last-token` and reused across restarts (v6.2.4); ephemeral sessions rotate the key per invocation.
 - **SkillsManager Cache & Lookup**: a failed rescan returns the last-good cache instead of poisoning it with an empty list; bounded reads and canonical containment allow safe in-root symlinks; skill names containing consecutive dots (e.g. `a..b`) are map-only lookups.
 - **Dependency**: `hono` is overridden to the verified exact version 4.13.0, with exact overrides for `@hono/node-server` 2.0.11 and `fast-uri` 4.1.2. `npm audit` reports **0 vulnerabilities**.
 - **Regression Coverage**: `npm test` (builds first) runs the JavaScript edge-case, MCP flow, and companion-server suites. The 63-assertion PowerShell suite is run separately with `tests/powershell/run-tests.sh` and skips when `pwsh` is unavailable.
@@ -139,7 +161,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.3.7 - Verified: 2026-09-12)
+## Current Security Status (v6.3.8 - Verified: 2026-09-12)
 
 | Check | Status |
 | ----- | ------ |
@@ -149,9 +171,16 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Partial-Read Buffer Truncation Defense | :white_check_mark: Secured — looping `while (totalRead < fileSize)` in `readFileNoFollow` guarantees complete byte-level reads under high disk concurrency |
 | Canonical Path Caching & Alias Drift Defense | :white_check_mark: Secured — in-memory skill content keyed strictly by physical `realFilePath` with aliased lookup map, eliminating symlink cache divergence |
 | Concurrent Rescan Race Protection | :white_check_mark: Secured — monotonic `scanEpoch` ensures only the latest asynchronous scan can commit to the active skill catalog |
-| macOS System Directory Traversal Defense | :white_check_mark: Secured — `getSafeSkillsPath` blocks `/private/etc` and `/private/var` alongside standard POSIX root directories |
-| Configuration Symlink Target Traversal Defense | :white_check_mark: Secured — `safeWriteConfig` verifies `fs.lstat` and canonical target boundaries to reject symlinks escaping to privileged directories |
+| Automatic Cache Revalidation | :white_check_mark: Secured — `CACHE_REVALIDATE_MS = 1000` re-reads disk state within 1 second on disk modification without server restart |
+| Deterministic Directory Ordering & Collision Defense | :white_check_mark: Secured — alphabetical directory processing and collision skipping prevents erratic map overwrites |
+| Platform Case-Folding & Canonical Path Blacklisting | :white_check_mark: Secured — `src/server.ts` uses platform case folding and `fs.realpathSync` to block `/private/etc`, `/private/var`, `C:\Windows` |
+| Destination Allowed Roots Boundary Containment | :white_check_mark: Secured — `safeWriteConfig` requires `allowedRoots` check on canonical destination, blocking symlink breakouts |
+| Optimistic Concurrency Conflict Defense | :white_check_mark: Secured — `safeWriteConfig` verifies disk content against `expectedContent` immediately before atomic rename |
+| Directory Swap TOCTOU Defense | :white_check_mark: Secured — `safeWriteConfig` re-verifies directory canonical path, device `dev` and inode `ino` before commit |
 | Command Injection (`execFileSync` in `render-graphs.js` & `server.cjs`) | :white_check_mark: Secured — direct binary execution, shell interpreters eliminated |
+| Test Runner Parameter Injection Defense | :white_check_mark: Secured — `find-polluter.sh` & `find-polluter.ps1` use array-based parameter expansion and handle spaced filenames |
+| CDPATH Redirection Sanitization | :white_check_mark: Secured — `sdd-workspace` sets `CDPATH=''` before cd operations |
+| Lossless Unicode Marker Persistence | :white_check_mark: Secured — `sdd-workspace.ps1` writes plan marker using UTF-8 without BOM |
 | Targeted Global Setup & Explicit Consent | :white_check_mark: Secured — anti-virus design; requires explicit `--target <client>`, no blind scanning, safe exit without target |
 | Multi-Harness Co-existence & Path Isolation | :white_check_mark: Secured — physical separation between Copilot Stable (`Code/User/mcp.json`) and Copilot Insiders (`Code - Insiders/User/mcp.json`), zero collision or cross-contamination |
 | Atomic Config Writes & Race Defense | :white_check_mark: Secured — temporary file write with cryptographically secure random nonce (`crypto.randomBytes(8)`), exclusive creation (`wx`), and atomic `renameSync` |
@@ -163,7 +192,8 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | World-writable files | :zero: Zero |
 | MCP Tools/Prompts Path Traversal | :white_check_mark: Secured — dynamic prompt templating inherits `SkillsManager` double physical containment, `O_NOFOLLOW` / fd identity match, and safe argument sanitization |
 | Symlink / Path Traversal Defense | :white_check_mark: Secured — bounded `O_NOFOLLOW`/fd reads, `realpath` containment, private state files, canonical temp-deletion guard in v6.2.3, and hardened token-file read (`readPrivateFile`) rejecting symlinked/multi-link `.last-token` in v6.2.4; **unchanged in v6.3.0** (upstream's removal of these controls was deliberately not adopted) |
-| WebSocket Protocol Validation | :white_check_mark: Secured — RFC 6455 handshake check, 125-byte control-frame cap, 10 MB frame cap, 16-client cap, idle timeout, and partial-frame deadline in v6.2.3; unchanged in v6.3.0 |
+| RFC 6455 Fragmented WebSocket Protocol Validation | :white_check_mark: Secured — RFC 6455 handshake check, `CONTINUATION` frame reassembly, fragmented control frame rejection, RSV bit checks, 125-byte control-frame cap, 10 MB frame cap, 16-client cap, idle timeout, and partial-frame deadline |
+| Resilient Tail Event Compaction | :white_check_mark: Secured — `server.cjs` preserves recent complete newline-delimited event records rather than discarding all state on rotation |
 | Filesystem Race / Crash Resilience | :white_check_mark: Secured — read-before-headers, try/catch fs paths, watcher self-heal in v6.2.3 |
 | Process Lifecycle (stale PID) | :white_check_mark: Secured — server-instance-id + cmdline identity proof before signalling in v6.2.3 |
 | Environment Input Validation (`SKILLS_PATH`, `BRAINSTORM_TOKEN`, `BRAINSTORM_PORT`) | :white_check_mark: Secured — system-dir prefix check + token format + port range in v6.2.3; `BRAINSTORM_TOKEN_FILE` must be an absolute path in v6.2.4 |
@@ -172,7 +202,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Shell Command Injection (`BRAINSTORM_OPEN_CMD`) | :white_check_mark: Patched — `cp.execFile` with argv array in v6.0.3 |
 | Shell Script Security (`install.sh`, `install.ps1`) | :white_check_mark: Secured — `set -euo pipefail` and quoted expansions in Bash; `$ErrorActionPreference = "Stop"` and array argument splatting in PowerShell |
 | CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — exact `hono` override (GHSA-8j4g-w8fx-2239) |
-| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-12) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 264/264 automated test assertions passed |
+| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-12) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 274/274 automated test assertions passed |
 
 ## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-12)
 
@@ -187,6 +217,10 @@ A full repository security audit was conducted covering dependencies, core MCP s
   - `readFileNoFollow()` implements a guaranteed multi-pass read loop (`while (totalRead < fileSize)`), ensuring buffers are populated to exact file sizes regardless of operating system buffer starvation or asynchronous scheduling latency.
 - **Canonical Path Caching & Multi-Alias Drift Neutralization**:
   - Content caching in `SkillsManager` stores skills exclusively by resolved physical paths (`fs.realpath`), maintaining a separate alias map for symlinks. On invalidation, both representations are purged in a single atomic cycle.
+- **Automatic Cache Revalidation & Freshness**:
+  - `CACHE_REVALIDATE_MS = 1000` re-reads disk state when cache age exceeds 1 second, allowing on-disk edits to reflect immediately without requiring MCP server restarts.
+- **Deterministic Directory Ordering & Collision Defense**:
+  - Catalogs directories in deterministic alphabetical order and detects alias/name collisions in `newSkillMap`, emitting diagnostic warnings and skipping duplicates rather than arbitrarily overwriting memory caches.
 - **Concurrency Epoch Versioning**:
   - `listSkills` assigns a monotonically increasing `scanEpoch` to each discovery cycle, discarding outdated scan results before mutating active state.
 - **Prompts Injection & Cascading Expansion Defense**:
@@ -195,7 +229,7 @@ A full repository security audit was conducted covering dependencies, core MCP s
   - `getStringArg` enforces explicit `hasOwnProperty` validation to prevent prototype pollution and strictly clamps argument strings to 32 KB (`MAX_PROMPT_ARG_LENGTH = 32 * 1024`) to eliminate ReDoS and memory exhaustion hazards.
   - Arguments are evaluated safely with `.trim()`, type coercion, and boundary guards, preventing `undefined` concatenation.
 - **Path Traversal & Symlink Defense**:
-  - `getSafeSkillsPath()` blocks hazardous system directory prefixes (`/etc`, `/var`, `/usr`, `C:\Windows`, etc.).
+  - `getSafeSkillsPath()` blocks hazardous system directory prefixes (`/etc`, `/var`, `/usr`, `/private/etc`, `/private/var`, `C:\Windows`, etc.) and performs case-folding and `fs.realpathSync` validation.
   - `findSkill()` strictly strips path separators (`/`, `\`, `\0`, `..`), using in-memory Map key lookups so user inputs never enter filesystem read APIs directly.
   - `readFileNoFollow()` verifies file descriptors, inodes, and device IDs across checks and opens using POSIX `O_NOFOLLOW` and `fs.realpath` containment to eliminate TOCTOU race conditions.
 - **Resource Bounds & ReDoS**:
@@ -213,27 +247,36 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **Web Security & XSS Mitigation**:
   - Nonce-based Content Security Policy (`CSP`), `X-Content-Type-Options: nosniff`, and `frame-ancestors 'none'`.
   - Local inline SVG assets are used exclusively (no external CDN / third-party requests).
-- **WebSocket Hardening**:
-  - Strict RFC 6455 handshake validation, control frame payload cap (≤125 bytes), 10 MB frame cap, 16 concurrent client limit, and idle/partial-frame socket teardowns.
+- **RFC 6455 WebSocket Protocol & Resilient Stream Hardening**:
+  - Strict RFC 6455 handshake validation, support for fragmented text messages (`CONTINUATION` opcode `0x00`) with payload size tracking, control frame payload cap (≤125 bytes), non-fragmented control frame enforcement (`opcode >= 0x8 && !fin`), 10 MB frame cap, 16 concurrent client limit, and idle/partial-frame socket teardowns.
+  - Resilient tail log compaction: `appendEvent` preserves recent newline-delimited records when approaching the 1 MB file limit rather than dropping all historical events.
+  - Hardened private file descriptors opened with `O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW`.
 
 ### 4. Universal Global Setup Engine & Installation Scripts (`src/setup-runner.ts`, `scripts/`)
 - **Explicit Consent & Anti-Virus Design**:
   - Abolished all unprompted bulk scanning or blind directory crawling (`--all` removed). Setup strictly requires `--target <client>`. Running without arguments outputs interactive guidance and cleanly exits without touching or reading the host filesystem.
 - **Multi-Harness Co-existence & Copilot Insiders Isolation**:
   - Distinct physical configuration separation between standard VS Code (`Code/User/mcp.json`) and VS Code Insiders (`Code - Insiders/User/mcp.json`) across macOS, Linux, and Windows. Prevents cross-contamination and guarantees independent updates, additions, and uninstalls.
-- **Atomic Operations & Race Resilience**:
+- **Atomic Operations, Concurrency & Inode Defense**:
   - `safeWriteConfig` utilizes temporary files scoped to the target directory containing process ID and cryptographically random 8-byte nonces (`crypto.randomBytes(8)`). Writes enforce `flag: "wx"` (exclusive creation, avoiding symlink hijacking) and commit via atomic `fs.renameSync`.
-- **Symlink Boundary Preservation & Target Security**:
+  - Optimistic concurrency verification (`expectedContent`): detects concurrent modifications before `renameSync` and refuses to overwrite newer configurations.
+  - Inode and device identity checks (`dev`, `ino`): validates parent directory identity before and after temporary file writes to defend against directory swap TOCTOU attacks.
+- **Allowed Roots Boundary Containment & Symlink Safety**:
+  - `safeWriteConfig` requires explicit `allowedRoots` boundaries (`homeDir`, `appData`, `localAppData`), verifying that configuration paths cannot be redirected outside authorized user roots through malicious parent-directory symlinks.
   - Target paths are resolved through `fs.realpathSync` to preserve symbolic link destinations while checking directory containment and safely handling dangling symlinks.
-  - Inspects existing files with `fs.lstat` before writes, aborting if symlink pointers target restricted system root hierarchies outside permitted project and user configurations.
+  - Inspects existing files with `fs.lstat` before writes, aborting if symlink pointers target restricted system root hierarchies (`/etc`, `/bin`, `/sbin`, `/usr`, `/root`, `/sys`, `/proc`, `/dev`, `/private/etc`, `/var`, `/private/var`, `C:\Windows`) outside permitted project and user configurations.
 - **Least-Privilege Directory & File Permissions**:
   - Configuration directories are created with restricted mode `0o700`. Configuration files default to `0o600` or preserve existing modes. Pre-write backup files (`.bak`) inherit source permissions.
-- **Injection-Free Config Serialization**:
+- **Injection-Free Config Serialization & Parsing Hardening**:
   - Variables and arguments in YAML/JSON are safely escaped with `JSON.stringify`. JSON parser tolerates JSONC comments/trailing commas while verifying `isPlainObject` against prototype pollution and array root corruption.
+  - `updateJsonConfig` fails closed when root or server fields are not plain objects; `updateYamlConfig` rejects duplicate keys and non-root declarations.
 - **CLI Transport Stdio Isolation**:
   - `src/server.ts` routes `setup` arguments in `main()` prior to initializing any MCP Stdio transport, preventing protocol deadlock or stdout pollution.
 - **Shell & PowerShell Script Hardening**:
   - `scripts/install.sh` enables `set -euo pipefail` and strictly quotes variable expansions (`"$@"`). `scripts/install.ps1` sets `$ErrorActionPreference = "Stop"` and uses typed array parameter splatting.
+  - `find-polluter.sh` & `find-polluter.ps1`: caller-supplied test command with array splatting (`"${TEST_COMMAND[@]}"`, `& $testCommand @testCommandArgs`), safe while loop reading spaced filenames, preventing shell command injection.
+  - `sdd-workspace`: sanitized `CDPATH=''` to prevent cd redirection attacks.
+  - `sdd-workspace.ps1`: UTF-8 without BOM encoding (`[System.Text.UTF8Encoding]::new($false)`) for plan marker paths, ensuring lossless Unicode path round-tripping.
 
 ### 5. Secrets & Git Hygiene
 - **Secret Scanning**: No hardcoded API keys, private keys, or tokens detected in tracked files.
@@ -241,19 +284,20 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **Working Tree & File Modes**: Clean git status without untracked artifacts. Zero world-writable files.
 
 ### 6. Automated Security & Edge-Case Verification
-- **Edge Cases & Security Suite** (`tests/edge_cases_test.js`): Passed 7/7 tests (BOM handling, traversal blocking, concurrency locks, dot-named skills, transient failure cache preservation).
-- **MCP Protocol & Prompts Suite** (`tests/run_test.js`): Passed 7/7 tests (Initialization, `list_skills`, `read_skill`, malformed URI handling, `prompts/list`, `prompts/get` dynamic injection).
-- **Companion Server Suite** (`tests/brainstorm_server_test.js`): **31 passed, 0 failed** (Authentication, token persistence, WS caps, CSP, traversal protection, PID lifecycle).
-- **Compositions & Prompts Injection Suite** (`tests/prompts_compositions_test.js`): **15/15 checks** (Workflow prompts coverage, multi-stage integrity, dynamic scenario focus, cascading injection defense, unknown prompt rejection, declared SDD review-file arguments, an explicitly named review file, and the report-file / normalised-path / brief-file substitutions).
-- **Global Setup Engine Suite** (`tests/setup_test.js`): **33 passed, 0 failed** (Full coverage across 15 AI agent harnesses: Antigravity, Pi Desktop, Cursor, Copilot, Copilot Insiders, Hermes, Kimi, Claude, Devin, QwenPaw, Cline, Kilo Code, Qoder, Kiro, Trae; JSONC comment tolerance, `json-mcp` local format, YAML injection defense, plain object validation, anti-bulk target consent, cross-platform path resolution, atomic write sandbox & symlink preservation, idempotent removal, double invocation defense).
-- **SDD Workspace Bash Suite** (`tests/sdd/test-sdd-workspace.sh`): **16 passed, 0 failed** (Workspace isolation, path normalization, collision counters, commit range validation, permission-stripped execution).
-- **Writing Skills Render Graphs Suite** (`tests/writing-skills/test-render-graphs.sh`): **8 passed, 0 failed** (Direct binary execution, SVG rendering, output verification, error capture).
-- **PowerShell Script Hardening Suite** (`tests/powershell/run-tests.sh`): **90 passed, 0 failed** across 5 test scripts (`test-brainstorming-server.ps1`, `test-find-polluter.ps1`, `test-review-package.ps1`, `test-sdd-workspace.ps1`, `test-task-brief.ps1`).
-- **Upstream Sync Regression Suite** (`tests/upstream_sync_test.js`): **22 labeled checks** pin the imported upstream content (Batches 1-4: skill routing, evidence law, intent gates, remote-safety, SDD review-file contract, brainstorm host defaults).
-- **MCP Surface Coverage Suite** (`tests/mcp_coverage_test.js`): **14 checks** (one resource per skill on disk, each resource serves that skill's own content, prompt inventory matches all four READMEs exactly, composition guide references only real surfaces).
-- **Upstream Drift Suite** (`tests/drift_test.js`): **10 checks** (the offline CLI run is one of them); the committed baseline (`tests/upstream-sync-baseline.json`) records the upstream blob SHAs of every adopted skill file, so a deleted import, a lost upstream lineage or a stale ignore entry fails here. Network mode (`npm run drift`) compares the baseline against upstream without writing anything.
-- **Brainstorm Host Defaults Bash Suite** (`tests/brainstorming/test-start-server-env-hosts.sh`): **11 passed, 0 failed** (env-supplied bind/url hosts, flag precedence, empty values, and the non-loopback refusal).
-- **Total Automated Regression Floor**: **264 automated test assertions across Node.js (139), Bash (35), and PowerShell (90), 100% pass rate, 0 regressions**.
+- **Edge Cases & Security Suite** (`tests/edge_cases_test.js`): Passed **9/9 tests** (BOM handling, traversal blocking, concurrency locks, dot-named skills, transient failure cache preservation, automatic cache revalidation, duplicate skill-name collision handling).
+- **MCP Protocol & Prompts Suite** (`tests/run_test.js`): Passed **7/7 tests** (Initialization, `list_skills`, `read_skill`, malformed URI handling, `prompts/list`, `prompts/get` dynamic injection).
+- **Companion Server Suite** (`tests/brainstorm_server_test.js`): Passed **33/33 tests** (Authentication, token persistence, WS caps, CSP, traversal protection, PID lifecycle, fragmented text assembly, resilient tail event compaction).
+- **Compositions & Prompts Injection Suite** (`tests/prompts_compositions_test.js`): Passed **14/14 checks** (Workflow prompts coverage, multi-stage integrity, dynamic scenario focus, cascading injection defense, unknown prompt rejection, declared SDD review-file arguments, an explicitly named review file, and the report-file / normalised-path / brief-file substitutions).
+- **Global Setup Engine Suite** (`tests/setup_test.js`): Passed **36/36 tests** (Full coverage across 15 AI agent harnesses: Antigravity, Pi Desktop, Cursor, Copilot, Copilot Insiders, Hermes, Kimi, Claude, Devin, QwenPaw, Cline, Kilo Code, Qoder, Kiro, Trae; JSONC comment tolerance, `json-mcp` local format, YAML injection defense, plain object validation, anti-bulk target consent, cross-platform path resolution, atomic write sandbox & symlink preservation, idempotent removal, double invocation defense, parent-directory symlink breakout defense, concurrent config change detection, fail-closed shape parsing).
+- **SDD Workspace Bash Suite** (`tests/sdd/test-sdd-workspace.sh`): Passed **16/16 tests** (Workspace isolation, path normalization, collision counters, commit range validation, permission-stripped execution).
+- **Writing Skills Render Graphs Suite** (`tests/writing-skills/test-render-graphs.sh`): Passed **8/8 tests** (Direct binary execution, SVG rendering, output verification, error capture).
+- **PowerShell Script Hardening Suite** (`tests/powershell/`): Passed **94/94 assertions** across 5 test scripts (`test-brainstorming-server.ps1`: 29, `test-find-polluter.ps1`: 12, `test-review-package.ps1`: 20, `test-sdd-workspace.ps1`: 20, `test-task-brief.ps1`: 13).
+- **Upstream Sync Regression Suite** (`tests/upstream_sync_test.js`): Passed **22/22 checks** pinning the imported upstream content (Batches 1-4: skill routing, evidence law, intent gates, remote-safety, SDD review-file contract, brainstorm host defaults).
+- **MCP Surface Coverage Suite** (`tests/mcp_coverage_test.js`): Passed **14/14 checks** (one resource per skill on disk, each resource serves that skill's own content, prompt inventory matches all four READMEs exactly, composition guide references only real surfaces).
+- **Upstream Drift Suite** (`tests/drift_test.js`): Passed **10/10 checks** (the offline CLI run is one of them); the committed baseline (`tests/upstream-sync-baseline.json`) records the upstream blob SHAs of every adopted skill file, so a deleted import, a lost upstream lineage or a stale ignore entry fails here. Network mode (`npm run drift`) compares the baseline against upstream without writing anything.
+- **Brainstorm Host Defaults Bash Suite** (`tests/brainstorming/test-start-server-env-hosts.sh`): Passed **11/11 tests** (env-supplied bind/url hosts, flag precedence, empty values, and the non-loopback refusal).
+- **Total Automated Regression Floor**: **274 automated test assertions across Node.js (145), Bash (35), and PowerShell (94), 100% pass rate, 0 regressions**.
+
 
 ---
 

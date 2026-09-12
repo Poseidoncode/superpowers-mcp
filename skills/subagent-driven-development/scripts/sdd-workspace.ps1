@@ -97,7 +97,11 @@ function Test-And-Claim-Workspace($targetDir, $id) {
         return ($existingId -eq $id)
     } else {
         New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
-        Set-Content -LiteralPath $markerPath -Value $id -Encoding ascii
+        [System.IO.File]::WriteAllText(
+            $markerPath,
+            $id + [Environment]::NewLine,
+            [System.Text.UTF8Encoding]::new($false)
+        )
         return $true
     }
 }

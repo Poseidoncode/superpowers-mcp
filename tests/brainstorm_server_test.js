@@ -151,20 +151,20 @@ function wsUpgrade(port, key, { version = "13", upgrade = "websocket", wsKey = n
     });
 }
 
-function sendMaskedFrame(socket, opcode, payload) {
+function sendMaskedFrame(socket, opcode, payload, fin = true) {
     const mask = crypto.randomBytes(4);
     const masked = Buffer.from(payload.map((b, i) => b ^ mask[i % 4]));
     const len = payload.length;
     let header;
     if (len < 126) {
-        header = Buffer.from([0x80 | opcode, 0x80 | len]);
+        header = Buffer.from([(fin ? 0x80 : 0) | opcode, 0x80 | len]);
     } else if (len < 65536) {
         // 16-bit extended length (RFC 6455 §5.2)
-        header = Buffer.from([0x80 | opcode, 0x80 | 126, len >> 8, len & 0xff]);
+        header = Buffer.from([(fin ? 0x80 : 0) | opcode, 0x80 | 126, len >> 8, len & 0xff]);
     } else {
         // 64-bit extended length (RFC 6455 §5.2)
         header = Buffer.alloc(10);
-        header[0] = 0x80 | opcode;
+        header[0] = (fin ? 0x80 : 0) | opcode;
         header[1] = 0x80 | 127;
         header.writeBigUInt64BE(BigInt(len), 2);
     }
@@ -314,6 +314,25 @@ async function run() {
             report("choice event recorded", false);
         }
 
+        // 8b. Programmatic choice events use `value` in older callers, and a
+        // fragmented RFC 6455 text message must be assembled before parsing.
+        const wsFragmented = await wsUpgrade(port, key);
+        if (wsFragmented.ok) {
+            const encoded = Buffer.from(JSON.stringify({ type: "choice", value: "programmatic" }));
+            const splitAt = Math.floor(encoded.length / 2);
+            sendMaskedFrame(wsFragmented.socket, 0x01, encoded.subarray(0, splitAt), false);
+            sendMaskedFrame(wsFragmented.socket, 0x00, encoded.subarray(splitAt), true);
+            const eventsFile = path.join(sessionDir, "state", "events");
+            const recorded = await waitFor(() =>
+                fs.existsSync(eventsFile) && fs.readFileSync(eventsFile, "utf-8").includes('"choice":"programmatic"'),
+                3000
+            );
+            report("fragmented programmatic choice event recorded", recorded);
+            wsFragmented.socket.destroy();
+        } else {
+            report("fragmented programmatic choice event recorded", false);
+        }
+
         // 9. A single event larger than the events-file cap must be dropped,
         //    rather than bypassing the cap through appendFileSync.
         const wsLargeEvent = await wsUpgrade(port, key);
@@ -331,6 +350,35 @@ async function run() {
             wsLargeEvent.socket.destroy();
         } else {
             report("events file hard cap applies to one large event", false);
+        }
+
+
+        // 9b. When compaction is necessary, retain recent complete records
+        // instead of truncating the entire event history.
+        const eventsFile = path.join(sessionDir, "state", "events");
+        const oldest = JSON.stringify({ choice: "oldest" }) + "\n";
+        const recent = JSON.stringify({ choice: "recent-sentinel" }) + "\n";
+        const fillerLine = JSON.stringify({ choice: "filler", data: "x".repeat(900) }) + "\n";
+        let seeded = oldest;
+        while (Buffer.byteLength(seeded + fillerLine + recent) < 1024 * 1024 - 100) seeded += fillerLine;
+        seeded += recent;
+        fs.writeFileSync(eventsFile, seeded, { mode: 0o600 });
+        const wsCompact = await wsUpgrade(port, key);
+        if (wsCompact.ok) {
+            sendMaskedFrame(wsCompact.socket, 0x01, Buffer.from(JSON.stringify({ type: "choice", choice: "after-compaction", data: "y".repeat(3000) })));
+            const compacted = await waitFor(() => {
+                const content = fs.readFileSync(eventsFile, "utf-8");
+                return content.includes('"choice":"after-compaction"');
+            }, 3000);
+            const retained = fs.readFileSync(eventsFile, "utf-8");
+            report(
+                "events compaction retains recent complete records",
+                compacted && retained.includes('"choice":"recent-sentinel"') && !retained.includes('"choice":"oldest"') &&
+                    fs.statSync(eventsFile).size <= 1024 * 1024
+            );
+            wsCompact.socket.destroy();
+        } else {
+            report("events compaction retains recent complete records", false);
         }
 
         // 10. Watcher resilience: after the content dir is deleted and

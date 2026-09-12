@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -173,21 +173,37 @@ To help you choose the right skill, we have structured all 14 skills across the 
 
 ---
 
-## 🔧 Keeping Up with Upstream
+## Project Lineage
 
-This fork imports the upstream [`obra/superpowers`](https://github.com/obra/superpowers) skill content through reviewed batches. The upstream blob SHAs captured at the last sync live in [`tests/upstream-sync-baseline.json`](tests/upstream-sync-baseline.json).
-
-```bash
-npm run drift                    # compare the baseline against upstream and list what moved
-npm run drift:record             # refresh the baseline after a reviewed sync
-node scripts/upstream-drift.js   # offline: baseline integrity + local coverage
-```
-
-The report separates files that changed upstream, upstream additions and removals, tracked files missing from this fork, and fork-only additions. An upstream skill this fork deliberately does not adopt is reported as a decision rather than drift, and is recorded with `npm run drift:record -- --ignore <skill>`. `npm test` fails when an imported upstream file is deleted or when a shipped skill loses its upstream lineage. Report mode marks a truncated GitHub tree as partial and suppresses `--fail-on-drift`; record mode refuses that response entirely so an incomplete listing cannot overwrite the last complete baseline.
+This project imports reviewed skill content from [`obra/superpowers`](https://github.com/obra/superpowers). Maintainers can find the synchronization procedure in the [upstream synchronization guide](docs/maintainers/upstream-sync.md).
 
 ## 🆕 Recent Updates
 
-### v6.3.7 (Latest)
+### v6.3.8 (Latest)
+
+- **Universal Global Setup Concurrency & Symlink Breakout Defense**:
+  - **Allowed Roots Boundary Containment**: Enforces destination restriction to explicit allowed user roots (`homeDir`, `appData`, `localAppData`), blocking parent-directory symlink breakout attacks.
+  - **Optimistic Concurrency Conflict Defense**: Compares file content against `expectedContent` immediately prior to atomic `fs.renameSync`, preventing race conditions from silently overwriting newer configurations.
+  - **Directory Inode & Device TOCTOU Verification**: Re-checks parent directory canonical path, device ID (`dev`), and inode (`ino`) before and after temporary file creation, blocking directory swap attacks.
+  - **Fail-Closed Validation**: Rejects non-object JSON roots or server fields and duplicate YAML keys.
+- **Skills Core Engine Collision Defense & Dynamic Cache Revalidation**:
+  - **Deterministic Directory Cataloging**: Catalogs directories in deterministic alphabetical order and detects alias/name collisions in `newSkillMap`, emitting diagnostic warnings and skipping duplicates.
+  - **Automatic Cache Revalidation (`CACHE_REVALIDATE_MS = 1000`)**: Detects disk modifications within 1 second without requiring MCP server restarts.
+  - **Canonical Path Blacklisting**: Platform case-folding and `fs.realpathSync` validation to prevent symlink bypass of system directories (`/private/etc`, `/private/var`, `C:\Windows`).
+- **RFC 6455 WebSocket Protocol & Resilient Stream Hardening**:
+  - Support for fragmented text messages (`CONTINUATION` opcode `0x00`) with payload size tracking and RFC 6455 control frame constraints (`opcode >= 0x8 && !fin` rejected).
+  - Resilient tail event log compaction: Preserves recent newline-delimited event records when approaching the 1 MB file cap rather than dropping all historical events.
+  - Event log append mode hardened with `O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW`.
+- **Shell & PowerShell Script Hardening**:
+  - `find-polluter.sh` & `find-polluter.ps1`: Caller-supplied test command with safe array expansion (`"${TEST_COMMAND[@]}"`, `& $testCommand @testCommandArgs`) and space-safe while loop, preventing shell command injection.
+  - `sdd-workspace`: Sanitizes `CDPATH=''` before all `cd` operations, neutralizing directory redirection attacks.
+  - `sdd-workspace.ps1`: Lossless Unicode plan marker persistence using UTF-8 without BOM (`[System.Text.UTF8Encoding]::new($false)`).
+- **Project Lineage & Maintainer Guidance**:
+  - Extracted maintainer-facing synchronization workflows to [`docs/maintainers/upstream-sync.md`](docs/maintainers/upstream-sync.md) for clean separation of user and maintainer concerns.
+- **Automated Regression Verification Floor**:
+  - Expanded test suite to **274 automated test assertions** across Node.js (145), Bash (35), and PowerShell (94) with a 100% pass rate.
+
+### v6.3.7
 
 - **Upstream Sync — Batches 1–3 (obra/superpowers)**:
   - **Automatic Skill Routing**: `systematic-debugging` and `test-driven-development` descriptions now name their typed trigger phrases (`"tdd"`, `"systematic debug"`, …) and cross-route to the sibling skill, improving skill selection inside MCP clients.

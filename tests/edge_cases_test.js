@@ -168,6 +168,36 @@ async function runEdgeCaseTests() {
         assert.ok(recovered.length >= 2, "rescan recovers once the directory is readable again");
         console.log("  ✅ Test 7 Passed!");
 
+        // Test 8: caches refresh without requiring an MCP server restart.
+        console.log("\nTest 8: Automatic cache revalidation...");
+        const refreshedBody = "# BOM Content\nUpdated after cache warm-up.";
+        fs.writeFileSync(
+            path.join(bomDir, "SKILL.md"),
+            `---\nname: bom-skill\ndescription: Refreshed description\n---\n${refreshedBody}`,
+            "utf-8"
+        );
+        await new Promise((resolve) => setTimeout(resolve, 1100));
+        const refreshedSkills = await manager.listSkills();
+        assert.strictEqual(refreshedSkills.find((s) => s.name === "bom-skill").description, "Refreshed description");
+        assert.strictEqual(await manager.readSkillContent(bomSkill.skillPath), refreshedBody);
+        console.log("  ✅ Test 8 Passed!");
+
+        // Test 9: duplicate names are resolved deterministically and never
+        // produce duplicate resources/map entries.
+        console.log("\nTest 9: Duplicate skill-name collision handling...");
+        const duplicateDir = path.join(tmpSkillsDir, "zzz-duplicate");
+        fs.mkdirSync(duplicateDir);
+        fs.writeFileSync(
+            path.join(duplicateDir, "SKILL.md"),
+            "---\nname: bom-skill\ndescription: Duplicate\n---\n# Duplicate\n",
+            "utf-8"
+        );
+        const duplicateManager = new SkillsManager(tmpSkillsDir);
+        const deduplicated = await duplicateManager.listSkills();
+        assert.strictEqual(deduplicated.filter((s) => s.name === "bom-skill").length, 1);
+        assert.strictEqual((await duplicateManager.findSkill("bom-skill")).description, "Refreshed description");
+        console.log("  ✅ Test 9 Passed!");
+
         console.log("\n🎉 ALL EDGE CASE & SECURITY UNIT TESTS PASSED!");
     } finally {
         if (fs.existsSync(tmpSkillsDir)) {

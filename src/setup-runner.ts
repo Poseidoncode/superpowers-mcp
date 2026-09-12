@@ -430,6 +430,29 @@ export function stripJsonComments(content: string, skipFastPath = false): string
  */
 export function updateYamlConfig(existingContent: string, cmd: string, args: string[], remove = false): string {
     const lines = existingContent ? existingContent.split(/\r?\n/) : [];
+    const mcpDeclarations = lines
+        .map((line, index) => ({ index, match: line.match(/^(\s*)mcp_servers:\s*(.*?)\s*$/) }))
+        .filter((entry) => entry.match !== null);
+    if (mcpDeclarations.length > 1) {
+        throw new Error("Cannot safely update YAML with duplicate mcp_servers keys");
+    }
+    if (mcpDeclarations.length === 1) {
+        const match = mcpDeclarations[0].match!;
+        if (match[1] !== "" || match[2] !== "") {
+            throw new Error("Cannot safely update YAML unless mcp_servers is a root-level block mapping");
+        }
+    }
+
+    let indent = "  ";
+    if (mcpDeclarations.length === 1) {
+        for (let i = mcpDeclarations[0].index + 1; i < lines.length; i++) {
+            if (lines[i].trim() === "" || lines[i].trimStart().startsWith("#")) continue;
+            if (/^[^\s]/.test(lines[i])) break;
+            const child = lines[i].match(/^(\s+)[a-zA-Z0-9_-]+:/);
+            if (child) indent = child[1];
+            break;
+        }
+    }
 
     if (remove) {
         const newLines: string[] = [];
@@ -454,7 +477,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
                     inSuperpowers = false;
                 } else {
                     const spMatch = line.match(/^(\s*)superpowers:\s*$/);
-                    if (spMatch && spMatch[1].length > mcpIndent) {
+                    if (spMatch && spMatch[1] === indent) {
                         inSuperpowers = true;
                         superpowersIndent = spMatch[1].length;
                         continue;
@@ -473,16 +496,6 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
         return newLines.join("\n");
     }
 
-    // Detect indentation from existing content
-    let indent = "  ";
-    for (const line of lines) {
-        const m = line.match(/^(\s+)[a-zA-Z0-9_-]+:/);
-        if (m && m[1].length > 0) {
-            indent = m[1];
-            break;
-        }
-    }
-
     const escapedCmd = JSON.stringify(cmd);
     const argsStr = JSON.stringify(args);
     const superpowersBlock = [
@@ -495,7 +508,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
         return `mcp_servers:\n${superpowersBlock.join("\n")}\n`;
     }
 
-    const mcpServersIndex = lines.findIndex((l) => /^\s*mcp_servers:\s*$/.test(l));
+    const mcpServersIndex = mcpDeclarations.length === 1 ? mcpDeclarations[0].index : -1;
     if (mcpServersIndex === -1) {
         return `${existingContent.trimEnd()}\n\nmcp_servers:\n${superpowersBlock.join("\n")}\n`;
     }
@@ -506,7 +519,8 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
         if (/^[^\s#]/.test(line)) {
             break;
         }
-        if (/^\s+superpowers:\s*$/.test(line)) {
+        const leadingWhitespace = line.match(/^(\s*)/)?.[1] || "";
+        if (leadingWhitespace === indent && /^\s+superpowers:\s*$/.test(line)) {
             superpowersIndex = i;
             break;
         }
@@ -548,21 +562,15 @@ export function updateJsonConfig(
         try {
             // First attempt standard native JSON.parse to preserve string literals containing '//'
             const parsed = JSON.parse(existingContent);
-            if (isPlainObject(parsed)) {
-                json = parsed;
-            } else {
-                json = {};
-            }
+            if (!isPlainObject(parsed)) throw new Error("Existing JSON root must be an object");
+            json = parsed;
         } catch (_nativeErr: unknown) {
             // If standard parse fails, fallback to JSONC comment and trailing comma stripping
             try {
                 const sanitized = stripJsonComments(existingContent, true);
                 const parsed = JSON.parse(sanitized);
-                if (isPlainObject(parsed)) {
-                    json = parsed;
-                } else {
-                    json = {};
-                }
+                if (!isPlainObject(parsed)) throw new Error("Existing JSON root must be an object");
+                json = parsed;
             } catch (e: unknown) {
                 const err = e instanceof Error ? e.message : String(e);
                 throw new Error(`Failed to parse existing JSON: ${err}`);
@@ -577,7 +585,10 @@ export function updateJsonConfig(
         rootKey = "mcp";
     }
 
-    if (!isPlainObject(json[rootKey])) {
+    if (json[rootKey] !== undefined && !isPlainObject(json[rootKey])) {
+        throw new Error(`Existing JSON field "${rootKey}" must be an object`);
+    }
+    if (json[rootKey] === undefined) {
         json[rootKey] = {};
     }
 
@@ -612,9 +623,19 @@ export function updateJsonConfig(
 }
 
 /**
- * Performs atomic file write via temp file + renameSync, preserving symlinks with zero disk pollution by default.
+ * Performs an atomic, conflict-detecting write within explicit allowed roots.
+ * Final-file symlinks are preserved when their canonical target stays in-bounds.
  */
-export function safeWriteConfig(configPath: string, newContent: string, backup = false): void {
+export function safeWriteConfig(
+    configPath: string,
+    newContent: string,
+    backup = false,
+    allowedRoots: string[] = [],
+    expectedContent?: string | null
+): void {
+    if (allowedRoots.length === 0) {
+        throw new Error("safeWriteConfig requires at least one allowed destination root");
+    }
     let targetFilePath = configPath;
     try {
         const stat = fs.lstatSync(configPath, { throwIfNoEntry: false });
@@ -654,6 +675,35 @@ export function safeWriteConfig(configPath: string, newContent: string, backup =
         fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
     }
 
+    const canonicalDir = fs.realpathSync(configDir);
+    const canonicalDirStat = fs.statSync(canonicalDir);
+    targetFilePath = path.join(canonicalDir, path.basename(targetFilePath));
+    const canonicalTarget = path.normalize(path.resolve(targetFilePath)).toLowerCase();
+    const canonicalTempDir = path.normalize(path.resolve(os.tmpdir())).toLowerCase();
+    const insideTemp = canonicalTarget === canonicalTempDir || canonicalTarget.startsWith(canonicalTempDir + path.sep);
+    const protectedPrefixes = [
+        "/etc", "/bin", "/sbin", "/usr", "/root", "/sys", "/proc", "/dev", "/private/etc", "c:\\windows"
+    ];
+    const protectedTarget = protectedPrefixes.some(
+        (prefix) => canonicalTarget === prefix || canonicalTarget.startsWith(prefix + path.sep)
+    ) || canonicalTarget === "/var" ||
+        (canonicalTarget.startsWith("/var" + path.sep) && !canonicalTarget.startsWith("/var/folders" + path.sep)) ||
+        canonicalTarget === "/private/var" ||
+        (canonicalTarget.startsWith("/private/var" + path.sep) && !canonicalTarget.startsWith("/private/var/folders" + path.sep));
+    if (!insideTemp && protectedTarget) {
+        throw new Error(`Refusing to write to unsafe configuration target: ${targetFilePath}`);
+    }
+    const insideAllowedRoot = allowedRoots.some((rootPath) => {
+        if (!rootPath) return false;
+        let canonicalRoot = path.resolve(rootPath);
+        try { canonicalRoot = fs.realpathSync(canonicalRoot); } catch (_rootErr) { /* lexical fallback */ }
+        const relative = path.relative(canonicalRoot, targetFilePath);
+        return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+    });
+    if (!insideAllowedRoot) {
+        throw new Error(`Refusing to write configuration outside allowed roots: ${targetFilePath}`);
+    }
+
     let fileMode = 0o600;
     if (fs.existsSync(targetFilePath)) {
         try {
@@ -676,9 +726,27 @@ export function safeWriteConfig(configPath: string, newContent: string, backup =
 
     // Atomic write via temp file in target directory using cryptographically random suffix & wx flag
     const randomSuffix = crypto.randomBytes(8).toString("hex");
-    const tmpPath = path.join(configDir, `.tmp.${path.basename(targetFilePath)}.${process.pid}.${randomSuffix}`);
+    const tmpPath = path.join(canonicalDir, `.tmp.${path.basename(targetFilePath)}.${process.pid}.${randomSuffix}`);
     try {
         fs.writeFileSync(tmpPath, newContent, { encoding: "utf8", mode: fileMode, flag: "wx" });
+        const currentExists = fs.existsSync(targetFilePath);
+        if (expectedContent === null && currentExists) {
+            throw new Error("Configuration changed concurrently before it could be created");
+        }
+        if (expectedContent !== undefined && expectedContent !== null) {
+            if (!currentExists || fs.readFileSync(targetFilePath, "utf8") !== expectedContent) {
+                throw new Error("Configuration changed concurrently; refusing to overwrite newer content");
+            }
+        }
+        const confirmedDir = fs.realpathSync(configDir);
+        const confirmedDirStat = fs.statSync(confirmedDir);
+        if (
+            confirmedDir !== canonicalDir ||
+            confirmedDirStat.dev !== canonicalDirStat.dev ||
+            confirmedDirStat.ino !== canonicalDirStat.ino
+        ) {
+            throw new Error("Configuration directory changed while writing");
+        }
         fs.renameSync(tmpPath, targetFilePath);
     } catch (writeErr) {
         try {
@@ -790,7 +858,13 @@ export async function runSetup(options: SetupOptions = {}): Promise<SetupResult[
             }
 
             if (!isDryRun) {
-                safeWriteConfig(configPath, newContent, !!options.backup);
+                safeWriteConfig(
+                    configPath,
+                    newContent,
+                    !!options.backup,
+                    [homeDir, appData || "", localAppData || ""],
+                    fileExists ? originalContent : null
+                );
             }
 
             results.push({

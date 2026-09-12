@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.8] - 2026-09-12
+
+### Security Hardening, Race Defense & Concurrency Inode Verification
+
+- **Universal Global Setup Concurrency & Symlink Breakout Defense (`src/setup-runner.ts`)**:
+  - **Allowed Roots Boundary Containment (`safeWriteConfig`)**: Enforced destination confinement within explicit user allowed roots (`homeDir`, `appData`, `localAppData`), blocking parent-directory symlink redirection attacks outside user bounds.
+  - **Optimistic Concurrency & Race Conflict Defense**: Added disk content validation against `expectedContent` immediately prior to atomic `fs.renameSync`, preventing race conditions from silently overwriting newer configurations.
+  - **Directory Inode & Device TOCTOU Verification**: Validates parent directory canonical path, device ID (`dev`), and inode (`ino`) before and after temporary file writes, blocking directory swap attacks during configuration commits.
+  - **Fail-Closed Configuration Validation**: `updateJsonConfig` strictly rejects non-object JSON roots or server fields; `updateYamlConfig` rejects duplicate keys and non-root declarations.
+- **Skills Core Engine Collision Defense & Dynamic Cache Revalidation (`src/skills-manager.ts`, `src/server.ts`)**:
+  - **Deterministic Sorting & Name Collision Defense**: Catalogs directories in deterministic alphabetical order and detects alias/name collisions in `newSkillMap`, emitting diagnostic warnings and skipping duplicates rather than arbitrarily overwriting memory caches.
+  - **Automatic Cache Revalidation (`CACHE_REVALIDATE_MS = 1000`)**: Transparently re-reads disk state when cache age exceeds 1 second, allowing on-disk edits to reflect immediately without requiring MCP server restarts.
+  - **Platform Case-Folding & Canonical `SKILLS_PATH` Defense (`src/server.ts`)**: Applies platform case-folding (`darwin`, `win32`) and validates paths via `fs.realpathSync` (`canonicalized`) before checking against unsafe prefixes, ensuring symlinks to system roots cannot bypass blacklist checks.
+- **RFC 6455 WebSocket Protocol & Resilient Stream Hardening (`skills/brainstorming/scripts/server.cjs`, `helper.js`)**:
+  - **Fragmented Message Reassembly**: Added support for `CONTINUATION` (opcode `0x00`) frames with payload size aggregation (`fragmentedBytes`), enforcing `MAX_FRAME_PAYLOAD_BYTES` limits across fragmented chunks.
+  - **RFC 6455 Compliance**: Strictly validates that control frames (`opcode >= 0x8`) must not be fragmented (`fin === true`) and carry ≤125 bytes. Rejects frames with non-zero RSV bits (`rsv !== 0`) and unsupported opcodes.
+  - **Resilient Tail Event Compaction (`appendEvent`)**: When `events.jsonl` exceeds `MAX_EVENTS_FILE_BYTES`, retains recent newline-delimited records rather than clearing the entire history, preserving recent context while preventing file bloat.
+  - **Secure Append Mode**: Opens event files with `O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW` ensuring atomic file truncation and read operations.
+- **Shell & PowerShell Script Command Injection Defense & Unicode Resiliency**:
+  - **Test Runner Command Injection Defense (`find-polluter.sh`, `find-polluter.ps1`)**: Supports caller-supplied test commands through safe array expansion (`"${TEST_COMMAND[@]}"` and `& $testCommand @testCommandArgs`), while using `while IFS= read -r` loops to safely parse test paths containing spaces.
+  - **CDPATH Redirection Sanitization (`sdd-workspace`)**: Sanitizes `CDPATH=''` before all `cd` operations, neutralizing directory redirection attacks in environments with configured `CDPATH`.
+  - **Lossless Unicode Plan Marker Persistence (`sdd-workspace.ps1`)**: Writes plan marker files with `[System.Text.UTF8Encoding]::new($false)` (UTF-8 without BOM), ensuring lossless Unicode path round-tripping across PowerShell executions.
+- **Documentation & Maintainer Guidance**:
+  - Extracted upstream sync procedures from user-facing READMEs to [`docs/maintainers/upstream-sync.md`](docs/maintainers/upstream-sync.md), keeping root documentation clear and focused.
+- **Comprehensive Regression Verification**:
+  - Expanded test suites to **274 automated test assertions** across Node.js (145), Bash (35), and PowerShell (94), achieving 100% pass rate with 0 failures and 0 regressions.
+
 ## [6.3.7] - 2026-09-12
 
 ### Upstream Sync — Batches 1–4 (obra/superpowers PRs #1966, #2196, #2228, #2229, #2237, #2255, #2258, #2259, #2262, #2263, #2265, #2270, #2271, #2274, #2276; dev 3b4f2ca, 069edf3)

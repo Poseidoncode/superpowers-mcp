@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -173,21 +173,37 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
-## 🔧 업스트림 따라잡기
+## 프로젝트 계보
 
-이 포크는 업스트림 [`obra/superpowers`](https://github.com/obra/superpowers) 의 스킬 콘텐츠를 검토된 배치로 가져옵니다. 마지막 동기화 시점의 업스트림 blob SHA는 [`tests/upstream-sync-baseline.json`](tests/upstream-sync-baseline.json) 에 기록됩니다.
-
-```bash
-npm run drift                    # 베이스라인과 업스트림을 비교해 변경 목록 출력
-npm run drift:record             # 검토된 동기화 후 베이스라인 갱신
-node scripts/upstream-drift.js   # 오프라인: 베이스라인 무결성 + 로컬 커버리지
-```
-
-보고서는 업스트림 변경, 업스트림 추가/삭제, 추적 대상이지만 로컬에 없는 파일, 포크 전용 추가를 구분해 보여줍니다. 의도적으로 채택하지 않는 업스트림 스킬은 drift가 아니라 결정 사항으로 보고되며, `npm run drift:record -- --ignore <skill>`로 기록합니다. 가져온 업스트림 파일이 삭제되거나 스킬의 업스트림 계보가 끊기면 `npm test`가 실패합니다. GitHub tree 응답이 잘린 경우 보고 모드는 결과를 부분적이라고 표시하고 `--fail-on-drift`를 억제하며, record 모드는 쓰기 자체를 거부하여 마지막 완전한 베이스라인을 보호합니다.
+이 프로젝트는 [`obra/superpowers`](https://github.com/obra/superpowers)의 스킬 콘텐츠를 검토한 후 가져옵니다. 동기화 절차는 유지관리자용 [업스트림 동기화 가이드](docs/maintainers/upstream-sync.md)를 참조하세요.
 
 ## 🆕 최근 업데이트
 
-### v6.3.7 (최신)
+### v6.3.8 (최신)
+
+- **유니버설 글로벌 설정 엔진 동시성 안전, Inode 방어 및 심볼릭 링크 탈출 격리**:
+  - **Allowed Roots 경계 격리**: 설정 파일 대상을 사용자가 명시한 허용 루트(`homeDir`, `appData`, `localAppData`) 내부로 제한하여 상위 디렉터리 심볼릭 링크 탈출 공격 차단.
+  - **낙관적 동시성 충돌 감지**: 원자적 `fs.renameSync` 직전에 디스크 내용과 `expectedContent`를 대조하여 다중 프로세스 경쟁으로 인한 최신 설정 덮어쓰기 방지.
+  - **디렉터리 Inode & Dev TOCTOU 방어**: 임시 파일 작성 전후로 디렉터리의 디바이스 ID와 inode를 검증하여 디렉터리 교체 공격 차단.
+  - **Fail-Closed 엄격 구문 분석**: JSON 루트 또는 서버 필드가 Plain Object가 아닐 경우 즉시 거부하여 프로토타입 오염 방지.
+- **핵심 스킬 엔진 결정론적 정렬 및 동적 캐시 재검증**:
+  - **결정론적 디렉터리 색인 및 충돌 방어**: 디렉터리를 알파벳순으로 정렬하고 충돌 키를 즉시 감지하여 안전하게 중복 건너뛰기.
+  - **자동 캐시 재검증 (`CACHE_REVALIDATE_MS = 1000`)**: 디스크 변경 사항을 1초 내에 자동 감지하여 서버 재시작 없이 편집 내용 반영.
+  - **대소문자 폴딩 및 정규 경로 방어**: `src/server.ts`가 darwin/win32에서 대소문자 폴딩과 `fs.realpathSync`를 수행하여 시스템 보호 디렉터리 접근 원천 차단.
+- **RFC 6455 WebSocket 프로토콜 강화 및 복원력 있는 로그 압축**:
+  - `CONTINUATION` (0x00) 분할 메시지 재조합 완전 지원, 제어 프레임 분할 금지(`opcode >= 0x8 && !fin`) 및 비표준 RSV 확장 엄격 차단.
+  - 후미 탄력적 로그 압축: 이벤트 로그가 1 MB 한도에 도달하면 개행 정렬된 최근 레코드를 보존하여 전체 손실 방지.
+  - 비공개 파일 디스크립터를 `O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW`로 안전하게 열기.
+- **Shell 및 PowerShell 스크립트 명령 주입 방어**:
+  - `find-polluter.sh` 및 `find-polluter.ps1`: 배열 전개 인자 전달 (`"${TEST_COMMAND[@]}"`, `& $testCommand @testCommandArgs`)과 공백 안전 읽기 루프로 셸 주입 원천 차단.
+  - `sdd-workspace`: `cd` 실행 전 `CDPATH=''`를 재설정하여 환경 변수를 통한 디렉터리 탈취 차단.
+  - `sdd-workspace.ps1`: BOM 없는 UTF-8(`[System.Text.UTF8Encoding]::new($false)`)로 플랜 마커를 저장하여 Unicode 경로 정합성 유지.
+- **프로젝트 계보 및 유지관리자 지침 분리**:
+  - 업스트림 동기화 절차를 [`docs/maintainers/upstream-sync.md`](docs/maintainers/upstream-sync.md)로 분리하여 루트 문서 정리.
+- **전체 자동 회귀 테스트 기준선**:
+  - 테스트 스위트를 **274개 자동 어서션**(Node.js: 145, Bash: 35, PowerShell: 94)으로 확장하고 100% 통과율 유지.
+
+### v6.3.7
 
 - **업스트림 동기화 — 배치 1~3 (obra/superpowers)**:
   - **스킬 자동 라우팅**: `systematic-debugging`과 `test-driven-development` 설명에 트리거 문구(`"tdd"`, `"systematic debug"` 등)와 상호 크로스 라우트를 추가하여 MCP 클라이언트의 스킬 선택 정확도를 향상.

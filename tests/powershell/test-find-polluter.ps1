@@ -26,12 +26,12 @@ try {
     Push-Location $project
     try {
         # 2. no matching test files: clean run
-        $out = & $scriptPath "pollution.marker" "nomatch/**/*.ts" 2>&1
+        $out = & $scriptPath "pollution.marker" "nomatch/**/*.ts" $npmStub 2>&1
         Assert-ExitCode $LASTEXITCODE 0 "clean run exits 0"
         Assert-True ((($out | Out-String) -match "No polluter found")) "clean run reports no polluter"
 
         # 3. polluter found: stub npm creates the marker on the first test
-        $out = & $scriptPath "pollution.marker" "src/**/*.test.ts" 2>&1
+        $out = & $scriptPath "pollution.marker" "src/**/*.test.ts" $npmStub 2>&1
         Assert-ExitCode $LASTEXITCODE 1 "polluter run exits 1"
         $outText = ($out | Out-String)
         Assert-True ($outText -match "FOUND POLLUTER") "reports FOUND POLLUTER"
@@ -39,14 +39,28 @@ try {
 
         # 4. pattern with a leading ./ must behave identically
         Remove-Item -LiteralPath (Join-Path $project "pollution.marker") -Force
-        $out = & $scriptPath "pollution.marker" "./src/**/*.test.ts" 2>&1
+        $out = & $scriptPath "pollution.marker" "./src/**/*.test.ts" $npmStub 2>&1
         Assert-ExitCode $LASTEXITCODE 1 "leading ./ pattern exits 1"
         Assert-True ((($out | Out-String) -match "FOUND POLLUTER")) "leading ./ pattern still finds polluter"
 
         # 5. pollution already present: every test is skipped, exits 0
-        $out = & $scriptPath "pollution.marker" "src/**/*.test.ts" 2>&1
+        $out = & $scriptPath "pollution.marker" "src/**/*.test.ts" $npmStub 2>&1
         Assert-ExitCode $LASTEXITCODE 0 "pre-existing pollution exits 0"
         Assert-True ((($out | Out-String) -match "Pollution already exists")) "skips tests when pollution already present"
+
+        # 6. A caller-supplied runner receives a whitespace-containing test
+        # path as one argument, allowing projects to select one test exactly.
+        Remove-Item -LiteralPath (Join-Path $project "pollution.marker") -Force
+        $spaceDir = Join-Path $project "src/space folder"
+        New-Item -ItemType Directory -Path $spaceDir -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $spaceDir "special.test.ts") -Value "test('space')" -NoNewline
+        $runnerStub = Join-Path $project "bin/test-one"
+        Set-Content -LiteralPath $runnerStub -Value "#!/usr/bin/env bash`nprintf '%s' `"`$1`" > runner-arg`ntouch pollution.marker`n" -NoNewline
+        & chmod +x $runnerStub
+        $out = & $scriptPath "pollution.marker" "src/space folder/*.test.ts" $runnerStub 2>&1
+        Assert-ExitCode $LASTEXITCODE 1 "custom single-test runner exits after finding polluter"
+        $runnerArg = Get-Content -LiteralPath (Join-Path $project "runner-arg") -Raw
+        Assert-True ($runnerArg -match "space folder[/\\]special\.test\.ts$") "custom runner receives spaced path as one argument"
     }
     finally {
         Pop-Location

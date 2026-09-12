@@ -85,6 +85,18 @@ try {
     $expectedBaz = Join-Path $realRepo ".superpowers/sdd/baz-$repoName-2"
     Assert-True ($dirBaz -eq $expectedBaz) "double conflict falls back to a counter suffix"
 
+    # Unicode marker content must round-trip so repeat calls resolve to the
+    # same workspace instead of allocating suffixes indefinitely.
+    $unicodeDir = Join-Path $repo "docs/規格"
+    New-Item -ItemType Directory -Force -Path $unicodeDir | Out-Null
+    $unicodePlan = Join-Path $unicodeDir "計畫.md"
+    Set-Content -LiteralPath $unicodePlan -Value "# Unicode plan`n" -Encoding utf8
+    $unicodeFirst = (& $scriptPath $unicodePlan | Select-Object -First 1).Trim()
+    $unicodeSecond = (& $scriptPath $unicodePlan | Select-Object -First 1).Trim()
+    Assert-True ($unicodeFirst -eq $unicodeSecond) "Unicode plan paths reuse the same workspace"
+    $unicodeMarker = (Get-Content -LiteralPath (Join-Path $unicodeFirst "plan-path") -Raw).Trim()
+    Assert-True ($unicodeMarker -match "規格/計畫\.md$") "Unicode ownership marker round-trips without ASCII loss"
+
     # 8. Greenfield: the script runs before a repo exists
     # A greenfield plan's Task 1 is "create the repo", so the script must fall
     # back to the current directory instead of failing. $root is a fresh temp

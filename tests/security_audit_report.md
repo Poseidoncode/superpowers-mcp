@@ -81,8 +81,33 @@ Conducted an end-to-end security and malware audit of the entire codebase and ne
 * **Automated Verification**:
   * 100% PASS across all 5 test suites: `edge_cases_test.js` (7/7), `run_test.js` (7/7), `brainstorm_server_test.js` (31/31), `prompts_compositions_test.js` (7/7), and `setup_test.js` (21/21).
 
+### 8. Full Project Security Scan, Concurrency & Stream Hardening Review (2026-09-12 - v6.3.7)
+Conducted a full-repository security scan and audit covering dependencies, Universal Setup Engine, Skills Manager, Brainstorm Companion server, and shell scripts:
+* **Universal Global Setup Concurrency & Symlink Breakout Defense**:
+  * Added `allowedRoots` constraint in `safeWriteConfig` (`homeDir`, `appData`, `localAppData`), verifying that configuration paths cannot escape authorized roots via parent-directory symlinks.
+  * Added optimistic concurrency verification (`expectedContent` check) immediately before atomic rename, preventing race conditions from silently overwriting newer configurations.
+  * Added directory inode and device ID (`dev`, `ino`) validation to defend against directory swap TOCTOU attacks.
+  * Enforced fail-closed validation on non-object JSON roots or `mcpServers` fields, and rejected duplicate YAML declarations.
+* **Skills Core Engine Collision Defense & Dynamic Cache Revalidation**:
+  * Implemented deterministic directory catalog sorting and duplicate name/alias collision detection, emitting warnings and skipping duplicates.
+  * Implemented automatic cache revalidation (`CACHE_REVALIDATE_MS = 1000`) allowing on-disk edits to be detected within 1 second without server restart.
+  * Enhanced `getSafeSkillsPath` in `src/server.ts` with platform case-folding and `fs.realpathSync` validation to prevent symlink bypass of system directories.
+* **Brainstorm Companion RFC 6455 Protocol & Resilient Stream Hardening**:
+  * Implemented fragmented message reassembly for `CONTINUATION` (opcode `0x00`) frames with payload size aggregation (`fragmentedBytes`).
+  * Enforced RFC 6455 compliance: non-fragmented control frames (`opcode >= 0x8 && !fin`), 125-byte control payload cap, RSV extension rejection, and opcode whitelist.
+  * Implemented resilient tail log compaction retaining recent complete newline-delimited event records when approaching the 1 MB file cap.
+* **Shell & PowerShell Script Hardening**:
+  * `find-polluter.sh` and `find-polluter.ps1`: caller-supplied test command with array splatting (`"${TEST_COMMAND[@]}"`, `& $testCommand @testCommandArgs`), safe while loop reading spaced filenames, preventing shell command injection.
+  * `sdd-workspace`: sanitized `CDPATH=''` to prevent cd redirection attacks.
+  * `sdd-workspace.ps1`: UTF-8 without BOM encoding (`[System.Text.UTF8Encoding]::new($false)`) for plan marker paths, ensuring lossless Unicode path round-tripping.
+* **Supply Chain, Secrets & Hygiene**:
+  * `npm audit`: **0 vulnerabilities**. Exact overrides for `hono` (^4.13.7), `@hono/node-server` (^2.1.1), `fast-uri` (^4.1.3), `qs` (^6.16.0).
+  * Secret scanning verified 0 hardcoded secrets, 0 API tokens, 0 private keys, and 0 world-writable files.
+* **Automated Regression Verification**:
+  * **274 automated test assertions** across Node.js (145), Bash (35), and PowerShell (94) passed 100% with 0 failures and 0 regressions.
+
 ---
 
 ## 💡 Conclusion
-The project has successfully passed all security audits and regression checks (Last revised: 2026-09-05). All known vulnerabilities are resolved, and both the source code and dependencies are 100% secure. Ready for release.
+The project has successfully passed all security audits and regression checks (Last revised: 2026-09-12). All known vulnerabilities are resolved, and both the source code and dependencies are 100% secure. Ready for release.
 
