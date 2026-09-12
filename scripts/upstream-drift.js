@@ -26,6 +26,9 @@
  *   --fail-on-drift      exit 1 when an adopted file drifted (skipped on a
  *                        truncated upstream listing)
  *
+ * `--record` refuses truncated upstream listings so an incomplete API response
+ * can never replace the last complete baseline.
+ *
  * The upstream git tree is read through `gh api` when the GitHub CLI is
  * available and falls back to the public GitHub API (Node 18+). Zero
  * dependencies. Only --record writes, and it writes the baseline file only.
@@ -225,6 +228,12 @@ function reportDrift(drift) {
     list("New upstream files in skills this fork does not adopt", drift.unadoptedFiles);
 }
 
+function requireCompleteTreeForRecord(tree) {
+    if (tree.truncated) {
+        throw new Error("Refusing to record a truncated upstream tree; the existing baseline was left unchanged");
+    }
+}
+
 async function main() {
     const opts = parseArgs(process.argv.slice(2));
     if (opts.help) {
@@ -247,6 +256,7 @@ async function main() {
         const ref = opts.ref || baseline.ref || DEFAULT_REF;
         const ignored = [...new Set([...(baseline.ignoredUpstreamSkills || []), ...opts.ignore])].sort();
         const tree = await fetchUpstreamTree(repo, ref);
+        requireCompleteTreeForRecord(tree);
         const previousFiles = baseline.files || {};
         const previousDrift = classifyDrift(previousFiles, tree.files, ignored);
 
@@ -333,4 +343,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { parseArgs, skillNameOf, readBaseline, localSkillPaths, classifyDrift, classifyCoverage };
+module.exports = { parseArgs, skillNameOf, readBaseline, localSkillPaths, classifyDrift, classifyCoverage, requireCompleteTreeForRecord };

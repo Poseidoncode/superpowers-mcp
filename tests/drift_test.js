@@ -20,6 +20,7 @@ const {
     localSkillPaths,
     classifyDrift,
     classifyCoverage,
+    requireCompleteTreeForRecord,
 } = require("../scripts/upstream-drift.js");
 
 const ROOT = path.join(__dirname, "..");
@@ -175,6 +176,11 @@ check("9 (parseArgs)", () => {
     expectThrows(() => parseArgs(["--nope"]), "Unknown argument");
     expectThrows(() => parseArgs(["--ref"]), "Missing value");
     expectThrows(() => parseArgs(["--ignore"]), "Missing value");
+    assert.doesNotThrow(() => requireCompleteTreeForRecord({ truncated: false }));
+    expectThrows(
+        () => requireCompleteTreeForRecord({ truncated: true }),
+        "Refusing to record a truncated upstream tree"
+    );
 });
 
 // 10. The CLI's offline mode works end to end without the network.

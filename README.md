@@ -183,7 +183,7 @@ npm run drift:record             # refresh the baseline after a reviewed sync
 node scripts/upstream-drift.js   # offline: baseline integrity + local coverage
 ```
 
-The report separates files that changed upstream, upstream additions and removals, tracked files missing from this fork, and fork-only additions. An upstream skill this fork deliberately does not adopt is reported as a decision rather than drift, and is recorded with `npm run drift:record -- --ignore <skill>`. `npm test` fails when an imported upstream file is deleted or when a shipped skill loses its upstream lineage.
+The report separates files that changed upstream, upstream additions and removals, tracked files missing from this fork, and fork-only additions. An upstream skill this fork deliberately does not adopt is reported as a decision rather than drift, and is recorded with `npm run drift:record -- --ignore <skill>`. `npm test` fails when an imported upstream file is deleted or when a shipped skill loses its upstream lineage. Report mode marks a truncated GitHub tree as partial and suppresses `--fail-on-drift`; record mode refuses that response entirely so an incomplete listing cannot overwrite the last complete baseline.
 
 ## 🆕 Recent Updates
 
@@ -202,10 +202,11 @@ The report separates files that changed upstream, upstream additions and removal
   - **Greenfield SDD Scripts**: `sdd-workspace` falls back to the current directory before a repo exists (matching `.ps1` behavior), while `review-package` refuses actionably outside a repo.
   - **TDD Characterization Guard**: a five-step procedure for behavior-preserving refactors — mutate, verify failure, restore via VCS, stay green — referenced from the boundary and mutation-check sections.
 - **Upstream Content Sync — Batch 4**: the brainstorm start script takes its hosts from `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST` (`--host`/`--url-host` still win), `writing-skills` gained moved-content link re-resolution, and SDD reviewers now write their full report to `…/task-N-review.md` and return under 15 lines — exposed over MCP as the new `review_file` argument (replaced by the derived `-review.md` sibling when the requested path normalises to the report or brief file), plus the `fix_base_sha` alias that finally feeds `[FIX_BASE_SHA]`.
-- **Upstream Drift Report**: `npm run drift` compares the committed upstream baseline against `obra/superpowers` and lists adopted files that moved, imports missing locally, and fork-only additions; `npm run drift:record -- --ignore <skill>` refreshes it after a reviewed sync.
+- **Upstream Drift Report**: `npm run drift` compares the committed upstream baseline against `obra/superpowers` and lists adopted files that moved, imports missing locally, and fork-only additions; `npm run drift:record -- --ignore <skill>` refreshes it after a reviewed sync and refuses truncated API trees before writing.
 - **MCP Surface Coverage Test**: every skill on disk must be an exposed MCP resource serving its own content, and the prompt inventory must match all four READMEs exactly.
 - **MCP Description Fidelity**: upstream's escaped-quote descriptions were adapted to unquoted YAML plain scalars so the `SkillsManager` parser never emits literal backslashes over MCP.
 - **Regression Guards**: `tests/upstream_sync_test.js` now carries 22 labeled checks covering Batches 1–4; full suite green (139 npm checkmarks across 8 suites, 90 PowerShell assertions, 16 SDD + 11 host-default + 8 render-graph bash assertions).
+- **Release-Readiness Hardening**: Bash and PowerShell brainstorm host tests explicitly force background mode, so the full 264-assertion matrix also completes under `CODEX_CI=1`; `package-lock.json` now matches v6.3.7 and Node `>=18`; npm repository and CLI `bin` metadata are normalized and verified through `npm publish --dry-run` plus a packed-install smoke test.
 
 ### v6.3.6
 

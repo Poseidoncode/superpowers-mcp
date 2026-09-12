@@ -183,7 +183,7 @@ npm run drift:record             # 審閱同步完成後更新基線
 node scripts/upstream-drift.js   # 離線：基線完整性 + 本地覆蓋率
 ```
 
-報告會分別列出：上游變更、上游新增、上游移除、基線追蹤但本地缺漏的檔案，以及 fork 專屬新增。刻意不採用的上游技能會列為「待決策」而非 drift，並可用 `npm run drift:record -- --ignore <skill>` 記錄。當已引進的上游檔案被刪除、或某技能失去上游系譜時，`npm test` 會失敗。
+報告會分別列出：上游變更、上游新增、上游移除、基線追蹤但本地缺漏的檔案，以及 fork 專屬新增。刻意不採用的上游技能會列為「待決策」而非 drift，並可用 `npm run drift:record -- --ignore <skill>` 記錄。當已引進的上游檔案被刪除、或某技能失去上游系譜時，`npm test` 會失敗。若 GitHub tree 回應遭截斷，報告模式會標示結果不完整並停用 `--fail-on-drift`；record 模式則直接拒絕寫入，避免不完整清單覆蓋最後一份完整基線。
 
 ## 🆕 最近更新
 
@@ -202,10 +202,11 @@ node scripts/upstream-drift.js   # 離線：基線完整性 + 本地覆蓋率
   - **Greenfield SDD Scripts**：repo 尚未建立時 `sdd-workspace` 退回當前目錄（`.ps1` 同步支援），`review-package` 則在非 repo 環境下給出可行動的錯誤。
   - **TDD 特徵化守門**：行為保持型重構的五步程序（先變異、確認失敗、由 VCS 還原、維持綠燈），並從邊界與變異檢查章節交叉引用。
 - **上游內容同步 — 第 4 批**：brainstorm 啟動腳本改由 `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST` 決定 host（`--host`/`--url-host` 仍優先）、`writing-skills` 新增搬移內容時的連結重解指引，SDD 審查者改為把完整報告寫入 `…/task-N-review.md` 並只回傳少於 15 行摘要 — MCP 端新增 `review_file` 參數（若要求的路徑正規化後等於報告或 brief 檔，改用推導出的 `-review.md`），以及讓 `[FIX_BASE_SHA]` 真正被代入的 `fix_base_sha` 別名。
-- **上游 drift 報告**：`npm run drift` 以已提交的上游基線比對 `obra/superpowers`，列出已採納檔案的變動、本地缺漏的引進檔案與 fork 專屬新增；`npm run drift:record -- --ignore <skill>` 於審閱同步後更新基線。
+- **上游 drift 報告**：`npm run drift` 以已提交的上游基線比對 `obra/superpowers`，列出已採納檔案的變動、本地缺漏的引進檔案與 fork 專屬新增；`npm run drift:record -- --ignore <skill>` 於審閱同步後更新基線，且會在寫入前拒絕遭截斷的 API tree。
 - **MCP 表面覆蓋率測試**：磁碟上的每個 skill 都必須是對外曝露、且讀出內容屬於該 skill 的 MCP resource，prompt 清單必須與 4 個 README 完全一致。
 - **MCP 描述保真**：上游的跳脫引號格式改為未加引號的 YAML plain scalar，確保 `SkillsManager` 經 MCP 輸出時不會出現多餘反斜線。
 - **回歸防護**：`tests/upstream_sync_test.js` 增至 22 項標記檢查（涵蓋第 1–4 批）；全測試套件通過（8 個 npm 套件共 139 項檢查、PowerShell 90 項斷言、SDD 16 + host 預設 11 + render-graph 8 項 bash 斷言）。
+- **發佈前強化**：Bash 與 PowerShell 的 brainstorm host 測試明確強制 background 模式，讓完整 264 項驗證在 `CODEX_CI=1` 下也能正常結束；`package-lock.json` 已同步至 v6.3.7 與 Node `>=18`；npm repository 與 CLI `bin` metadata 已正規化，並經 `npm publish --dry-run` 與打包安裝 smoke test 驗證。
 
 ### v6.3.6
 

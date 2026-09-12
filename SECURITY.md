@@ -39,7 +39,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **MCP description fidelity**: upstream's escaped-quote YAML descriptions were converted to unquoted plain scalars, so the `SkillsManager` frontmatter parser cannot emit literal backslashes or truncated descriptions to MCP clients.
 - **Zero-dependency delta**: no new runtime or development dependencies; the verified overrides (`hono`, `@hono/node-server`, `fast-uri`, `qs`) and the `npm audit` zero-vulnerability status are unchanged. `package.json` now declares `engines.node >= 18`, the floor the drift tool's `fetch` fallback needs.
 - **Regression guard for future syncs**: [`tests/upstream_sync_test.js`](tests/upstream_sync_test.js) carries 22 labeled checks wired into `npm test`, the greenfield script behavior is covered in both the bash SDD suite and the PowerShell suite (90 assertions across 5 files), and the new MCP surface coverage suite asserts that every shipped skill is an exposed resource serving its own content and that the prompt inventory matches all four READMEs exactly, so a later sync cannot silently drop or misroute the adopted behavior.
-- **Upstream drift baseline**: [`tests/upstream-sync-baseline.json`](tests/upstream-sync-baseline.json) holds only public upstream blob SHAs, the repo/ref/date, skill names and the deliberately-unadopted list — no tokens, credentials, absolute paths or environment data. [`scripts/upstream-drift.js`](scripts/upstream-drift.js) is read-only except `--record`, which writes that single file and never touches git state; network reads use `gh api` with a public API fallback, a 20s timeout, and a truncated listing suppresses `--fail-on-drift`.
+- **Upstream drift baseline**: [`tests/upstream-sync-baseline.json`](tests/upstream-sync-baseline.json) holds only public upstream blob SHAs, the repo/ref/date, skill names and the deliberately-unadopted list — no tokens, credentials, absolute paths or environment data. [`scripts/upstream-drift.js`](scripts/upstream-drift.js) is read-only except `--record`, which writes that single file and never touches git state; network reads use `gh api` with a public API fallback and a 20s timeout. A truncated listing suppresses `--fail-on-drift` in report mode and is refused entirely by `--record`, preserving the last complete baseline.
 
 ## v6.3.6 Security, Architecture & Performance Hardening Notes
 
@@ -172,7 +172,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Shell Command Injection (`BRAINSTORM_OPEN_CMD`) | :white_check_mark: Patched — `cp.execFile` with argv array in v6.0.3 |
 | Shell Script Security (`install.sh`, `install.ps1`) | :white_check_mark: Secured — `set -euo pipefail` and quoted expansions in Bash; `$ErrorActionPreference = "Stop"` and array argument splatting in PowerShell |
 | CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — exact `hono` override (GHSA-8j4g-w8fx-2239) |
-| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-12) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 270/270 automated test assertions passed |
+| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-12) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 264/264 automated test assertions passed |
 
 ## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-12)
 
@@ -253,7 +253,7 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **MCP Surface Coverage Suite** (`tests/mcp_coverage_test.js`): **14 checks** (one resource per skill on disk, each resource serves that skill's own content, prompt inventory matches all four READMEs exactly, composition guide references only real surfaces).
 - **Upstream Drift Suite** (`tests/drift_test.js`): **10 checks** (the offline CLI run is one of them); the committed baseline (`tests/upstream-sync-baseline.json`) records the upstream blob SHAs of every adopted skill file, so a deleted import, a lost upstream lineage or a stale ignore entry fails here. Network mode (`npm run drift`) compares the baseline against upstream without writing anything.
 - **Brainstorm Host Defaults Bash Suite** (`tests/brainstorming/test-start-server-env-hosts.sh`): **11 passed, 0 failed** (env-supplied bind/url hosts, flag precedence, empty values, and the non-loopback refusal).
-- **Total Automated Regression Floor**: **270 automated test assertions across Node.js (145), Bash (35), and PowerShell (90), 100% pass rate, 0 regressions**.
+- **Total Automated Regression Floor**: **264 automated test assertions across Node.js (139), Bash (35), and PowerShell (90), 100% pass rate, 0 regressions**.
 
 ---
 

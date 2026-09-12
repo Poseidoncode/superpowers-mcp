@@ -183,7 +183,7 @@ npm run drift:record             # 검토된 동기화 후 베이스라인 갱�
 node scripts/upstream-drift.js   # 오프라인: 베이스라인 무결성 + 로컬 커버리지
 ```
 
-보고서는 업스트림 변경, 업스트림 추가/삭제, 추적 대상이지만 로컬에 없는 파일, 포크 전용 추가를 구분해 보여줍니다. 의도적으로 채택하지 않는 업스트림 스킬은 drift가 아니라 결정 사항으로 보고되며, `npm run drift:record -- --ignore <skill>`로 기록합니다. 가져온 업스트림 파일이 삭제되거나 스킬의 업스트림 계보가 끊기면 `npm test`가 실패합니다.
+보고서는 업스트림 변경, 업스트림 추가/삭제, 추적 대상이지만 로컬에 없는 파일, 포크 전용 추가를 구분해 보여줍니다. 의도적으로 채택하지 않는 업스트림 스킬은 drift가 아니라 결정 사항으로 보고되며, `npm run drift:record -- --ignore <skill>`로 기록합니다. 가져온 업스트림 파일이 삭제되거나 스킬의 업스트림 계보가 끊기면 `npm test`가 실패합니다. GitHub tree 응답이 잘린 경우 보고 모드는 결과를 부분적이라고 표시하고 `--fail-on-drift`를 억제하며, record 모드는 쓰기 자체를 거부하여 마지막 완전한 베이스라인을 보호합니다.
 
 ## 🆕 최근 업데이트
 
@@ -202,10 +202,11 @@ node scripts/upstream-drift.js   # 오프라인: 베이스라인 무결성 + 로
   - **Greenfield SDD 스크립트**: 리포지토리가 아직 없으면 `sdd-workspace`가 현재 디렉터리로 폴백하고(`.ps1` 동일), `review-package`는 비리포지토리 환경에서 실행 가능한 오류를 반환한다.
   - **TDD 특성화 가드**: 동작 보존 리팩터링을 위한 5단계 절차(변이 → 실패 확인 → VCS 복원 → 그린 유지)를 추가하고 경계·변이 점검 섹션에서 상호 참조한다.
 - **업스트림 콘텐츠 동기화 — 배치 4**: brainstorm 시작 스크립트가 `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST`에서 호스트 기본값을 가져오고(`--host`/`--url-host` 우선), `writing-skills`에 콘텐츠 이동 시 링크 재해석 절차를 추가했으며, SDD 리뷰어가 전체 보고서를 `…/task-N-review.md`에 쓰고 15줄 미만 요약만 반환합니다 — MCP에 `review_file` 인자(요청 경로가 정규화 후 보고서나 brief 파일과 일치하면 파생된 `-review.md`로 대체)와 `[FIX_BASE_SHA]`를 실제로 치환하는 `fix_base_sha` 별칭을 추가.
-- **업스트림 드리프트 리포트**: `npm run drift`가 커밋된 베이스라인과 `obra/superpowers`를 비교해 채택된 파일 변경, 로컬에 없는 가져오기, 포크 전용 추가를 나열합니다. `npm run drift:record -- --ignore <skill>`로 검토된 동기화 후 갱신합니다.
+- **업스트림 드리프트 리포트**: `npm run drift`가 커밋된 베이스라인과 `obra/superpowers`를 비교해 채택된 파일 변경, 로컬에 없는 가져오기, 포크 전용 추가를 나열합니다. `npm run drift:record -- --ignore <skill>`로 검토된 동기화 후 갱신하며, 쓰기 전에 잘린 API tree를 거부합니다.
 - **MCP 표면 커버리지 테스트**: 디스크의 모든 스킬은 자신의 콘텐츠를 제공하는 MCP 리소스로 노출되어야 하며, 프롬프트 목록은 4개 README와 정확히 일치해야 합니다.
 - **MCP 설명 정합성**: 업스트림의 이스케이프 따옴표 형식을 인용 없는 YAML plain scalar로 적응하여 `SkillsManager`가 MCP로 리터럴 백슬래시를 내보내지 않도록 함.
 - **회귀 가드**: `tests/upstream_sync_test.js`를 배치 1~4를 포괄하는 22개 라벨 체크로 확장. 전체 스위트 통과(npm 8개 스위트 139개 체크, PowerShell 90개 어서션, SDD 16 + 호스트 기본 11 + render-graph 8개 bash 어서션).
+- **릴리스 준비 강화**: Bash와 PowerShell brainstorm host 테스트가 background 모드를 명시적으로 강제하여 전체 264개 검증이 `CODEX_CI=1`에서도 완료됩니다. `package-lock.json`을 v6.3.7 및 Node `>=18`과 동기화하고 npm repository와 CLI `bin` 메타데이터를 정규화했으며, `npm publish --dry-run`과 패키지 설치 smoke test로 검증했습니다.
 
 ### v6.3.6
 

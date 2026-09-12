@@ -59,7 +59,7 @@ start_case() { # <project dir> [VAR=value ...] - print the server-started line
   local project="$1"
   shift
   mkdir -p "$project"
-  env "$@" "$START" --project-dir "$project" 2>/dev/null | head -1
+  env "$@" "$START" --project-dir "$project" --background 2>/dev/null | head -1
 }
 
 # 1. No env, no flags: the loopback defaults still win.
@@ -83,7 +83,7 @@ esac
 # 4. An explicit flag still beats the environment.
 mkdir -p "$TMP/flag-override"
 info_flag_override="$(env BRAINSTORM_HOST=localhost BRAINSTORM_URL_HOST=127.0.0.2 \
-  "$START" --project-dir "$TMP/flag-override" --host 127.0.0.1 --url-host 127.0.0.3 2>/dev/null | head -1)"
+  "$START" --project-dir "$TMP/flag-override" --host 127.0.0.1 --url-host 127.0.0.3 --background 2>/dev/null | head -1)"
 assert_eq "--host beats BRAINSTORM_HOST" "$(json_field "$info_flag_override" host)" "127.0.0.1"
 assert_eq "--url-host beats BRAINSTORM_URL_HOST" "$(json_field "$info_flag_override" url_host)" "127.0.0.3"
 
@@ -94,7 +94,7 @@ assert_eq "empty BRAINSTORM_URL_HOST falls back to localhost" "$(json_field "$in
 
 # 6. A non-loopback bind is refused by the server's own guard.
 mkdir -p "$TMP/non-loopback"
-env BRAINSTORM_HOST=0.0.0.0 "$START" --project-dir "$TMP/non-loopback" >/dev/null 2>&1
+env BRAINSTORM_HOST=0.0.0.0 "$START" --project-dir "$TMP/non-loopback" --background >/dev/null 2>&1
 non_loopback_status=$?
 if [ "$non_loopback_status" -ne 0 ]; then
   pass "non-loopback BRAINSTORM_HOST is refused (exit $non_loopback_status)"

@@ -11,7 +11,7 @@ try {
     New-Item -ItemType Directory -Path $projectDir | Out-Null
 
     # 1. start in background: reports server info, writes session state
-    $out = & $startScript --project-dir $projectDir
+    $out = & $startScript --project-dir $projectDir --background
     Assert-ExitCode $LASTEXITCODE 0 "start-server exits 0"
     $infoLine = ($out | Select-Object -First 1)
     Assert-True ($infoLine -match "url") "server-info line reports a url"
@@ -76,7 +76,7 @@ try {
     $env:BRAINSTORM_HOST = "localhost"
     $env:BRAINSTORM_URL_HOST = "127.0.0.2"
     try {
-        $out = & $startScript --project-dir $envProject
+        $out = & $startScript --project-dir $envProject --background
         Assert-ExitCode $LASTEXITCODE 0 "start-server with env hosts exits 0"
         $envLine = ($out | Select-Object -First 1)
         Assert-True ($envLine -match '"host":"localhost"') "BRAINSTORM_HOST supplies the bind host"
@@ -87,7 +87,7 @@ try {
 
         # A second start in the same project from this same host process: $PID is
         # the invoking pwsh, so the session id must not collide with the live one.
-        $out = & $startScript --project-dir $envProject --host 127.0.0.1 --url-host 127.0.0.3
+        $out = & $startScript --project-dir $envProject --host 127.0.0.1 --url-host 127.0.0.3 --background
         Assert-ExitCode $LASTEXITCODE 0 "explicit flags with env hosts exit 0"
         $flagLine = ($out | Select-Object -First 1)
         Assert-True ($flagLine -match '"host":"127\.0\.0\.1"') "--host beats BRAINSTORM_HOST"

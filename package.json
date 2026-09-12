@@ -10,7 +10,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Poseidoncode/superpowers-mcp"
+    "url": "git+https://github.com/Poseidoncode/superpowers-mcp.git"
   },
   "homepage": "https://github.com/Poseidoncode/superpowers-mcp",
   "keywords": [
@@ -26,8 +26,8 @@
     "agent"
   ],
   "bin": {
-    "superpowers-mcp": "./out/server.js",
-    "superpowers-setup": "./out/setup.js"
+    "superpowers-mcp": "out/server.js",
+    "superpowers-setup": "out/setup.js"
   },
   "files": [
     "out/server.js",

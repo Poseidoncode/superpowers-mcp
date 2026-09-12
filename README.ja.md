@@ -183,7 +183,7 @@ npm run drift:record             # レビュー済み同期の後にベースラ
 node scripts/upstream-drift.js   # オフライン：ベースライン整合性 + ローカル網羅率
 ```
 
-レポートは、上流で変更されたファイル、上流の追加・削除、追跡対象だがローカルに無いファイル、fork 独自の追加を分けて表示します。意図的に採用しない上流スキルは drift ではなく「判断待ち」として報告され、`npm run drift:record -- --ignore <skill>` で記録します。取り込み済みの上流ファイルが削除されたり、スキルの上流系譜が失われると `npm test` が失敗します。
+レポートは、上流で変更されたファイル、上流の追加・削除、追跡対象だがローカルに無いファイル、fork 独自の追加を分けて表示します。意図的に採用しない上流スキルは drift ではなく「判断待ち」として報告され、`npm run drift:record -- --ignore <skill>` で記録します。取り込み済みの上流ファイルが削除されたり、スキルの上流系譜が失われると `npm test` が失敗します。GitHub tree が途中で切れた場合、レポートモードは結果を部分的と明示して `--fail-on-drift` を抑止し、record モードは書き込み自体を拒否して最後の完全なベースラインを保護します。
 
 ## 🆕 最近の更新
 
@@ -202,10 +202,11 @@ node scripts/upstream-drift.js   # オフライン：ベースライン整合性
   - **Greenfield SDD スクリプト**：リポジトリ未作成時は `sdd-workspace` がカレントディレクトリへフォールバック（`.ps1` も同様）。`review-package` は非リポジトリ環境で実行可能なエラーを返す。
   - **TDD 特性化ガード**：振る舞いを保つリファクタリング向けの 5 ステップ手順（変異→失敗確認→VCS 復元→グリーン維持）。境界とミューテーション検査の各節から参照。
 - **上流コンテンツ同期 — バッチ 4**：brainstorm の起動スクリプトは `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST` からホスト既定値を取得（`--host`/`--url-host` が優先）。`writing-skills` にコンテンツ移動時のリンク再解決手順を追加し、SDD レビュアは完全なレポートを `…/task-N-review.md` に書いて 15 行未満の要約のみを返すようになり、MCP 側に `review_file` 引数（指定パスが正規化後にレポート／brief ファイルと一致する場合は導出した `-review.md` に置換）と、`[FIX_BASE_SHA]` を実際に展開する `fix_base_sha` 別名を追加。
-- **上流ドリフトレポート**：`npm run drift` がコミット済みベースラインと `obra/superpowers` を比較し、採用済みファイルの変更・ローカルに無い取り込み・fork 独自追加を一覧表示。`npm run drift:record -- --ignore <skill>` でレビュー済み同期後に更新。
+- **上流ドリフトレポート**：`npm run drift` がコミット済みベースラインと `obra/superpowers` を比較し、採用済みファイルの変更・ローカルに無い取り込み・fork 独自追加を一覧表示。`npm run drift:record -- --ignore <skill>` でレビュー済み同期後に更新し、書き込み前に途中で切れた API tree を拒否。
 - **MCP サーフェス網羅テスト**：ディスク上の各スキルは自身のコンテンツを返す MCP リソースとして公開され、プロンプト一覧は 4 つの README と完全一致すること。
 - **MCP 説明文の忠実性**：上流のエスケープ引用形式を非引用の YAML plain scalar に適応し、`SkillsManager` が MCP 経由で余分なバックスラッシュを出力しないようにした。
 - **回帰ガード**：`tests/upstream_sync_test.js` をバッチ 1〜4 を覆う 22 個のラベル付きチェックに拡張。全スイート合格（npm 8 スイート 139 チェック、PowerShell 90 アサーション、SDD 16 + ホスト既定 11 + render-graph 8 の bash アサーション）。
+- **リリース準備の強化**：Bash／PowerShell の brainstorm host テストは background モードを明示的に強制し、264 アサーションの全マトリクスが `CODEX_CI=1` でも完了。`package-lock.json` を v6.3.7 と Node `>=18` に同期し、npm repository と CLI `bin` メタデータを正規化。`npm publish --dry-run` とパッケージのインストール smoke test で検証済み。
 
 ### v6.3.6
 
