@@ -59,7 +59,7 @@ const skillsManager = new SkillsManager(SKILLS_PATH);
 const server = new Server(
     {
         name: "superpowers-mcp",
-        version: "6.3.6",
+        version: "6.3.7",
     },
     {
         capabilities: {
@@ -123,6 +123,62 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         throw new McpError(ErrorCode.InternalError, `Failed to read skill content safely.`);
     }
 });
+
+// ---------------------------------------------------------------------------
+// Review file naming for the SDD prompt templates
+// ---------------------------------------------------------------------------
+/**
+ * "…-report.md" → "…-review.md" style sibling naming.
+ */
+function siblingReviewFile(file: string, suffix: string): string {
+    return file.endsWith(suffix) ? `${file.slice(0, -suffix.length)}-review.md` : "";
+}
+
+/**
+ * Two spellings that address the same file must not slip past the identity
+ * checks below: `./` segments, doubled or trailing separators and `..` links are
+ * normalised away, and the comparison is case-insensitive on the platforms whose
+ * default filesystem is (macOS, Windows). A match makes deriveReviewFile fall
+ * through to the derived sibling, so every miss errs on the safe side — the
+ * caller's path is used only when it does not resolve to the report or brief
+ * file under these rules. Deliberately not closed: symlinked paths (the review
+ * file usually does not exist yet, so it cannot be resolved), relative paths
+ * that mean a different file for the caller's working directory than for the
+ * server's, and unicode normalisation differences.
+ */
+function sameFilePath(a: string, b: string): boolean {
+    if (!a || !b) {
+        return false;
+    }
+    const normalize = (file: string): string => {
+        const resolved = path.resolve(file);
+        return process.platform === "darwin" || process.platform === "win32" ? resolved.toLowerCase() : resolved;
+    };
+    return normalize(a) === normalize(b);
+}
+
+/**
+ * The review file is the reviewer's durable record and the detail fix subagents
+ * read. A caller may name it; otherwise it is derived from the report file's or
+ * the brief file's sibling naming (…/task-N-report.md → …/task-N-review.md).
+ * A path that resolves to the report or the brief file is replaced by that
+ * derived sibling — a reviewer must never be asked to overwrite the
+ * implementer's report. Returns "" when nothing safe can be derived, in which
+ * case the template keeps its [REVIEW_FILE] placeholder.
+ */
+function deriveReviewFile(requested: string, reportFile: string, briefFile: string): string {
+    if (requested && !sameFilePath(requested, reportFile) && !sameFilePath(requested, briefFile)) {
+        return requested;
+    }
+    const derived = siblingReviewFile(reportFile, "-report.md") || siblingReviewFile(briefFile, "-brief.md");
+    if (derived) {
+        return derived;
+    }
+    if (reportFile) {
+        return `${reportFile.replace(/(\.[^./\\]*)?$/, "")}-review.md`;
+    }
+    return "";
+}
 
 // ---------------------------------------------------------------------------
 // Prompts
@@ -216,6 +272,11 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                         required: false,
                     },
                     {
+                        name: "review_file",
+                        description: "Path the reviewer writes its full report to; defaults to the report or brief file's -review.md sibling",
+                        required: false,
+                    },
+                    {
                         name: "base_sha",
                         description: "Base commit SHA before this task",
                         required: false,
@@ -264,6 +325,16 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                     {
                         name: "diff_file",
                         description: "Path to the scoped review package diff file over fix range",
+                        required: false,
+                    },
+                    {
+                        name: "review_file",
+                        description: "Path to the task's review file; this round's verdicts are appended to it",
+                        required: false,
+                    },
+                    {
+                        name: "fix_base_sha",
+                        description: "Alias: the head the previous review saw (same as base_sha for a fix round)",
                         required: false,
                     },
                     {
@@ -467,6 +538,7 @@ ${skillContent}
         const briefFile = getStringArg("brief_file");
         const reportFile = getStringArg("report_file");
         const diffFile = getStringArg("diff_file") || getStringArg("review_target");
+        const reviewFile = deriveReviewFile(getStringArg("review_file"), reportFile, briefFile);
         const baseSha = getStringArg("base_sha");
         const headSha = getStringArg("head_sha");
         const globalConstraints = getStringArg("global_constraints");
@@ -481,6 +553,7 @@ ${skillContent}
             "[BASE_SHA]": baseSha,
             "[HEAD_SHA]": headSha,
             "[GLOBAL_CONSTRAINTS]": globalConstraints,
+            "[REVIEW_FILE]": reviewFile,
             "[MODEL]": model,
         });
 
@@ -508,6 +581,8 @@ ${skillContent}
         const briefFile = getStringArg("brief_file");
         const reportFile = getStringArg("report_file");
         const diffFile = getStringArg("diff_file");
+        // Re-reviews append to the same review file the task reviewer wrote.
+        const reviewFile = deriveReviewFile(getStringArg("review_file"), reportFile, briefFile);
         const findings = getStringArg("previous_findings");
         const baseSha = getStringArg("base_sha") || getStringArg("fix_base_sha");
         const headSha = getStringArg("head_sha");
@@ -518,8 +593,10 @@ ${skillContent}
             "[BRIEF_FILE]": briefFile,
             "[REPORT_FILE]": reportFile,
             "[DIFF_FILE]": diffFile,
+            "[REVIEW_FILE]": reviewFile,
             "[FINDINGS]": findings,
             "[BASE_SHA]": baseSha,
+            "[FIX_BASE_SHA]": baseSha,
             "[HEAD_SHA]": headSha,
             "[MODEL]": model,
         });

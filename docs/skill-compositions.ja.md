@@ -2,6 +2,8 @@
 
 [English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md)
 
+> **正典（Source of Truth）：** 本英語版が原本です。スキルの振る舞いが変わったら英語版を先に更新し、翻訳を同期してください。
+
 ## 1. スキル構成が重要な理由 (Why Skill Compositions Matter)
 
 `superpowers-mcp` に含まれる 14 のコアスキルは、要件の明確化、アーキテクチャ設計、分離されたワークスペースの構築、テスト駆動開発 (TDD)、体系的なデバッグから、完全検証、コードレビュー、ブランチ統合に至るまで、ソフトウェア開発ライフサイクル (SDLC) 全体を網羅しています。
@@ -12,16 +14,15 @@
 
 ## 2. コアアーキテクチャ原則 (Core Architectural Principles)
 
-スキルを組み合わせる際は、常に以下の 4 つの安全防御メカニズムを適用してください。
+スキルを組み合わせる際は、常に以下の 5 つの安全防御メカニズムを適用してください。
 
 1. **物理的分離を最優先 (Isolation First via Git Worktrees)**：マルチエージェント協調や複数仮説の並行デバッグを行う際は、必ず `superpowers:using-git-worktrees` を使用して独立したディレクトリを作成し、ファイル競合 (Race Condition) や環境汚染を防止します。
 2. **デフォルトでテスト駆動 (TDD by Default)**：回帰安全性を担保するため、失敗するテスト（Red ➔ Green ➔ Refactor）を事前に作成せずにコードを変更してはなりません。
 3. **2 層レビューゲート (Dual-layer Review)**：タスク単位の仕様準拠チェックおよびフィーチャー全体のブランチレビュー（`requesting-code-review` / `receiving-code-review`）を省略してはなりません。
 4. **完了前の完全検証 (Verification Before Completion)**：完了を宣言したりブランチをマージする前に、必ずリポジトリ全体のテストスイート、Linter、型チェック（`verification-before-completion`）を実行します。
+5. **リモート安全境界（Local Commits Only）**：コミットはローカルに留め、計画または人間のパートナーの指示がない限り push/pull/fetch を行いません。共有 ref から分岐する際は `--no-track`（または初回コミット前の `--unset-upstream`）で、機能ブランチが共有ブランチを追跡しないようにし、共有ブランチの書き換えは禁止です（自己適用できるのは `git revert` のみ）。
 
 ---
-
-## 3. 4 つの標準ワークフローパイプライン (Standard Pipelines)
 
 ## 3. 4つの標準スキル構成パイプライン (Four Standard Workflow Pipelines)
 
@@ -41,14 +42,14 @@ flowchart LR
 
 | ステップ | スキル (Skill) | 責務と成果物 |
 | :--- | :--- | :--- |
-| **1. 要件と設計** | `brainstorming` | 要件、制約、アーキテクチャ上の決定事項を整理し、仕様書 (Spec) を出力。 |
+| **1. 要件と設計** | `brainstorming` | 要件、制約、アーキテクチャ上の決定事項を整理し、共通理解の確認とプランニング・ハンドオフ・レビューを経て仕様書 (Spec) を出力。 |
 | **2. 計画策定** | `writing-plans` | 仕様書を独立して検証可能なタスクリストに分解し、Recommended Skill を明記。 |
 | **3. 環境分離** | `using-git-worktrees` | 独立した Git Worktree を作成し、メインブランチと作業環境を保護。 |
 | **4. タスク実行** | `subagent-driven-development` | 独立したサブエージェントを順次起動し、クリーンなコンテキストでタスクを実行。 |
 | **5. ロジック実装** | `test-driven-development` | 各タスクのビジネスロジックに対して Red ➔ Green ➔ Refactor を厳格に適用。 |
-| **6. フルテスト検証** | `verification-before-completion` | フルテストスイート、Linter、型チェックを実行し、回帰がないことを確認。 |
+| **6. フルテスト検証** | `verification-before-completion` | フルテストスイート、Linter、型チェックを実行し、回帰がないことを確認。テストコマンドが無い場合は成果物を再度開き、要求事項を漏れなく確認。 |
 | **7. コードレビュー** | `requesting-code-review` | レビューパッケージを生成し、多角的なコード＆アーキテクチャレビューを実施。 |
-| **8. ブランチ完了** | `finishing-a-development-branch` | マージ/PR、Worktree の整理、一時ブランチの削除を行いクリーンに完了。 |
+| **8. ブランチ完了** | `finishing-a-development-branch` | 保留所見をエクスポート（PR チェックリストまたは follow-ups ファイル）してから、マージ/PR、Worktree の整理、一時ブランチの削除を実施。 |
 
 ---
 
@@ -110,7 +111,7 @@ flowchart LR
 
 1. **`brainstorming`**：システムの境界、既存動作の仕様化目標を特定。
 2. **`writing-plans`**：仕様化テスト（Characterization Tests）作成計画を策定。
-3. **`test-driven-development`**：既存の振る舞いを保護する網羅的テストを作成。
+3. **`test-driven-development`**：TDD 特性化ガード（変異→失敗確認→VCS 復元→グリーン維持）を用いて、既存の振る舞いを保護するテストを作成。
 4. **`systematic-debugging`**：保護テストで発見された潜在的欠陥を特定・修正。
 5. **`verification-before-completion`**：安全網の完全性を検証。
 
@@ -150,8 +151,8 @@ flowchart LR
 | **`skill-composition`** | `scenario` | 開発シナリオに応じた動的スキル構成ガイド。 |
 | **`session-start`** | - | Superpowers の基本環境とスキル利用ルールを注入。 |
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD タスク実装サブエージェント用プロンプト。 |
-| **`sdd-task-reviewer`** | `brief_file`, `report_file`, ... | SDD 単一タスクレビュー用プロンプト。 |
-| **`sdd-re-review`** | `brief_file`, `previous_findings`, ... | SDD 修正ラウンド差分レビュー用プロンプト。 |
+| **`sdd-task-reviewer`** | `brief_file`, `report_file`, `review_file`, ... | SDD 単一タスクレビュー用プロンプト。 |
+| **`sdd-re-review`** | `brief_file`, `review_file`, `previous_findings`, ... | SDD 修正ラウンド差分レビュー用プロンプト。 |
 | **`spec-reviewer`** | `spec_file` | 設計仕様書レビュー用プロンプト。 |
 | **`plan-reviewer`** | `plan_file`, `spec_file` | 実装計画書レビュー用プロンプト。 |
 

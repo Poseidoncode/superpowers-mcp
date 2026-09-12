@@ -11,12 +11,48 @@ Start by classifying how much process the request needs, then work
 through your path: understand the context, refine the idea, present a
 design, and get your human partner's approval.
 
+## Establish Shared Understanding
+
+The outcome of brainstorming is an understanding your human partner can
+recognize and correct, grounded in what they want to accomplish.
+
+1. **Discover intent.** Use the request and available context to identify
+   the intended outcome, who it is for, and what success looks like. When
+   that information is missing, ask one focused question about purpose or
+   intended use before proposing features or an approach. Knowing the app
+   genre does not tell you why your partner wants it. Gathering missing
+   requirements does not ask them to authorize the task again.
+2. **Write back your understanding.** Summarize the intended outcome,
+   relevant constraints, and success criteria in a short note your partner
+   can assess. Separate what they said from assumptions. Invite correction
+   and incorporate their answer before treating this as the design brief.
+3. **Carry intent into the design.** Preserve the agreed understanding in
+   the selected path's design artifact: the written spec for architectural
+   work, or the in-chat design/probe for bounded work and spikes. Check
+   proposed features and technical choices against that understanding.
+
+When the request already supplies the purpose and constraints, reflect
+that understanding instead of asking the same questions again. Keep the
+note concise; its accuracy and the opportunity to correct it matter.
+
 <HARD-GATE>
-Do NOT invoke any implementation skill, write any code, scaffold any
-project, or take any implementation action until you have told your
-human partner what you intend and they have approved it. This applies
-to EVERY task on EVERY path below — the ceremony scales with the task;
-the approval gate never does.
+Before taking any implementation action, including invoking an
+implementation skill, writing product code, scaffolding, installing
+product dependencies, or creating an external project, complete the
+selected path's prerequisites:
+
+- Spike: the human partner approves the question and probe.
+- Bounded: the human partner approves the short in-chat design.
+- Architectural: the human partner reviews and approves the written spec,
+  then reviews the written implementation plan and selects its execution
+  method. Conversational design approval only permits writing the spec;
+  written-spec approval only permits invoking writing-plans.
+
+A reply approves the stage actually presented. Approval of an idea or
+feature scope does not approve artifacts that do not exist yet. Resume
+at the earliest incomplete stage; do not turn one approval into permission
+to skip the rest of the selected path. Read-only project exploration is
+allowed while those prerequisites remain incomplete.
 </HARD-GATE>
 
 ## Three Paths
@@ -53,18 +89,17 @@ stop, say so, and step up. Nothing downgrades mid-task.
 
 ## Anti-Pattern: "Too Simple To Need Approval"
 
-Every path ends with your human partner approving your intent before
-implementation. A todo list, a single-function utility, a config
-change — the design may be two sentences in chat, but you MUST present
-it and get approval. "Simple" tasks are where unexamined assumptions
-cause the most wasted work. What scales with simplicity is the
-artifact, never the approval.
+Every path ends with your human partner approving the required design
+before implementation. A bounded change may need only two sentences in
+chat. A new todo-list project is architectural and requires the written
+spec and planning handoffs. Scale the artifact to the selected path;
+complete that path's reviews before implementation.
 
 ## Red Flags
 
 | Thought | Reality |
 |---------|---------|
-| "This is too simple to need a design" | Simple means a short design, not no design. Two sentences in chat, then approval. |
+| "This is too simple to need a design" | Follow the selected path: a bounded change gets a short chat design; an architectural change gets the written spec and planning handoffs. |
 | "I'll call it bounded and skip the spec" | Reaching for a label to skip work IS the doubt — take the heavier path. |
 | "It's bounded and the design is obvious — I'll start while they read it" | The gate is the approval, not the design's length. Present, then stop until you hear yes. |
 | "I understand this kind of app, so it's bounded" | Bounded measures the repo, not your familiarity. A new project has no existing flow — it is architectural. |
@@ -98,7 +133,7 @@ your path and complete them in order.
 4. **Propose 2-3 approaches** — with trade-offs and your recommendation
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
 6. **Write design doc** — save to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` and commit
-7. **Spec self-review** — quick inline check for placeholders, contradictions, ambiguity, scope (see below)
+7. **Planning-handoff review** — simulate the next planning stage, rate and inventory its burdens, and take the required bounded branch (see below)
 8. **User reviews written spec** — ask user to review the spec file before proceeding
 9. **Transition to implementation** — invoke writing-plans skill to create implementation plan
 
@@ -119,7 +154,7 @@ digraph brainstorming {
     "Present design sections" [shape=box];
     "User approves design?" [shape=diamond];
     "Write design doc" [shape=box];
-    "Spec self-review\n(fix inline)" [shape=box];
+    "Planning-handoff review\n(rate; burden ledger; bounded branch)" [shape=box];
     "User reviews spec?" [shape=diamond];
     "Invoke writing-plans skill" [shape=doublecircle];
     "Hidden complexity? Upgrade path" [shape=box];
@@ -139,8 +174,8 @@ digraph brainstorming {
     "Present design sections" -> "User approves design?";
     "User approves design?" -> "Present design sections" [label="no, revise"];
     "User approves design?" -> "Write design doc" [label="yes"];
-    "Write design doc" -> "Spec self-review\n(fix inline)";
-    "Spec self-review\n(fix inline)" -> "User reviews spec?";
+    "Write design doc" -> "Planning-handoff review\n(rate; burden ledger; bounded branch)";
+    "Planning-handoff review\n(rate; burden ledger; bounded branch)" -> "User reviews spec?";
     "User reviews spec?" -> "Write design doc" [label="changes requested"];
     "User reviews spec?" -> "Invoke writing-plans skill" [label="approved"];
 }
@@ -169,6 +204,7 @@ is the whole process.
 - For appropriately-scoped projects, ask questions one at a time to refine the idea
 - Prefer multiple choice questions when possible, but open-ended is fine too
 - Only one question per message - if a topic needs more exploration, break it into multiple questions
+- A request for context is not an answer - if the user asks for trade-offs, implications, or examples instead of choosing, give them that and then re-ask the same question. It stays the only open question until they decide; don't pair it with a new one
 - Focus on understanding: purpose, constraints, success criteria
 
 **Exploring approaches:**
@@ -209,15 +245,79 @@ is the whole process.
 - Use elements-of-style:writing-clearly-and-concisely skill if available
 - Commit the design document to git
 
-**Spec Self-Review:**
-After writing the spec document, look at it with fresh eyes:
+**Planning-Handoff Review:**
+This is the spec self-review. Before asking for review, set the conversation
+aside and temporarily act as a
+fresh planning agent whose only inputs are the finished spec and the repository.
+Begin mapping how you would turn the spec into an implementation plan, but do not
+write that plan. Trace each affected entry point through the relevant components
+and state transitions. Note each point where planning would require you to
+rediscover design intent or invent a binding decision rather than choose an
+implementation detail. Include placeholders, internal contradictions, scope
+problems, and ambiguous requirements in this assessment; they are handoff seams,
+not a separate review stage.
 
-1. **Placeholder scan:** Any "TBD", "TODO", incomplete sections, or vague requirements? Fix them.
-2. **Internal consistency:** Do any sections contradict each other? Does the architecture match the feature descriptions?
-3. **Scope check:** Is this focused enough for a single implementation plan, or does it need decomposition?
-4. **Ambiguity check:** Could any requirement be interpreted two different ways? If so, pick one and make it explicit.
+Rate the spec's planning-handoff readiness from 0.0–9.9 and explain what
+prevents the next higher rating using repository and artifact evidence:
+0 = reject; 2 = major redesign; 4 = substantial design rescue; 6 = usable but
+planning must reconstruct a binding decision; 8 = handoff-ready with only
+planning-owned choices; 9.9 = rare exemplary ceiling, never perfection. The
+rating prompts the assessment; it does not decide whether the artifact improves.
 
-Fix any issues inline. No need to re-review — just fix and move on.
+Translate every design-owned reason preventing the next higher rating into a
+burden ledger before editing. One burden is one independent binding decision or
+piece of design reconstruction the planning agent must resolve before it can
+specify implementation work. Record planning-owned choices separately rather
+than counting them as burdens. For each burden, state the repository or artifact
+evidence, what the planner would have to invent, and its weight:
+
+- **minor (1):** a localized clarification or reconstruction;
+- **major (2):** an unresolved binding decision or cross-component design
+  uncertainty. Record contradictions and departures from the approved design
+  separately; they are not ordinary tradeable burdens.
+
+After the initial rating and ledger, take exactly one branch:
+
+- If the rating is below 9.0 **or** the ledger contains any burden, preserve the
+  initial draft, return to the spec-writer role, and make one bounded improvement
+  pass targeting the evidence-based reasons preventing 9.0 and the named
+  burdens. Do not resolve a purely planning-owned choice merely to raise the
+  rating.
+- Only if the rating is at least 9.0 **and** the burden ledger is empty, make no
+  edit.
+
+The bounded pass is the only review-driven editing phase after the first
+complete draft. It may clarify, reconcile, and complete the spec using the
+approved design, stated requirements, and repository evidence; preserve the
+binding decisions already approved in the conversation. When an improvement
+would require a new or changed binding design decision, leave it as a burden
+instead of choosing it.
+
+After the pass, close editing and reassess both versions read-only. Trace every
+concept changed by the pass through the whole spec, including the state model,
+entry points, failure/recovery rules, and acceptance criteria. Give a fresh
+rating, build the final burden ledger from scratch, and compare it with the
+initial ledger. Include burdens that moved or appeared elsewhere. Check
+separately for a newly introduced major burden, contradiction, departure from
+approved design, or scope change. More specific wording is not automatically an
+improvement.
+
+Select the revised draft only when its total weighted burden is lower and it
+introduces no new major burden, contradiction, or design departure. New minor
+burdens are permitted only when the total burden still falls. Otherwise restore
+the preserved initial draft. Restoring the original is the only spec mutation
+permitted after reassessment: do not fix the revised draft or begin another
+pass. Present the selected spec through the normal user review handoff, and
+commit the selected draft — with any changes the user requests afterwards — so
+that handoff always points at a committed revision.
+Keep the ratings, burden ledgers, and comparison in your private review; do not
+add them to the spec or require them as a separate handoff artifact.
+If the original was restored, mention briefly that the tentative revision was
+rejected and the original retained; do not add a separate review artifact.
+
+Accept, restore, and report based on burden—not whether the rating rose. The
+review never grants permission to begin planning. Do not produce task sequencing,
+invoke `writing-plans`, or repeat the pass.
 
 **User Review Gate:**
 After the spec review loop passes, ask the user to review the written spec before proceeding:

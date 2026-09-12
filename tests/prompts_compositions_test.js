@@ -66,6 +66,19 @@ server.stdout.on("data", (data) => {
                 }
                 console.log("✅ prompts/list includes all new workflow prompts");
 
+                // The SDD reviewer prompts must declare the review-file contract.
+                const argNames = (name) => (prompts.find((p) => p.name === name)?.arguments || []).map((a) => a.name);
+                const missingArgs = [
+                    ["sdd-task-reviewer", "review_file"],
+                    ["sdd-re-review", "review_file"],
+                    ["sdd-re-review", "fix_base_sha"]
+                ].filter(([prompt, arg]) => !argNames(prompt).includes(arg));
+                if (missingArgs.length > 0) {
+                    console.error("❌ Missing declared prompt arguments:", missingArgs);
+                    process.exit(1);
+                }
+                console.log("✅ prompts/list declares the SDD review-file arguments");
+
                 // Test feature-pipeline get
                 sendRequest({
                     jsonrpc: "2.0",
@@ -210,13 +223,173 @@ server.stdout.on("data", (data) => {
             } else if (response.id === 8) {
                 if (response.error && (response.error.code === -32600 || response.error.code === -32602)) {
                     console.log(`✅ prompts/get unknown prompt returns InvalidRequest error (${response.error.code})`);
-                    console.log("🎉 ALL ADVANCED COMPOSITIONS & SECURITY PROMPT TESTS PASSED 100%!");
-                    server.kill();
-                    process.exit(0);
+
+                    // Test 9: SDD task reviewer writes its full report to a review
+                    // file and returns a short contract (upstream PR #1966). The path
+                    // is derived from the report file when the caller omits it.
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 9,
+                        method: "prompts/get",
+                        params: {
+                            name: "sdd-task-reviewer",
+                            arguments: {
+                                brief_file: "/tmp/task-9-brief.md",
+                                report_file: "/tmp/task-9-report.md",
+                                diff_file: "/tmp/task-9-diff.md",
+                                global_constraints: "Global constraints",
+                                model: "reviewer-model"
+                            }
+                        }
+                    });
                 } else {
                     console.error("❌ prompts/get unknown prompt did not return expected error:", response);
                     process.exit(1);
                 }
+            } else if (response.id === 9) {
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                const checks = [
+                    ["derived review file path", text.includes("/tmp/task-9-review.md")],
+                    ["review-file report format", text.includes("## Report Format")],
+                    ["short final message contract", text.includes("under 15 lines")],
+                    ["output format is the review file", text.includes("## Output Format (the review file)")],
+                    ["no unresolved placeholder", !text.includes("[REVIEW_FILE]")]
+                ];
+                const failed = checks.filter(([, ok]) => !ok).map(([label]) => label);
+                if (failed.length > 0) {
+                    console.error("❌ prompts/get sdd-task-reviewer review-file contract failed:", failed);
+                    process.exit(1);
+                }
+                console.log("✅ prompts/get sdd-task-reviewer writes its full report to a review file");
+
+                // Test 10: the scoped re-review appends to the same review file.
+                sendRequest({
+                    jsonrpc: "2.0",
+                    id: 10,
+                    method: "prompts/get",
+                    params: {
+                        name: "sdd-re-review",
+                        arguments: {
+                            brief_file: "/tmp/task-9-brief.md",
+                            report_file: "/tmp/task-9-report.md",
+                            diff_file: "/tmp/task-9-diff.md",
+                            previous_findings: "1) Magic number",
+                            model: "reviewer-model"
+                        }
+                    }
+                });
+            } else if (response.id === 10) {
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                if (text.includes("/tmp/task-9-review.md") && text.includes("### Round <N>")) {
+                    console.log("✅ prompts/get sdd-re-review appends its verdicts to the review file");
+
+                    // Test 11: an explicitly named review file is honoured.
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 11,
+                        method: "prompts/get",
+                        params: {
+                            name: "sdd-task-reviewer",
+                            arguments: {
+                                brief_file: "/tmp/task-11-brief.md",
+                                report_file: "/tmp/task-11-report.md",
+                                review_file: "/tmp/where-the-review-goes.md",
+                                model: "reviewer-model"
+                            }
+                        }
+                    });
+                } else {
+                    console.error("❌ prompts/get sdd-re-review review-file append contract failed:", text);
+                    process.exit(1);
+                }
+            } else if (response.id === 11) {
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                if (text.includes("/tmp/where-the-review-goes.md") && !text.includes("[REVIEW_FILE]")) {
+                    console.log("✅ prompts/get sdd-task-reviewer honours an explicitly named review file");
+
+                    // Test 12: a review file equal to the report file must be refused,
+                    // so a reviewer can never overwrite the implementer's report.
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 12,
+                        method: "prompts/get",
+                        params: {
+                            name: "sdd-task-reviewer",
+                            arguments: {
+                                brief_file: "/tmp/task-12-brief.md",
+                                report_file: "/tmp/task-12-report.md",
+                                review_file: "/tmp/task-12-report.md",
+                                model: "reviewer-model"
+                            }
+                        }
+                    });
+                } else {
+                    console.error("❌ prompts/get explicit review_file was not honoured:", text.slice(0, 400));
+                    process.exit(1);
+                }
+            } else if (response.id === 12) {
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                const target = (text.match(/Write your full report to ([^\s`]+)/) || [])[1] || "";
+                if (target === "/tmp/task-12-review.md") {
+                    console.log("✅ prompts/get substitutes the derived review file for review_file == report_file");
+
+                    // Test 13: the report file spelled with a ./ segment. Path
+                    // normalisation must keep it from addressing the report.
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 13,
+                        method: "prompts/get",
+                        params: {
+                            name: "sdd-task-reviewer",
+                            arguments: {
+                                brief_file: "/tmp/task-13-brief.md",
+                                report_file: "/tmp/task-13-report.md",
+                                review_file: "/tmp/./task-13-report.md",
+                                model: "reviewer-model"
+                            }
+                        }
+                    });
+                } else {
+                    console.error("❌ prompts/get did not substitute review_file == report_file (target:", target, ")");
+                    process.exit(1);
+                }
+            } else if (response.id === 13) {
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                const target = (text.match(/Write your full report to ([^\s`]+)/) || [])[1] || "";
+                if (target === "/tmp/task-13-review.md") {
+                    console.log("✅ prompts/get normalises the path before the review-file identity check");
+
+                    // Test 14: a review file equal to the brief file is substituted
+                    // as well, not just the report file.
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 14,
+                        method: "prompts/get",
+                        params: {
+                            name: "sdd-task-reviewer",
+                            arguments: {
+                                brief_file: "/tmp/task-14-brief.md",
+                                report_file: "/tmp/task-14-report.md",
+                                review_file: "/tmp/task-14-brief.md",
+                                model: "reviewer-model"
+                            }
+                        }
+                    });
+                } else {
+                    console.error("❌ prompts/get honoured a normalised review_file that resolves to the report file (target:", target, ")");
+                    process.exit(1);
+                }
+            } else if (response.id === 14) {
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                const target = (text.match(/Write your full report to ([^\s`]+)/) || [])[1] || "";
+                if (target === "/tmp/task-14-review.md") {
+                    console.log("✅ prompts/get substitutes the derived review file for review_file == brief_file");
+                    console.log("🎉 ALL ADVANCED COMPOSITIONS & SECURITY PROMPT TESTS PASSED 100%!");
+                    server.kill();
+                    process.exit(0);
+                }
+                console.error("❌ prompts/get did not substitute review_file == brief_file (target:", target, ")");
+                process.exit(1);
             }
         } catch (err) {
             console.error("JSON parse error:", err, line);

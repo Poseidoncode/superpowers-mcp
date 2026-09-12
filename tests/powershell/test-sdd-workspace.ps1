@@ -84,6 +84,45 @@ try {
     $dirBaz = (& $scriptPath $bazPlan | Select-Object -First 1).Trim()
     $expectedBaz = Join-Path $realRepo ".superpowers/sdd/baz-$repoName-2"
     Assert-True ($dirBaz -eq $expectedBaz) "double conflict falls back to a counter suffix"
+
+    # 8. Greenfield: the script runs before a repo exists
+    # A greenfield plan's Task 1 is "create the repo", so the script must fall
+    # back to the current directory instead of failing. $root is a fresh temp
+    # directory outside any repository.
+    $gf = Join-Path $root "greenfield"
+    New-Item -ItemType Directory -Force -Path $gf | Out-Null
+    $gfPlan = Join-Path $gf "plan-a.md"
+    Set-Content -Path $gfPlan -Value "# Plan A`n`n## Task 1: Scaffold`n`nCreate the repo.`n" -NoNewline
+
+    & git -C $gf rev-parse --git-dir *> $null
+    if ($LASTEXITCODE -eq 0) {
+        Fail "greenfield test needs a directory outside any repository"
+    } else {
+        Push-Location $gf
+        try {
+            $gfOut = & $scriptPath $gfPlan 2>$null
+            Assert-ExitCode $LASTEXITCODE 0 "sdd-workspace outside a repo exits 0"
+            $gfWorkspace = ($gfOut | Select-Object -First 1).Trim()
+            Assert-True ((Split-Path -Leaf $gfWorkspace) -eq "plan-a") "greenfield workspace slug is plan-a"
+            Assert-True (Test-Path -LiteralPath (Join-Path $gf ".superpowers/sdd/plan-a/plan-path")) "greenfield workspace created in the current directory"
+
+            # The stderr notice is the user-facing contract; run in a child
+            # pwsh so its real stderr stream is captured.
+            $prevEap = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            $gfErr = (& pwsh -NoProfile -File "$scriptPath" $gfPlan 2>&1 | Out-String)
+            $ErrorActionPreference = $prevEap
+            Assert-True ($gfErr -match "no git repository yet") "explains itself on stderr"
+
+            # Once Task 1 creates the repo in place, the path is unchanged.
+            & git -C $gf init -q | Out-Null
+            $gfAfter = (& $scriptPath $gfPlan 2>$null | Select-Object -First 1).Trim()
+            Assert-True ($gfAfter -eq $gfWorkspace) "workspace path survives the repo being created in place"
+        }
+        finally {
+            Pop-Location
+        }
+    }
     }
     finally {
         Pop-Location

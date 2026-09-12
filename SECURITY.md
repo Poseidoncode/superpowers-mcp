@@ -32,6 +32,15 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
+## v6.3.7 Upstream Sync, Git-Safety & Regression Guard Notes
+
+- **Content-only synchronization**: Batches 1–4 import reviewed upstream `obra/superpowers` skill text and modify the SDD helper scripts (`sdd-workspace`, `review-package` and their `.ps1` twins) — trigger phrases, no-test-command evidence law, brainstorming intent gates, planning-handoff review, saved-plan review gate, plan-checkbox bookkeeping, remote-safety boundary, Discoveries ledger, deferred-findings export, greenfield scripts, TDD characterization guard, moved-content link re-resolution, and the SDD review-file contract (reviewers write the full report to a review file and answer in under 15 lines). Beyond the version constant, the release changes three surfaces outside that imported text: the `review_file` argument on `sdd-task-reviewer` / `sdd-re-review`, which is derived from the report or brief file when omitted and replaced by that derived sibling when the requested path normalises to either (so a reviewer is never pointed at the implementer's report); the previously silent `[FIX_BASE_SHA]` placeholder, now fed by the `fix_base_sha` alias (alongside the pre-existing `base_sha` argument) on `sdd-re-review`; and the skill-script host defaults in `skills/brainstorming/scripts/start-server.sh` / `.ps1`, whose non-loopback values are refused before launch on the PowerShell path and by the companion server on the bash path. The v6.3.6 attack surface, input validation, and permission model remain in force.
+- **Remote-safety boundary**: the adopted guidance forbids agent-initiated push/pull/fetch and force-pushes from inside a task, requires shared-branch tracking to be dropped before the first commit (`--no-track` / `--unset-upstream`), and routes any mid-task push demand to the controller as BLOCKED — a behavioral control against accidentally publishing or rewriting shared branches.
+- **MCP description fidelity**: upstream's escaped-quote YAML descriptions were converted to unquoted plain scalars, so the `SkillsManager` frontmatter parser cannot emit literal backslashes or truncated descriptions to MCP clients.
+- **Zero-dependency delta**: no new runtime or development dependencies; the verified overrides (`hono`, `@hono/node-server`, `fast-uri`, `qs`) and the `npm audit` zero-vulnerability status are unchanged. `package.json` now declares `engines.node >= 18`, the floor the drift tool's `fetch` fallback needs.
+- **Regression guard for future syncs**: [`tests/upstream_sync_test.js`](tests/upstream_sync_test.js) carries 22 labeled checks wired into `npm test`, the greenfield script behavior is covered in both the bash SDD suite and the PowerShell suite (90 assertions across 5 files), and the new MCP surface coverage suite asserts that every shipped skill is an exposed resource serving its own content and that the prompt inventory matches all four READMEs exactly, so a later sync cannot silently drop or misroute the adopted behavior.
+- **Upstream drift baseline**: [`tests/upstream-sync-baseline.json`](tests/upstream-sync-baseline.json) holds only public upstream blob SHAs, the repo/ref/date, skill names and the deliberately-unadopted list — no tokens, credentials, absolute paths or environment data. [`scripts/upstream-drift.js`](scripts/upstream-drift.js) is read-only except `--record`, which writes that single file and never touches git state; network reads use `gh api` with a public API fallback, a 20s timeout, and a truncated listing suppresses `--fail-on-drift`.
+
 ## v6.3.6 Security, Architecture & Performance Hardening Notes
 
 - **Skills Core Engine Partial-Read Defense & TOCTOU Elimination (`src/skills-manager.ts`)**:
@@ -130,7 +139,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.3.6)
+## Current Security Status (v6.3.7)
 
 | Check | Status |
 | ----- | ------ |
@@ -234,12 +243,16 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **Edge Cases & Security Suite** (`tests/edge_cases_test.js`): Passed 7/7 tests (BOM handling, traversal blocking, concurrency locks, dot-named skills, transient failure cache preservation).
 - **MCP Protocol & Prompts Suite** (`tests/run_test.js`): Passed 7/7 tests (Initialization, `list_skills`, `read_skill`, malformed URI handling, `prompts/list`, `prompts/get` dynamic injection).
 - **Companion Server Suite** (`tests/brainstorm_server_test.js`): **31 passed, 0 failed** (Authentication, token persistence, WS caps, CSP, traversal protection, PID lifecycle).
-- **Compositions & Prompts Injection Suite** (`tests/prompts_compositions_test.js`): Passed 7/7 tests (Workflow prompts coverage, multi-stage integrity, dynamic scenario focus, cascading injection defense, unknown prompt rejection).
+- **Compositions & Prompts Injection Suite** (`tests/prompts_compositions_test.js`): **15/15 checks** (Workflow prompts coverage, multi-stage integrity, dynamic scenario focus, cascading injection defense, unknown prompt rejection, declared SDD review-file arguments, an explicitly named review file, and the report-file / normalised-path / brief-file substitutions).
 - **Global Setup Engine Suite** (`tests/setup_test.js`): **33 passed, 0 failed** (Full coverage across 15 AI agent harnesses: Antigravity, Pi Desktop, Cursor, Copilot, Copilot Insiders, Hermes, Kimi, Claude, Devin, QwenPaw, Cline, Kilo Code, Qoder, Kiro, Trae; JSONC comment tolerance, `json-mcp` local format, YAML injection defense, plain object validation, anti-bulk target consent, cross-platform path resolution, atomic write sandbox & symlink preservation, idempotent removal, double invocation defense).
-- **SDD Workspace Bash Suite** (`tests/sdd/test-sdd-workspace.sh`): **11 passed, 0 failed** (Workspace isolation, path normalization, collision counters, commit range validation, permission-stripped execution).
+- **SDD Workspace Bash Suite** (`tests/sdd/test-sdd-workspace.sh`): **16 passed, 0 failed** (Workspace isolation, path normalization, collision counters, commit range validation, permission-stripped execution).
 - **Writing Skills Render Graphs Suite** (`tests/writing-skills/test-render-graphs.sh`): **8 passed, 0 failed** (Direct binary execution, SVG rendering, output verification, error capture).
-- **PowerShell Script Hardening Suite** (`tests/powershell/run-tests.sh`): **70 passed, 0 failed** across 5 test scripts (`test-brainstorming-server.ps1`, `test-find-polluter.ps1`, `test-review-package.ps1`, `test-sdd-workspace.ps1`, `test-task-brief.ps1`).
-- **Total Automated Regression Floor**: **174 automated test assertions, 100% pass rate, 0 regressions**.
+- **PowerShell Script Hardening Suite** (`tests/powershell/run-tests.sh`): **90 passed, 0 failed** across 5 test scripts (`test-brainstorming-server.ps1`, `test-find-polluter.ps1`, `test-review-package.ps1`, `test-sdd-workspace.ps1`, `test-task-brief.ps1`).
+- **Upstream Sync Regression Suite** (`tests/upstream_sync_test.js`): **22 labeled checks** pin the imported upstream content (Batches 1-4: skill routing, evidence law, intent gates, remote-safety, SDD review-file contract, brainstorm host defaults).
+- **MCP Surface Coverage Suite** (`tests/mcp_coverage_test.js`): **14 checks** (one resource per skill on disk, each resource serves that skill's own content, prompt inventory matches all four READMEs exactly, composition guide references only real surfaces).
+- **Upstream Drift Suite** (`tests/drift_test.js`): **10 checks** (the offline CLI run is one of them); the committed baseline (`tests/upstream-sync-baseline.json`) records the upstream blob SHAs of every adopted skill file, so a deleted import, a lost upstream lineage or a stale ignore entry fails here. Network mode (`npm run drift`) compares the baseline against upstream without writing anything.
+- **Brainstorm Host Defaults Bash Suite** (`tests/brainstorming/test-start-server-env-hosts.sh`): **11 passed, 0 failed** (env-supplied bind/url hosts, flag precedence, empty values, and the non-loopback refusal).
+- **Total Automated Regression Floor**: **264 automated test assertions, 100% pass rate, 0 regressions**.
 
 ---
 

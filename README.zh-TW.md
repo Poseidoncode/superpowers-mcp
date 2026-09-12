@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.3.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.3.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -173,9 +173,41 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
+## 🔧 與上游保持同步
+
+本 fork 以逐批審閱的方式引進上游 [`obra/superpowers`](https://github.com/obra/superpowers) 的技能內容；最後同步時的上游 blob SHA 記錄在 [`tests/upstream-sync-baseline.json`](tests/upstream-sync-baseline.json)。
+
+```bash
+npm run drift                    # 對比基線與上游，列出已變動項目
+npm run drift:record             # 審閱同步完成後更新基線
+node scripts/upstream-drift.js   # 離線：基線完整性 + 本地覆蓋率
+```
+
+報告會分別列出：上游變更、上游新增、上游移除、基線追蹤但本地缺漏的檔案，以及 fork 專屬新增。刻意不採用的上游技能會列為「待決策」而非 drift，並可用 `npm run drift:record -- --ignore <skill>` 記錄。當已引進的上游檔案被刪除、或某技能失去上游系譜時，`npm test` 會失敗。
+
 ## 🆕 最近更新
 
-### v6.3.6 (最新版)
+### v6.3.7 (最新版)
+
+- **上游同步 — 第 1–3 批（obra/superpowers）**：
+  - **技能自動路由**：`systematic-debugging` 與 `test-driven-development` 的 description 新增觸發詞（`"tdd"`、`"systematic debug"` 等）與兄弟技能交叉導引，提升 MCP 客戶端的技能選擇準確度。
+  - **無測試指令的證據律**：`verification-before-completion` 新增「When There Is No Test Command」章節：報告、研究、稽核與書信類工作必須重新開啟成品、逐項證明並誠實列出未完成項，只能宣稱「完整」而非「正確」。
+  - **Brainstorming 意圖閘門**：新增「Establish Shared Understanding」（探索意圖 → 回寫理解 → 帶入設計），並重寫 HARD-GATE 明列各路徑前置條件，禁止把單次核准當成跳過後續階段的許可。
+  - **規劃交接審查（Planning-Handoff Review）**：brainstorming 的規格自我審查升級為 0.0–9.9 評分 + burden ledger + 單次有界改進 + 唯讀複評，並具備失敗時還原初稿的保底規則。
+  - **已存計畫審閱與情境化交接**：`writing-plans` 要求人類先審閱存檔計畫才可執行；未指定執行方式時必須給出針對本計畫的推薦，而非固定預設。
+  - **計畫勾選簿記**：`executing-plans` 與 `subagent-driven-development` 在完成訊息中同步勾選計畫檔步驟。
+  - **遠端安全邊界**：`using-git-worktrees` 要求從共享 ref 開分支時必須加 `--no-track`，並以 `git branch -vv` 檢查追蹤狀態（首次 commit 前先 `--unset-upstream`）；`executing-plans` 要求 commit 保持本地、禁止改寫共享分支；implementer 遇到任何 push 需求一律回報 BLOCKED，不得自行推送。
+  - **Discoveries 帳本**：SDD 進度帳本新增 `## Discoveries` 區段，跨任務發現可穿越 compaction，並成為下一次派工介面條款的來源。
+  - **延後發現匯出**：刪除計畫工作區前，`Ruling:`／`minor (deferred)`／`parked` 行必須匯出到 PR 的「Deferred items」清單，或提交至 `docs/superpowers/follow-ups/<plan>.md`。
+  - **Greenfield SDD Scripts**：repo 尚未建立時 `sdd-workspace` 退回當前目錄（`.ps1` 同步支援），`review-package` 則在非 repo 環境下給出可行動的錯誤。
+  - **TDD 特徵化守門**：行為保持型重構的五步程序（先變異、確認失敗、由 VCS 還原、維持綠燈），並從邊界與變異檢查章節交叉引用。
+- **上游內容同步 — 第 4 批**：brainstorm 啟動腳本改由 `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST` 決定 host（`--host`/`--url-host` 仍優先）、`writing-skills` 新增搬移內容時的連結重解指引，SDD 審查者改為把完整報告寫入 `…/task-N-review.md` 並只回傳少於 15 行摘要 — MCP 端新增 `review_file` 參數（若要求的路徑正規化後等於報告或 brief 檔，改用推導出的 `-review.md`），以及讓 `[FIX_BASE_SHA]` 真正被代入的 `fix_base_sha` 別名。
+- **上游 drift 報告**：`npm run drift` 以已提交的上游基線比對 `obra/superpowers`，列出已採納檔案的變動、本地缺漏的引進檔案與 fork 專屬新增；`npm run drift:record -- --ignore <skill>` 於審閱同步後更新基線。
+- **MCP 表面覆蓋率測試**：磁碟上的每個 skill 都必須是對外曝露、且讀出內容屬於該 skill 的 MCP resource，prompt 清單必須與 4 個 README 完全一致。
+- **MCP 描述保真**：上游的跳脫引號格式改為未加引號的 YAML plain scalar，確保 `SkillsManager` 經 MCP 輸出時不會出現多餘反斜線。
+- **回歸防護**：`tests/upstream_sync_test.js` 增至 22 項標記檢查（涵蓋第 1–4 批）；全測試套件通過（8 個 npm 套件共 139 項檢查、PowerShell 90 項斷言、SDD 16 + host 預設 11 + render-graph 8 項 bash 斷言）。
+
+### v6.3.6
 
 - **極致效能躍升優化 (2x~8.1x 加速)**：
   - **並行技能索引與快取前置**：`SkillsManager.listSkills` 升級為非同步並行目錄遍歷 (`Promise.all`) 搭配根目錄預解析快取，冷啟動技能索引延遲由 4.79ms 銳減至 2.35ms（**2.04x 速度提升**）。
@@ -194,60 +226,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - 全套件 85 項核心單元/端到端測試與 174 項回歸斷言 100% 通過（包含 `setup_test.js` 33 項測試全部通過），並產出 [`SECURITY.md`](SECURITY.md)、[`tests/code_review_report.md`](tests/code_review_report.md) 與 [`tests/performance_optimization_report.md`](tests/performance_optimization_report.md)。
 - **多語系文檔全面對齊**：
   - 4 語系 README（[`README.md`](README.md)、[`README.zh-TW.md`](README.zh-TW.md)、[`README.ja.md`](README.ja.md)、[`README.ko.md`](README.ko.md)）同步支援環境清單、效能指標與一鍵指令表格。
-
-### v6.3.5
-
-- **新增 7 款主流 AI 開發環境一鍵安裝 (`src/setup-runner.ts`, `scripts/install.sh`)**：
-  - 全域配置引擎支援擴充至 15 款 AI Agent 與 IDE 環境：
-    - **GitHub Copilot (VS Code Insiders)**：`Code - Insiders/User/mcp.json`（具備實體路徑完全隔離，避免與正式版 VS Code 互相覆寫，別名 `copilot-insiders`, `vscode-insiders`, `code-insiders`, `insiders`, `insider`）
-    - **QwenPaw (個人 AI 助理工作站)**：`~/.qwenpaw/config.json`（相容舊版 `~/.copaw/config.json`，別名 `qwenpaw`, `copaw`）
-    - **Cline (VS Code / CLI)**：`.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json`（別名 `cline`, `claude-dev`）
-    - **Kilo Code**：`~/.config/kilo/kilo.jsonc`（自適應 `"mcp"` root 與陣列 command 規格，別名 `kilo`, `kilocode`）
-    - **Qoder**：`~/.qoder/settings.json`（別名 `qoder`）
-    - **Kiro**：`~/.kiro/settings/mcp.json`（別名 `kiro`, `kiro-code`）
-    - **Trae**：`.../Trae/User/mcp.json`（跨平台支援 macOS、Windows、Linux 與 Trae CN）
-  - 新增 `"json-mcp"` 設定格式型別，精確相容 Kilo Code 特有字典規格。
-  - 落實 Single Source of Truth (SSOT)，全面由 `runSetup` 透過 `harness.defaultConfig` 動態注入設定範本。
-- **雙子 Subagent 架構與安全品質審查 (Code Review)**：
-  - 派出專職「架構與安全性審查員」與「代碼品質與邊界審查員」雙代理審查。
-  - 全數驗證原子置換（`crypto.randomBytes(8)` + `flag: "wx"`）、Symlink 邊界防禦、最小目錄權限 `0o700` / 檔案權限 `0o600`，以及全環境預設零磁碟污染原則。
-  - 完成專案全面安全掃描與審計，更新 [`SECURITY.md`](SECURITY.md)（173 項自動化回歸斷言 100% 通過）。
-- **自動化測試套件擴充 (`tests/setup_test.js`)**：
-  - 單元測試由 21 項大幅擴增至 32 項（100% 通過），補齊 Claude Desktop、Kimi Work 與 Hermes Desktop 的端到端沙盒測試與別名驗證。
-
-### v6.3.4
-
-- **Universal One-Click 全域安裝引擎 (`src/setup-runner.ts`, `scripts/`)**：
-  - 支援 8 大主流 AI 開發環境的一鍵零依賴配置：Antigravity、Pi Desktop / Pi Agent、Cursor、GitHub Copilot (VS Code)、Hermes Desktop / Agent、Kimi Work / Kimi Code、Claude Desktop 與 Devin Desktop。
-  - 提供 CLI 執行指令 `superpowers-setup` 與 `superpowers-mcp setup`，並提供跨平台一鍵安裝腳本（[`install.sh`](scripts/install.sh) 與 [`install.ps1`](scripts/install.ps1)）。
-  - **明確同意與反病毒架構 (Explicit Consent & Anti-Virus Design)**：嚴格要求 `--target <client>`，徹底廢除無授權的磁碟盲目掃描與全盤修改（移除 `--all`）。
-  - **原子寫入防護 (`safeWriteConfig`)**：採用隨機 8-byte nonce 暫存檔、`flag: "wx"` 獨占建立與 `renameSync` 原子更名，消除並發競爭與半寫入檔案損毀。
-  - **符號連結保護與最小權限**：`realpathSync` 解析目標真實路徑，新目錄嚴格限制 `0o700`、檔案設為 `0o600`，備份檔繼承原始權限。
-  - **注入防護與 JSONC 解析**：所有參數經 `JSON.stringify` 轉譯，JSONC 支援註解/尾隨逗號容錯，並以 `isPlainObject` 防禦 Prototype Pollution 原型鏈攻擊。
-  - **CLI 傳輸隔離**：於 `src/server.ts` 入口前置分流 setup 參數，避免與 MCP Stdio 通訊協定衝突造成輸出污染。
-  - **完整測試套件**：新增 [`tests/setup_test.js`](tests/setup_test.js)（21 項測試 100% 通過）。
-- **Skill Compositions 技能組合與端到端 Pipeline (`src/server.ts`, `docs/`)**：
-  - 新增 3 組全新 MCP 工作流 Prompts：`feature-pipeline`、`structured-debug` 與 `skill-composition`。
-  - 建立 4 語系在地化完整指南（[`docs/skill-compositions.zh-TW.md`](docs/skill-compositions.zh-TW.md)），納入橫向 Mermaid 流程圖與 ASCII 流程指引。
-  - 強化 [`skills/using-superpowers/SKILL.md`](skills/using-superpowers/SKILL.md) 與 [`skills/writing-plans/SKILL.md`](skills/writing-plans/SKILL.md) 之 `Recommended Skill` 標籤與控制器調度協議。
-  - 新增 [`tests/prompts_compositions_test.js`](tests/prompts_compositions_test.js)（7 項測試 100% 通過）。
-- **Prompts 安全加固與生命週期修復 (`src/server.ts`)**：
-  - 升級 `interpolateTemplate` 為單趟統一正則替換，消除二級模板階層展開注入漏洞。
-  - 全面普及 `getStringArg` 32 KB 長度截斷與 `hasOwnProperty` 安全檢查。
-  - `structured-debug` 補齊 Stage 6（審查意見修復）與 Stage 7（分支清理與收尾）。
-- **全面安全性審計與驗證**：
-  - `npm audit` 報告 0 漏洞，精確鎖定 `hono`、`@hono/node-server`、`fast-uri` 與 `qs`；全專案 5 大測試套件（100+ 項斷言）100% 通過；同步更新 [`SECURITY.md`](SECURITY.md)。
-
-### v6.3.3
-
-- **MCP 標準 Prompts 支援 (`src/server.ts`)**：
-  - 實作標準 Prompt 處理常式，註冊 6 組常用 Prompts（`session-start`、`sdd-implementer`、`sdd-task-reviewer`、`sdd-re-review`、`spec-reviewer`、`plan-reviewer`），可直接於 IDE Prompt Picker 中選用。
-- **多 Harness 參考對應表**：
-  - 新增 Devin CLI（[`references/devin-tools.md`](skills/using-superpowers/references/devin-tools.md)）與 OpenCode（[`references/opencode-tools.md`](skills/using-superpowers/references/opencode-tools.md)）之原生工具對應。
-- **多語言文檔對齊**：
-  - 統一各語言 README 中的 MCP 功能支援表（Tools / Prompts / Resources）與多 Harness 支援矩陣。
-- **測試套件擴充**：
-  - 新增 `prompts/list` 與 `prompts/get` 參數注入的自動化測試斷言。
 
 👉 *更多歷史版本更新紀錄，請參閱完整的 [CHANGELOG.md](CHANGELOG.md)。*
 

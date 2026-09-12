@@ -2,6 +2,8 @@
 
 [English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md)
 
+> **Source of truth:** this English document is canonical. Update it first when skill behavior changes, then sync the translations.
+
 
 ## 1. Why Skill Compositions Matter
 
@@ -13,12 +15,13 @@ While each atomic skill acts as a precision engineering tool, production-grade d
 
 ## 2. Core Architectural Principles
 
-When composing skills, always enforce these four safety mechanisms:
+When composing skills, always enforce these five safety mechanisms:
 
 1. **Isolation First (via Git Worktrees)**: Whenever coordinating multiple subagents or debugging independent hypotheses in parallel, always use `superpowers:using-git-worktrees` to avoid filesystem race conditions and workspace pollution.
 2. **Test-Driven by Default (TDD)**: No code modifications should occur without a failing test first (Red-Green-Refactor cycle) to guarantee regression safety.
 3. **Dual-Layer Review Gates**: Never skip task-level spec compliance checks or feature-level branch reviews (`requesting-code-review` / `receiving-code-review`).
 4. **Full Verification Before Completion**: Run the entire project test suite, type-checker, and linter (`verification-before-completion`) before claiming done or merging branches.
+5. **Remote-Safety Boundary (Local Commits Only)**: Keep commits local — no push/pull/fetch unless the plan or your human partner says so. Branch from a shared ref with `--no-track` (or `--unset-upstream` before the first commit) so a feature branch never tracks a shared branch, and never rewrite a shared branch (`git revert` is the only remedy you apply yourself).
 
 ---
 
@@ -40,14 +43,14 @@ flowchart LR
 
 | Step | Skill | Responsibility & Deliverable |
 | :--- | :--- | :--- |
-| **1. Requirements & Design** | `brainstorming` | Clarify intent, constraints, architecture decisions, and edge cases; output Design Spec. |
+| **1. Requirements & Design** | `brainstorming` | Clarify intent, constraints, architecture decisions, and edge cases; confirm shared understanding, run the planning-handoff review, and output the Design Spec. |
 | **2. Plan Construction** | `writing-plans` | Decompose Spec into bite-sized, testable tasks annotated with Recommended Skills. |
 | **3. Workspace Isolation** | `using-git-worktrees` | Create an isolated Git worktree to protect the main branch and active work. |
 | **4. Task Execution** | `subagent-driven-development` | Dispatch fresh, context-isolated subagents to execute tasks sequentially. |
 | **5. Core Implementation** | `test-driven-development` | Enforce the strict Red ➔ Green ➔ Refactor cycle for all business logic. |
-| **6. Full Suite Verification** | `verification-before-completion` | Execute the full test suite, linter, and type checks to ensure zero regressions. |
+| **6. Full Suite Verification** | `verification-before-completion` | Execute the full test suite, linter, and type checks to ensure zero regressions; when there is no test command, re-open the artifact and account for every part of the request. |
 | **7. Adversarial Review** | `requesting-code-review` | Assemble review package and perform comprehensive code & architecture reviews. |
-| **8. Branch Finalization** | `finishing-a-development-branch` | Merge/PR, clean up worktrees, and delete temporary branches cleanly. |
+| **8. Branch Finalization** | `finishing-a-development-branch` | Export deferred findings (PR checklist or committed follow-ups file), then merge/PR, clean up worktrees, and delete temporary branches cleanly. |
 
 ---
 
@@ -109,7 +112,7 @@ flowchart LR
 
 1. **`brainstorming`**: Identify critical business paths and high-risk modules.
 2. **`writing-plans`**: Create a roadmap for adding characterization and boundary tests.
-3. **`test-driven-development`**: Author golden-master and regression tests against existing behaviors.
+3. **`test-driven-development`**: Author golden-master and regression tests against existing behaviors using the TDD characterization guard (mutate, verify failure, restore via VCS, stay green).
 4. **`systematic-debugging`**: Root-cause hidden defects surfaced while establishing test baselines.
 5. **`verification-before-completion`**: Solidify automated CI test barriers.
 
@@ -149,8 +152,8 @@ When the controller agent dispatches a task subagent:
 | **`skill-composition`** | `scenario` | Dynamic skill composition recommender for feature, debug, refactor, or legacy tasks. |
 | **`session-start`** | - | Injects foundational Superpowers context and skill invocation rules. |
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD task implementer subagent prompt template. |
-| **`sdd-task-reviewer`** | `brief_file`, `report_file`, ... | SDD per-task spec & quality reviewer prompt template. |
-| **`sdd-re-review`** | `brief_file`, `previous_findings`, ... | SDD fix-round scoped re-reviewer prompt template. |
+| **`sdd-task-reviewer`** | `brief_file`, `report_file`, `review_file`, ... | SDD per-task spec & quality reviewer prompt template. |
+| **`sdd-re-review`** | `brief_file`, `review_file`, `previous_findings`, ... | SDD fix-round scoped re-reviewer prompt template. |
 | **`spec-reviewer`** | `spec_file` | Adversarial design specification reviewer prompt template. |
 | **`plan-reviewer`** | `plan_file`, `spec_file` | Adversarial implementation plan reviewer prompt template. |
 

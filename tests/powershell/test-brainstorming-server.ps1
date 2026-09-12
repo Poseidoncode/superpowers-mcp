@@ -64,6 +64,61 @@ try {
     $out = & $stopScript (Join-Path $root "no-such-session")
     Assert-ExitCode $LASTEXITCODE 0 "stop on missing session exits 0"
     Assert-True ((($out | Out-String) -match "not_running")) "stop on missing session reports not_running"
+
+    # 5. BRAINSTORM_HOST / BRAINSTORM_URL_HOST supply the defaults when the
+    #    flags are absent (upstream sync PR #2262); an explicit flag still wins
+    #    and the loopback guard still refuses a non-loopback env value.
+    $envProject = Join-Path $root "env-project"
+    New-Item -ItemType Directory -Path $envProject | Out-Null
+    $envSessionDir = $null
+    $flagSessionDir = $null
+    $envBrainstormRoot = Join-Path $envProject ".superpowers/brainstorm"
+    $env:BRAINSTORM_HOST = "localhost"
+    $env:BRAINSTORM_URL_HOST = "127.0.0.2"
+    try {
+        $out = & $startScript --project-dir $envProject
+        Assert-ExitCode $LASTEXITCODE 0 "start-server with env hosts exits 0"
+        $envLine = ($out | Select-Object -First 1)
+        Assert-True ($envLine -match '"host":"localhost"') "BRAINSTORM_HOST supplies the bind host"
+        Assert-True ($envLine -match '"url_host":"127\.0\.0\.2"') "BRAINSTORM_URL_HOST supplies the reported url host"
+        $envSessionDir = Get-ChildItem -LiteralPath $envBrainstormRoot -Directory | Select-Object -First 1
+        $envInfo = Get-Content -LiteralPath (Join-Path $envSessionDir.FullName "state/server-info") -Raw | ConvertFrom-Json
+        Assert-True (([string]$envInfo.url) -match "127\.0\.0\.2") "env url host reaches the published url"
+
+        # A second start in the same project from this same host process: $PID is
+        # the invoking pwsh, so the session id must not collide with the live one.
+        $out = & $startScript --project-dir $envProject --host 127.0.0.1 --url-host 127.0.0.3
+        Assert-ExitCode $LASTEXITCODE 0 "explicit flags with env hosts exit 0"
+        $flagLine = ($out | Select-Object -First 1)
+        Assert-True ($flagLine -match '"host":"127\.0\.0\.1"') "--host beats BRAINSTORM_HOST"
+        Assert-True ($flagLine -match '"url_host":"127\.0\.0\.3"') "--url-host beats BRAINSTORM_URL_HOST"
+        $flagSessionDir = Get-ChildItem -LiteralPath $envBrainstormRoot -Directory |
+            Where-Object { $_.FullName -ne $envSessionDir.FullName } | Select-Object -First 1
+        Assert-True ($null -ne $flagSessionDir) "a second start gets its own session directory"
+        if ($null -ne $flagSessionDir) {
+            $null = & $stopScript $flagSessionDir.FullName
+            $flagPidFile = Join-Path $flagSessionDir.FullName "state/server.pid"
+            Assert-True (-not (Test-Path -LiteralPath $flagPidFile)) "flag-beats-env session stopped"
+        }
+        Assert-True (Test-Path -LiteralPath (Join-Path $envSessionDir.FullName "state/server.pid")) "the first session survives a second start"
+
+        $env:BRAINSTORM_HOST = "0.0.0.0"
+        $badProject = Join-Path $root "bad-env-project"
+        New-Item -ItemType Directory -Path $badProject | Out-Null
+        $out = & pwsh -NoProfile -File $startScript --project-dir $badProject 2>&1
+        Assert-ExitCode $LASTEXITCODE 1 "non-loopback BRAINSTORM_HOST refused"
+        Assert-True ((($out | Out-String) -match "Refusing insecure")) "non-loopback refusal is explicit"
+    }
+    catch {
+        Fail "env-host cases raised a terminating error: $($_.Exception.Message)"
+    }
+    finally {
+        foreach ($dir in @($flagSessionDir, $envSessionDir)) {
+            if ($null -ne $dir) { $null = & $stopScript $dir.FullName }
+        }
+        Remove-Item Env:\BRAINSTORM_HOST -ErrorAction SilentlyContinue
+        Remove-Item Env:\BRAINSTORM_URL_HOST -ErrorAction SilentlyContinue
+    }
 }
 finally {
     Remove-TestRoot -Root $root

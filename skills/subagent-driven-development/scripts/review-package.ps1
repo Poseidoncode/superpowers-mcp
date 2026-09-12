@@ -19,6 +19,13 @@ if (-not (Test-Path -LiteralPath $plan -PathType Leaf)) {
     exit 2
 }
 
+& git rev-parse --git-dir *> $null
+if ($LASTEXITCODE -ne 0) {
+    [Console]::Error.WriteLine("error: not a git repository — review-package needs the BASE and HEAD commits of the task under review.")
+    [Console]::Error.WriteLine("A greenfield plan's first task creates the repo itself: run this from inside the repo once that task has committed.")
+    exit 2
+}
+
 & git rev-parse --verify --quiet $base *> $null
 if ($LASTEXITCODE -ne 0) {
     [Console]::Error.WriteLine("bad BASE: $base")

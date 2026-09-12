@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -173,9 +173,41 @@ To help you choose the right skill, we have structured all 14 skills across the 
 
 ---
 
+## 🔧 Keeping Up with Upstream
+
+This fork imports the upstream [`obra/superpowers`](https://github.com/obra/superpowers) skill content through reviewed batches. The upstream blob SHAs captured at the last sync live in [`tests/upstream-sync-baseline.json`](tests/upstream-sync-baseline.json).
+
+```bash
+npm run drift                    # compare the baseline against upstream and list what moved
+npm run drift:record             # refresh the baseline after a reviewed sync
+node scripts/upstream-drift.js   # offline: baseline integrity + local coverage
+```
+
+The report separates files that changed upstream, upstream additions and removals, tracked files missing from this fork, and fork-only additions. An upstream skill this fork deliberately does not adopt is reported as a decision rather than drift, and is recorded with `npm run drift:record -- --ignore <skill>`. `npm test` fails when an imported upstream file is deleted or when a shipped skill loses its upstream lineage.
+
 ## 🆕 Recent Updates
 
-### v6.3.6 (Latest)
+### v6.3.7 (Latest)
+
+- **Upstream Sync — Batches 1–3 (obra/superpowers)**:
+  - **Automatic Skill Routing**: `systematic-debugging` and `test-driven-development` descriptions now name their typed trigger phrases (`"tdd"`, `"systematic debug"`, …) and cross-route to the sibling skill, improving skill selection inside MCP clients.
+  - **Evidence Without a Test Command**: `verification-before-completion` gains the "When There Is No Test Command" section — for reports, research, audits, and correspondence, re-open the artifact, prove what can be proven, and account for every part of the request while claiming *complete*, never *right*.
+  - **Brainstorming Intent Gates**: new "Establish Shared Understanding" step (discover intent, write back your understanding, carry it into the design) plus a rewritten HARD-GATE that lists each path's prerequisites and refuses to treat one approval as permission to skip the rest.
+  - **Planning-Handoff Review**: brainstorming's spec self-review becomes a scored handoff review (0.0–9.9 readiness, burden ledger, one bounded improvement pass, read-only reassessment) with a fail-safe restore rule.
+  - **Saved-Plan Review & Contextual Handoff**: `writing-plans` now requires the human to review the saved plan before execution and, when no method was supplied, a plan-specific execution recommendation instead of a hardcoded default.
+  - **Plan Checkbox Bookkeeping**: `executing-plans` and `subagent-driven-development` tick the plan file's steps in the same message as the completion bookkeeping.
+  - **Remote-Safety Boundary**: `using-git-worktrees` requires `--no-track` plus a `git branch -vv` tracking check (`--unset-upstream` before the first commit); `executing-plans` keeps commits local and forbids rewriting shared branches; implementers report any mid-task push demand as BLOCKED instead of pushing.
+  - **Discoveries Ledger**: SDD's progress ledger gains a `## Discoveries` section so cross-task findings survive compaction and feed the next dispatch's interface clauses.
+  - **Deferred Findings Export**: before a plan workspace is deleted, `Ruling:` / `minor (deferred)` / `parked` lines are exported to a PR "Deferred items" checklist or a committed `docs/superpowers/follow-ups/<plan>.md`.
+  - **Greenfield SDD Scripts**: `sdd-workspace` falls back to the current directory before a repo exists (matching `.ps1` behavior), while `review-package` refuses actionably outside a repo.
+  - **TDD Characterization Guard**: a five-step procedure for behavior-preserving refactors — mutate, verify failure, restore via VCS, stay green — referenced from the boundary and mutation-check sections.
+- **Upstream Content Sync — Batch 4**: the brainstorm start script takes its hosts from `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST` (`--host`/`--url-host` still win), `writing-skills` gained moved-content link re-resolution, and SDD reviewers now write their full report to `…/task-N-review.md` and return under 15 lines — exposed over MCP as the new `review_file` argument (replaced by the derived `-review.md` sibling when the requested path normalises to the report or brief file), plus the `fix_base_sha` alias that finally feeds `[FIX_BASE_SHA]`.
+- **Upstream Drift Report**: `npm run drift` compares the committed upstream baseline against `obra/superpowers` and lists adopted files that moved, imports missing locally, and fork-only additions; `npm run drift:record -- --ignore <skill>` refreshes it after a reviewed sync.
+- **MCP Surface Coverage Test**: every skill on disk must be an exposed MCP resource serving its own content, and the prompt inventory must match all four READMEs exactly.
+- **MCP Description Fidelity**: upstream's escaped-quote descriptions were adapted to unquoted YAML plain scalars so the `SkillsManager` parser never emits literal backslashes over MCP.
+- **Regression Guards**: `tests/upstream_sync_test.js` now carries 22 labeled checks covering Batches 1–4; full suite green (139 npm checkmarks across 8 suites, 90 PowerShell assertions, 16 SDD + 11 host-default + 8 render-graph bash assertions).
+
+### v6.3.6
 
 - **Extreme Performance Optimization (2x~8.1x Speedup)**:
   - **Parallel Skill Discovery**: Upgraded `SkillsManager.listSkills` to concurrent asynchronous directory traversal (`Promise.all`) combined with pre-resolved root path caching, cutting cold-start skill indexing latency from 4.79ms to 2.35ms (**2.04x speedup**).
@@ -194,60 +226,6 @@ To help you choose the right skill, we have structured all 14 skills across the 
   - All 85 core unit/integration tests and 174 regression assertions passing at 100% across all suites (`edge_cases_test.js`, `run_test.js`, `brainstorm_server_test.js`, `prompts_compositions_test.js`, and `setup_test.js` with 33 passed tests). Refreshed [`SECURITY.md`](SECURITY.md), [`tests/code_review_report.md`](tests/code_review_report.md), and [`tests/performance_optimization_report.md`](tests/performance_optimization_report.md).
 - **Multilingual Documentation Alignment**:
   - Synchronized supported harness directories, performance metrics, and one-click commands across all 4 localized READMEs ([`README.md`](README.md), [`README.zh-TW.md`](README.zh-TW.md), [`README.ja.md`](README.ja.md), [`README.ko.md`](README.ko.md)).
-
-### v6.3.5
-
-- **7 New AI Agent & Editor Harnesses Support (`src/setup-runner.ts`, `scripts/install.sh`)**:
-  - Expanded universal one-click setup engine to support 7 additional AI developer platforms, bringing total coverage to 15 major AI environments:
-    - **GitHub Copilot (VS Code Insiders)** (`Code - Insiders/User/mcp.json`, strictly isolated physical configuration path preventing collisions with Stable VS Code, aliases: `copilot-insiders`, `vscode-insiders`, `code-insiders`, `insiders`, `insider`)
-    - **QwenPaw** (`~/.qwenpaw/config.json`, backward-compatible with `copaw`)
-    - **Cline** (`.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json`, aliases: `cline`, `claude-dev`)
-    - **Kilo Code** (`~/.config/kilo/kilo.jsonc` with adaptive `"mcp"` root and array-based command schema, aliases: `kilo`, `kilocode`, `kilo-code`)
-    - **Qoder** (`~/.qoder/settings.json`, alias: `qoder`)
-    - **Kiro** (`~/.kiro/settings/mcp.json`, aliases: `kiro`, `kiro-code`)
-    - **Trae** (`.../Trae/User/mcp.json`, cross-platform support for macOS, Windows, Linux, and Trae CN)
-  - Added `"json-mcp"` schema format type to dynamically handle Kilo Code's unique dictionary structure.
-  - Enforced Single Source of Truth (SSOT) by wiring `harness.defaultConfig(cmd, args)` directly through `runSetup` into `updateJsonConfig`.
-- **Dual-Subagent Architectural & Code Quality Review**:
-  - Dispatched specialized Architectural & Security Reviewer and Quality & Edge-Case Reviewer subagents.
-  - Verified atomic writes (`crypto.randomBytes(8)` + `flag: "wx"`), symlink containment, least-privilege permissions (`0o700`/`0o600`), and zero-pollution disk defaults across all 15 harnesses.
-  - Completed comprehensive project-wide security review with 173 automated regression test assertions.
-- **Automated Test Suite Expansion (`tests/setup_test.js`)**:
-  - Expanded setup regression tests from 21 to 32 tests (100% pass rate), adding end-to-end sandbox creation, aliases, and update assertions for Claude Desktop, Kimi Work, and Hermes Desktop.
-
-### v6.3.4
-
-- **Universal One-Click Global Setup Engine (`src/setup-runner.ts`, `scripts/`)**:
-  - One-click zero-dependency configuration for 8 major AI environments: Antigravity, Pi Desktop / Pi Agent, Cursor, GitHub Copilot (VS Code), Hermes Desktop / Agent, Kimi Work / Kimi Code, Claude Desktop, and Devin Desktop.
-  - Added CLI executables `superpowers-setup` and `superpowers-mcp setup` with cross-platform installers ([`install.sh`](scripts/install.sh) and [`install.ps1`](scripts/install.ps1)).
-  - **Explicit Consent & Anti-Virus Design**: Mandated explicit `--target <client>` requirement, completely eliminating unprompted bulk disk scanning or blind crawling (`--all` removed).
-  - **Atomic File Operations & Race Defense (`safeWriteConfig`)**: Implemented non-destructive atomic writes via temporary files with process IDs and cryptographically random 8-byte nonces (`crypto.randomBytes(8)`), exclusive creation (`wx`), and atomic `renameSync`.
-  - **Symlink Preservation & Permissions**: Preserves symlink destinations with `realpathSync`, restricts created directories to `0o700` and config files to `0o600`.
-  - **Injection Defense & JSONC Parsing**: Parameter escaping via `JSON.stringify`, JSONC comment tolerance, and `isPlainObject` prototype pollution defense.
-  - **CLI Transport Stdio Isolation**: Front-intercepts setup CLI commands in `src/server.ts` before MCP Stdio transport initialization.
-  - **Comprehensive Test Suite**: Added [`tests/setup_test.js`](tests/setup_test.js) with 21 unit assertions (100% PASS).
-- **Skill Compositions & End-to-End Orchestration Pipelines (`src/server.ts`, `docs/`)**:
-  - Added 3 new MCP workflow prompts: `feature-pipeline`, `structured-debug`, and `skill-composition`.
-  - Comprehensive localized documentation in [`docs/skill-compositions.md`](docs/skill-compositions.md) (EN), [`docs/skill-compositions.zh-TW.md`](docs/skill-compositions.zh-TW.md) (ZH-TW), [`docs/skill-compositions.ja.md`](docs/skill-compositions.ja.md) (JA), and [`docs/skill-compositions.ko.md`](docs/skill-compositions.ko.md) (KO) with horizontal Mermaid flowcharts and ASCII workflow diagrams.
-  - Enhanced [`skills/using-superpowers/SKILL.md`](skills/using-superpowers/SKILL.md) and [`skills/writing-plans/SKILL.md`](skills/writing-plans/SKILL.md) with `Recommended Skill` task metadata standards and controller-to-subagent dispatch protocols.
-  - Added [`tests/prompts_compositions_test.js`](tests/prompts_compositions_test.js) with 7 comprehensive assertions (100% PASS).
-- **Prompts Security Hardening & Lifecycle Fixes (`src/server.ts`)**:
-  - Upgraded `interpolateTemplate` to single-pass regex replacement, eliminating cascading placeholder injection risks.
-  - Enforced universal `getStringArg` with a 32 KB clamp and `hasOwnProperty` validation across all 9 prompts.
-  - Augmented `structured-debug` with Stage 6 (findings resolution via `receiving-code-review`) and Stage 7 (branch finishing and cleanup via `finishing-a-development-branch`).
-- **Full Security Audit & Verification**:
-  - Verified 0 vulnerabilities across `npm audit` with exact dependency overrides for `hono`, `@hono/node-server`, `fast-uri`, and `qs`. All 5 test suites (100+ assertions) passing 100%. Updated [`SECURITY.md`](SECURITY.md).
-
-### v6.3.3
-
-- **MCP Standard Prompts Support (`src/server.ts`)**:
-  - Implemented standard prompt handlers, registering 6 prompts (`session-start`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer`) for native IDE prompt-picker usage.
-- **Multi-Harness Reference Mappings**:
-  - Added platform references for Devin CLI ([`references/devin-tools.md`](skills/using-superpowers/references/devin-tools.md)) and OpenCode ([`references/opencode-tools.md`](skills/using-superpowers/references/opencode-tools.md)).
-- **Multi-Lingual Documentation Alignment**:
-  - Aligned MCP capability tables (Tools, Prompts, Resources) and multi-harness matrices across all supported languages.
-- **Test Suite Expansion**:
-  - Added automated test assertions for `prompts/list` and `prompts/get` parameter injection.
 
 👉 *For the complete release history, see [CHANGELOG.md](CHANGELOG.md).*
 

@@ -7,6 +7,10 @@
 # plan in the same working tree can never read or overwrite another plan's
 # artifacts.
 #
+# A greenfield plan's first task is often "create the repo", so there is no
+# repo root to resolve yet: fall back to the current directory rather than
+# failing, since that task is exactly the one needing a brief.
+#
 # Usage: ./sdd-workspace.ps1 PLAN_FILE
 
 $ErrorActionPreference = "Stop"
@@ -28,8 +32,21 @@ if ([string]::IsNullOrEmpty($slug) -or $slug -eq "." -or $slug -eq "..") {
     exit 2
 }
 
-$root = (& git rev-parse --show-toplevel).Trim()
-$base = Join-Path $root ".superpowers/sdd"
+$root = $null
+try {
+    # Collect all output without an early-terminating pipeline: a
+    # Select-Object -First teardown can leave $LASTEXITCODE stale.
+    $rootOutput = @(& git rev-parse --show-toplevel 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $rootOutput.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($rootOutput[0])) {
+        $root = ([string]$rootOutput[0]).Trim()
+    }
+} catch {
+    $root = $null
+}
+if ([string]::IsNullOrWhiteSpace($root)) {
+    $root = (Get-Location).Path
+    [Console]::Error.WriteLine("sdd-workspace.ps1: no git repository yet, using $root/.superpowers/sdd until this plan's first task creates one")
+}
 
 function Get-PhysicalDirectoryPath($path) {
     if (-not (Test-Path -LiteralPath $path)) { return $path }
@@ -59,6 +76,10 @@ if ([string]::IsNullOrEmpty($planParent)) { $planParent = "." }
 
 $planDir = Get-PhysicalDirectoryPath $planParent
 $rootPhys = Get-PhysicalDirectoryPath $root
+# Build $base from the physical root so the greenfield fallback (cwd, which
+# may be a symlinked path such as macOS /var) prints the same location as
+# the later git-resolved call.
+$base = Join-Path $rootPhys ".superpowers/sdd"
 
 $planAbs = (Join-Path $planDir $planLeaf) -replace '\\', '/'
 $rootNorm = $rootPhys -replace '\\', '/'

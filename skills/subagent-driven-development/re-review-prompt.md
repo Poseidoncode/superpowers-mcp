@@ -73,9 +73,12 @@ Subagent (general-purpose):
 
     ## Output Format
 
-    Your final message is the report itself: begin directly with the first
-    finding's verdict. Every line is a verdict, a finding with file:line,
-    or a check you ran — no preamble, no process narration.
+    Append this round's verdicts to [REVIEW_FILE] under a `### Round <N>`
+    heading — the task's review file is the durable record and fix
+    subagents read it. Then send a final message under 15 lines: begin
+    directly with the first finding's verdict. Every line is a verdict, a
+    finding with file:line, or a check you ran — no preamble, no process
+    narration.
 
     ### Finding Verdicts
 
@@ -107,9 +110,12 @@ Subagent (general-purpose):
 - `[FINDINGS]` — the Critical/Important findings and spec gaps from the
   previous review, copied verbatim, one per bullet
 - `[REPORT_FILE]` — the implementer's report file (fix reports appended)
+- `[REVIEW_FILE]` — the task's review file (brief `…/task-N-brief.md` →
+  review `…/task-N-review.md`); append this round's verdicts to it
 - `[FIX_BASE_SHA]` — the head the previous review saw
 - `[HEAD_SHA]` — current commit
 - `[DIFF_FILE]` — the path `scripts/review-package PLAN_FILE FIX_BASE HEAD` printed
 
 **Re-reviewer returns:** per-finding verdicts (ADDRESSED / NOT ADDRESSED),
-new breakage in the fix diff, out-of-scope observations, and a round verdict.
+new breakage in the fix diff, out-of-scope observations, and a round verdict —
+appended to `[REVIEW_FILE]`, with a short final message.

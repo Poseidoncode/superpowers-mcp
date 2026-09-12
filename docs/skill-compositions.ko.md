@@ -2,6 +2,8 @@
 
 [English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md)
 
+> **단일 소스(Source of Truth):** 이 영어 문서가 정본입니다. 스킬 동작이 바뀌면 영어 문서를 먼저 갱신하고 번역을 동기화하세요.
+
 ## 1. 스킬 조합이 중요한 이유 (Why Skill Compositions Matter)
 
 `superpowers-mcp`의 14개 핵심 스킬은 요구사항 명확화, 아키텍처 설계, 격리된 작업 환경 구축, 테스트 주도 개발(TDD), 체계적 디버깅부터 전체 검증, 코드 리뷰, 브랜치 통합에 이르기까지 소프트웨어 개발 라이프사이클(SDLC) 전반을 다룹니다.
@@ -12,16 +14,15 @@
 
 ## 2. 핵심 아키텍처 원칙 (Core Architectural Principles)
 
-스킬을 조합할 때는 항상 다음 4가지 안전 보호 메커니즘을 준수해야 합니다:
+스킬을 조합할 때는 항상 다음 5가지 안전 보호 메커니즘을 준수해야 합니다:
 
 1. **물리적 격리 최우선 (Isolation First via Git Worktrees)**: 다중 에이전트 협업이나 여러 가설의 병렬 디버깅 시 항상 `superpowers:using-git-worktrees`를 사용하여 독립된 디렉토리를 생성하고 파일 충돌(Race Condition)과 작업 환경 오염을 방지합니다.
 2. **기본적인 테스트 주도 개발 (TDD by Default)**: 회귀 안전성을 보장하기 위해 실패하는 테스트(Red ➔ Green ➔ Refactor)를 먼저 작성하지 않고 코드를 수정해서는 안 됩니다.
 3. **이중 검토 게이트 (Dual-layer Review)**: 태스크 단위의 스펙 준수 검사와 피처 전체의 브랜치 리뷰(`requesting-code-review` / `receiving-code-review`)를 생략해서는 안 됩니다.
 4. **완료 전 전체 검증 (Verification Before Completion)**: 완료를 선언하거나 브랜치를 병합하기 전에 반드시 전체 테스트 스위트, Linter, 타입 검사(`verification-before-completion`)를 실행합니다.
+5. **원격 안전 경계(Local Commits Only)**: 커밋은 로컬에 유지하고, 계획이나 사람 파트너의 지시 없이는 push/pull/fetch하지 않습니다. 공유 ref에서 분기할 때는 `--no-track`(또는 첫 커밋 전 `--unset-upstream`)으로 기능 브랜치가 공유 브랜치를 추적하지 않게 하고, 공유 브랜치 재작성은 금지합니다(스스로 적용할 수 있는 것은 `git revert`뿐).
 
 ---
-
-## 3. 4대 표준 워크플로우 파이프라인 (Standard Pipelines)
 
 ## 3. 4대 표준 스킬 조합 파이프라인 (Four Standard Workflow Pipelines)
 
@@ -41,14 +42,14 @@ flowchart LR
 
 | 단계 | 스킬 (Skill) | 역할 및 산출물 |
 | :--- | :--- | :--- |
-| **1. 요구사항 및 설계** | `brainstorming` | 요구사항, 제약사항, 아키텍처 결정을 명확히 하고 설계 스펙(Spec) 산출. |
+| **1. 요구사항 및 설계** | `brainstorming` | 요구사항, 제약사항, 아키텍처 결정을 명확히 하고 공유 이해 확인과 플래닝 핸드오프 리뷰를 거쳐 설계 스펙(Spec) 산출. |
 | **2. 계획 수립** | `writing-plans` | 스펙을 독립 검증 가능한 태스크 목록으로 분해하고 Recommended Skill 명시. |
 | **3. 환경 격리** | `using-git-worktrees` | 격리된 Git Worktree를 생성하여 메인 브랜치와 작업 환경 보호. |
 | **4. 태스크 실행** | `subagent-driven-development` | 독립된 서브에이전트를 순차 실행하여 깨끗한 컨텍스트 유지. |
 | **5. 로직 구현** | `test-driven-development` | 각 태스크의 비즈니스 로직에 대해 Red ➔ Green ➔ Refactor 주기 엄격 준수. |
-| **6. 전체 검증** | `verification-before-completion` | 전체 테스트 스위트, Linter, 타입 검사를 실행하여 회귀가 없음을 확인. |
+| **6. 전체 검증** | `verification-before-completion` | 전체 테스트 스위트, Linter, 타입 검사를 실행하여 회귀가 없음을 확인. 테스트 명령이 없으면 산출물을 다시 열어 요청 사항을 빠짐없이 점검. |
 | **7. 코드 리뷰** | `requesting-code-review` | 리뷰 패키지를 생성하고 다각적인 코드 및 아키텍처 리뷰 수행. |
-| **8. 브랜치 마무리** | `finishing-a-development-branch` | 병합/PR, Worktree 정리, 임시 브랜치 삭제를 통해 깔끔하게 완료. |
+| **8. 브랜치 마무리** | `finishing-a-development-branch` | 보류 발견을 내보낸 뒤(PR 체크리스트 또는 follow-ups 파일) 병합/PR, Worktree 정리, 임시 브랜치 삭제를 수행. |
 
 ---
 
@@ -110,7 +111,7 @@ flowchart LR
 
 1. **`brainstorming`**: 핵심 비즈니스 경로와 고위험 모듈 식별.
 2. **`writing-plans`**: 특성화 테스트(Characterization Tests) 추가 로드맵 수립.
-3. **`test-driven-development`**: 기존 동작에 대한 골든 마스터 및 회귀 테스트 작성.
+3. **`test-driven-development`**: TDD 특성화 가드(변이 → 실패 확인 → VCS 복원 → 그린 유지)로 기존 동작에 대한 골든 마스터 및 회귀 테스트 작성.
 4. **`systematic-debugging`**: 테스트 추가 과정에서 발견된 잠재 결함 해결.
 5. **`verification-before-completion`**: 자동화된 CI 테스트 장벽 구축.
 
@@ -150,8 +151,8 @@ flowchart LR
 | **`skill-composition`** | `scenario` | 개발 시나리오에 맞춘 동적 스킬 조합 가이드. |
 | **`session-start`** | - | Superpowers 기본 환경 및 스킬 호출 규칙 주입. |
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD 태스크 구현 서브에이전트 프롬프트. |
-| **`sdd-task-reviewer`** | `brief_file`, `report_file`, ... | SDD 단일 태스크 검토 서브에이전트 프롬프트. |
-| **`sdd-re-review`** | `brief_file`, `previous_findings`, ... | SDD 수정 라운드 차분 검토 프롬프트. |
+| **`sdd-task-reviewer`** | `brief_file`, `report_file`, `review_file`, ... | SDD 단일 태스크 검토 서브에이전트 프롬프트. |
+| **`sdd-re-review`** | `brief_file`, `review_file`, `previous_findings`, ... | SDD 수정 라운드 차분 검토 프롬프트. |
 | **`spec-reviewer`** | `spec_file` | 설계 스펙 검토 프롬프트. |
 | **`plan-reviewer`** | `plan_file`, `spec_file` | 구현 계획 검토 프롬프트. |
 

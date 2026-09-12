@@ -67,7 +67,9 @@ $projectDir = ""
 $foreground = $false
 $forceBackground = $false
 $bindHost = "127.0.0.1"
+if ($env:BRAINSTORM_HOST) { $bindHost = $env:BRAINSTORM_HOST }
 $urlHost = ""
+if ($env:BRAINSTORM_URL_HOST) { $urlHost = $env:BRAINSTORM_URL_HOST }
 $idleTimeoutMinutes = ""
 
 for ($i = 0; $i -lt $args.Count; $i++) {
@@ -151,17 +153,34 @@ if ($env:CODEX_CI -and -not $foreground -and -not $forceBackground) {
     $foreground = $true
 }
 
-$sessionId = "$PID-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
+$baseSessionId = "$PID-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
 $brainstormRoot = ""
 if ($projectDir -ne "") {
     $brainstormRoot = Join-Path $projectDir ".superpowers/brainstorm"
+    # $PID is the invoking host process, so two starts in the same second from
+    # one pwsh session would resolve to the same id and die on the live
+    # session's redirected log file. Take the next free directory instead.
+    $sessionId = $baseSessionId
     $sessionDir = Join-Path $brainstormRoot $sessionId
+    $sessionSuffix = 2
+    while (Test-Path -LiteralPath $sessionDir) {
+        $sessionId = "$baseSessionId-$sessionSuffix"
+        $sessionDir = Join-Path $brainstormRoot $sessionId
+        $sessionSuffix++
+    }
     # Reuse the last bound port and session key so a restart keeps an
     # already-open browser tab connected to the same URL with a valid cookie.
     $env:BRAINSTORM_PORT_FILE = Join-Path $brainstormRoot ".last-port"
     $env:BRAINSTORM_TOKEN_FILE = Join-Path $brainstormRoot ".last-token"
 } else {
+    $sessionId = $baseSessionId
     $sessionDir = Join-Path ([System.IO.Path]::GetTempPath()) "brainstorm-$sessionId"
+    $sessionSuffix = 2
+    while (Test-Path -LiteralPath $sessionDir) {
+        $sessionId = "$baseSessionId-$sessionSuffix"
+        $sessionDir = Join-Path ([System.IO.Path]::GetTempPath()) "brainstorm-$sessionId"
+        $sessionSuffix++
+    }
     # $env: assignments persist in the invoking pwsh session; a stale project
     # token/port file from an earlier --project-dir run must not leak into an
     # ephemeral session (it would defeat key rotation and could overwrite the

@@ -2,6 +2,8 @@
 
 [English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md)
 
+> **單一來源（Source of Truth）：** 本英文文件為正式版本。技能行為變更時請先更新英文版，再同步翻譯。
+
 ## 1. 為什麼需要技能組合 (Why Skill Compositions Matter)
 
 `superpowers-mcp` 的 14 個核心技能涵蓋了現代軟體工程生命週期（SDLC）的各個階段：從需求澄清、架構規劃、隔離實作、TDD 開發、系統化除錯，到全套驗證、代碼審查與分支整合。
@@ -12,12 +14,13 @@
 
 ## 2. 核心架構守則 (Core Architectural Principles)
 
-在編排技能時，必須恪守以下四大防護機制：
+在編排技能時，必須恪守以下五大防護機制：
 
 1. **物理隔離優先 (Isolation First via Git Worktrees)**：凡涉及多 Agent 協作或平行除錯，必須強制使用 `superpowers:using-git-worktrees` 建立獨立目錄，防止檔案衝突 (Race Condition) 與環境污染。
 2. **測試驅動開發 (TDD by Default)**：程式碼變更前必須先有失敗測試（Red-Green-Refactor），確保迴歸安全。
 3. **雙層審查閘門 (Dual-layer Review)**：Task 級別的規格合規檢查與 Feature 級別的全面分支審查（`requesting-code-review` / `receiving-code-review`）不可省略。
 4. **全套驗證後方可完結 (Verification Before Completion)**：在交付分支或聲明完成前，必須執行全專案測試套件（`verification-before-completion`）。
+5. **遠端安全邊界（Local Commits Only）**：Commit 一律保持本地，未經計畫或人類夥伴指示不得 push/pull/fetch；從共享 ref 開分支時必須 `--no-track`（或於首次 commit 前 `--unset-upstream`），確保功能分支不追蹤共享分支；且嚴禁改寫共享分支（只能以 `git revert` 前向修正）。
 
 ---
 
@@ -39,14 +42,14 @@ flowchart LR
 
 | 步驟 | 技能 (Skill) | 職責與產出 |
 | :--- | :--- | :--- |
-| **1. 需求與設計** | `brainstorming` | 釐清需求、約束、架構決策與邊界條件，輸出 Spec/設計文檔。 |
+| **1. 需求與設計** | `brainstorming` | 釐清需求、約束、架構決策與邊界條件，先確認共識理解、通過規劃交接審查，再輸出 Spec/設計文檔。 |
 | **2. 計畫制定** | `writing-plans` | 將 Spec 轉化為可獨立驗證的原子任務清單，標註 Recommended Skill。 |
 | **3. 環境隔離** | `using-git-worktrees` | 建立獨立的 Git Worktree 工作區，保護主分支與日常工作。 |
 | **4. 任務執行** | `subagent-driven-development` | 派發獨立 Subagent 依序執行任務，嚴守上下文乾淨原則。 |
 | **5. 邏輯實作** | `test-driven-development` | 針對各任務邏輯，嚴格執行 Red ➔ Green ➔ Refactor 流程。 |
-| **6. 全套驗證** | `verification-before-completion` | 執行專案完整測試套件、Linter、型別檢查，確認無迴歸問題。 |
+| **6. 全套驗證** | `verification-before-completion` | 執行專案完整測試套件、Linter、型別檢查，確認無迴歸問題；若無測試指令，則須重新開啟成品並逐項核對需求。 |
 | **7. 程式碼審查** | `requesting-code-review` | 產生 Review Package，發起多維度架構與程式碼品質審查。 |
-| **8. 分支收尾** | `finishing-a-development-branch` | 合併/PR、清理 Worktree、刪除暫存分支，完成交付。 |
+| **8. 分支收尾** | `finishing-a-development-branch` | 先匯出延後發現（PR 清單或提交 follow-ups 檔），再合併/PR、清理 Worktree、刪除暫存分支。 |
 
 ---
 
@@ -108,7 +111,7 @@ flowchart LR
 
 1. **`brainstorming`**：辨識系統關鍵路徑（Critical Path）與高風險模組。
 2. **`writing-plans`**：制定防護測試（Characterization Tests）補充計畫。
-3. **`test-driven-development`**：為既有行為編寫金絲雀測試與規格測試。
+3. **`test-driven-development`**：以 TDD 特徵化守門（變異→確認失敗→VCS 還原→維持綠燈）為既有行為編寫金絲雀與規格測試。
 4. **`systematic-debugging`**：針對補測試過程中發現的潛在隱患進行根因排查。
 5. **`verification-before-completion`**：建立 CI/CD 測試防線。
 
@@ -148,8 +151,8 @@ flowchart LR
 | **`skill-composition`** | `scenario` | 根據開發情境動態推薦技能組合流程 |
 | **`session-start`** | - | 注入 Superpowers 基礎環境與技能使用守則 |
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD 任務實作子代理 Prompt |
-| **`sdd-task-reviewer`** | `brief_file`, `report_file`, ... | SDD 單一任務審查子代理 Prompt |
-| **`sdd-re-review`** | `brief_file`, `previous_findings`, ... | SDD 修復輪次局部覆審子代理 Prompt |
+| **`sdd-task-reviewer`** | `brief_file`, `report_file`, `review_file`, ... | SDD 單一任務審查子代理 Prompt |
+| **`sdd-re-review`** | `brief_file`, `review_file`, `previous_findings`, ... | SDD 修復輪次局部覆審子代理 Prompt |
 | **`spec-reviewer`** | `spec_file` | 對抗式設計規格審查子代理 Prompt |
 | **`plan-reviewer`** | `plan_file`, `spec_file` | 對抗式實作計畫審查子代理 Prompt |
 

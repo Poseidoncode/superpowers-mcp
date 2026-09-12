@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -173,9 +173,41 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
+## 🔧 업스트림 따라잡기
+
+이 포크는 업스트림 [`obra/superpowers`](https://github.com/obra/superpowers) 의 스킬 콘텐츠를 검토된 배치로 가져옵니다. 마지막 동기화 시점의 업스트림 blob SHA는 [`tests/upstream-sync-baseline.json`](tests/upstream-sync-baseline.json) 에 기록됩니다.
+
+```bash
+npm run drift                    # 베이스라인과 업스트림을 비교해 변경 목록 출력
+npm run drift:record             # 검토된 동기화 후 베이스라인 갱신
+node scripts/upstream-drift.js   # 오프라인: 베이스라인 무결성 + 로컬 커버리지
+```
+
+보고서는 업스트림 변경, 업스트림 추가/삭제, 추적 대상이지만 로컬에 없는 파일, 포크 전용 추가를 구분해 보여줍니다. 의도적으로 채택하지 않는 업스트림 스킬은 drift가 아니라 결정 사항으로 보고되며, `npm run drift:record -- --ignore <skill>`로 기록합니다. 가져온 업스트림 파일이 삭제되거나 스킬의 업스트림 계보가 끊기면 `npm test`가 실패합니다.
+
 ## 🆕 최근 업데이트
 
-### v6.3.6 (최신)
+### v6.3.7 (최신)
+
+- **업스트림 동기화 — 배치 1~3 (obra/superpowers)**:
+  - **스킬 자동 라우팅**: `systematic-debugging`과 `test-driven-development` 설명에 트리거 문구(`"tdd"`, `"systematic debug"` 등)와 상호 크로스 라우트를 추가하여 MCP 클라이언트의 스킬 선택 정확도를 향상.
+  - **테스트 명령이 없을 때의 증거 규율**: `verification-before-completion`에 "When There Is No Test Command" 섹션 추가. 보고서, 연구, 감사, 서신 작업은 산출물을 다시 열어 증명 가능한 것을 증명하고 미완료 항목을 명시해야 하며, "완전함"만 주장할 수 있고 "정확함"은 주장할 수 없음.
+  - **브레인스토밍 의도 게이트**: "Establish Shared Understanding"(의도 탐색 → 이해 되쓰기 → 설계 반영) 신설 및 HARD-GATE를 경로별 전제 조건 목록으로 재작성. 한 번의 승인을 나머지 단계 생략 허가로 해석하는 것을 금지.
+  - **플래닝 핸드오프 리뷰**: brainstorming의 스펙 셀프 리뷰를 0.0–9.9 평가 + burden ledger + 단일 유계 개선 패스 + 읽기 전용 재평가로 승격. 실패 시 초안을 복원하는 안전 규칙 포함.
+  - **저장된 계획 검토 및 상황별 핸드오프**: `writing-plans`는 실행 전에 사람이 저장된 계획을 검토하도록 요구하며, 실행 방식이 지정되지 않은 경우 고정 기본값 대신 이 계획에 맞는 추천을 제시.
+  - **계획 체크박스 기록**: `executing-plans`와 `subagent-driven-development`가 완료 메시지와 동시에 계획 파일의 단계를 체크.
+  - **원격 안전 경계**: `using-git-worktrees`는 공유 ref에서 분기할 때 `--no-track`을 필수로 요구하고 `git branch -vv` 추적 점검(첫 커밋 전 `--unset-upstream`)을 수행한다. `executing-plans`는 커밋을 로컬로 유지하고 공유 브랜치 재작성을 금지하며, implementer는 작업 중 push 요구를 BLOCKED로 컨트롤러에 보고한다.
+  - **Discoveries 원장**: SDD 진행 원장에 `## Discoveries` 섹션을 추가하여 태스크 간 발견이 compaction을 넘어 다음 디스패치의 인터페이스 조항으로 이어진다.
+  - **보류 발견 내보내기**: 플랜 워크스페이스 삭제 전에 `Ruling:`／`minor (deferred)`／`parked` 줄을 PR의 "Deferred items" 체크리스트 또는 커밋된 `docs/superpowers/follow-ups/<plan>.md`로 내보낸다.
+  - **Greenfield SDD 스크립트**: 리포지토리가 아직 없으면 `sdd-workspace`가 현재 디렉터리로 폴백하고(`.ps1` 동일), `review-package`는 비리포지토리 환경에서 실행 가능한 오류를 반환한다.
+  - **TDD 특성화 가드**: 동작 보존 리팩터링을 위한 5단계 절차(변이 → 실패 확인 → VCS 복원 → 그린 유지)를 추가하고 경계·변이 점검 섹션에서 상호 참조한다.
+- **업스트림 콘텐츠 동기화 — 배치 4**: brainstorm 시작 스크립트가 `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST`에서 호스트 기본값을 가져오고(`--host`/`--url-host` 우선), `writing-skills`에 콘텐츠 이동 시 링크 재해석 절차를 추가했으며, SDD 리뷰어가 전체 보고서를 `…/task-N-review.md`에 쓰고 15줄 미만 요약만 반환합니다 — MCP에 `review_file` 인자(요청 경로가 정규화 후 보고서나 brief 파일과 일치하면 파생된 `-review.md`로 대체)와 `[FIX_BASE_SHA]`를 실제로 치환하는 `fix_base_sha` 별칭을 추가.
+- **업스트림 드리프트 리포트**: `npm run drift`가 커밋된 베이스라인과 `obra/superpowers`를 비교해 채택된 파일 변경, 로컬에 없는 가져오기, 포크 전용 추가를 나열합니다. `npm run drift:record -- --ignore <skill>`로 검토된 동기화 후 갱신합니다.
+- **MCP 표면 커버리지 테스트**: 디스크의 모든 스킬은 자신의 콘텐츠를 제공하는 MCP 리소스로 노출되어야 하며, 프롬프트 목록은 4개 README와 정확히 일치해야 합니다.
+- **MCP 설명 정합성**: 업스트림의 이스케이프 따옴표 형식을 인용 없는 YAML plain scalar로 적응하여 `SkillsManager`가 MCP로 리터럴 백슬래시를 내보내지 않도록 함.
+- **회귀 가드**: `tests/upstream_sync_test.js`를 배치 1~4를 포괄하는 22개 라벨 체크로 확장. 전체 스위트 통과(npm 8개 스위트 139개 체크, PowerShell 90개 어서션, SDD 16 + 호스트 기본 11 + render-graph 8개 bash 어서션).
+
+### v6.3.6
 
 - **극한의 성능 최적화 (2배~8.1배 가속)**:
   - **스킬 병렬 인덱싱 및 사전 캐싱**: `SkillsManager.listSkills`를 비동기 병렬 디렉토리 탐색(`Promise.all`)과 루트 경로 사전 확인 캐싱으로 업그레이드하여 콜드 스타트 인덱싱 지연 시간을 4.79ms에서 2.35ms로 단축(**2.04배 속도 향상**).
@@ -194,60 +226,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - 85개 핵심 단위/통합 테스트 및 174개 회귀 어서션 100% 통과(`setup_test.js` 33개 테스트 전체 통과). [`SECURITY.md`](SECURITY.md), [`tests/code_review_report.md`](tests/code_review_report.md), 그리고 [`tests/performance_optimization_report.md`](tests/performance_optimization_report.md) 정비.
 - **다국어 문서 동기화**:
   - 모든 언어의 README([`README.md`](README.md), [`README.zh-TW.md`](README.zh-TW.md), [`README.ja.md`](README.ja.md), [`README.ko.md`](README.ko.md))에서 지원 환경 목록, 성능 지표, 원클릭 명령 표 동기화.
-
-### v6.3.5
-
-- **7개 신규 AI 에이전트 및 편집기 환경 원클릭 설치 지원 (`src/setup-runner.ts`, `scripts/install.sh`)**:
-  - 구성 엔진을 확장하여 총 15개 AI 개발 환경 지원:
-    - **GitHub Copilot (VS Code Insiders)**: `Code - Insiders/User/mcp.json` (안정 버전 VS Code와의 충돌을 원천 방지하는 독립 물리 경로 격리, 별칭: `copilot-insiders`, `vscode-insiders`, `code-insiders`, `insiders`, `insider`)
-    - **QwenPaw (개인 AI 어시스턴트 워크스테이션)**: `~/.qwenpaw/config.json` (`copaw` 호환, 별칭: `qwenpaw`, `copaw`)
-    - **Cline (VS Code / CLI)**: `.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json` (별칭: `cline`, `claude-dev`)
-    - **Kilo Code**: `~/.config/kilo/kilo.jsonc` (적응형 `"mcp"` 루트 사양, 별칭: `kilo`, `kilocode`)
-    - **Qoder**: `~/.qoder/settings.json` (별칭: `qoder`)
-    - **Kiro**: `~/.kiro/settings/mcp.json` (별칭: `kiro`, `kiro-code`)
-    - **Trae**: `.../Trae/User/mcp.json` (macOS, Windows, Linux 및 Trae CN 크로스 플랫폼 지원)
-  - Kilo Code 고유의 딕셔너리 구조를 수용하는 `"json-mcp"` 형식 유형 추가.
-  - `runSetup`을 통해 `harness.defaultConfig`로부터 템플릿을 주입하여 Single Source of Truth (SSOT) 확립.
-- **듀얼 Subagent 아키텍처 및 품질 코드 리뷰 (Code Review)**:
-  - '아키텍처 및 보안 검토자'와 '품질 및 엣지 케이스 검토자' 2개의 전문 에이전트로 리뷰 수행.
-  - 원자적 쓰기(`crypto.randomBytes(8)` + `flag: "wx"`), 심볼릭 링크 방어, 최소 권한(`0o700`/`0o600`), 기본 디스크 무오염 원칙 검증 완료.
-  - 프로젝트 전반의 보안 감사를 완료하고 [`SECURITY.md`](SECURITY.md) 갱신(173개 자동화 어서션 100% 통과).
-- **테스트 스위트 대폭 확장 (`tests/setup_test.js`)**:
-  - 단위 테스트를 21개에서 32개로 확장(100% 통과). Claude Desktop, Kimi Work, Hermes Desktop에 대한 엔드투엔드 샌드박스 테스트 및 별칭 검증 완료.
-
-### v6.3.4
-
-- **Universal One-Click 글로벌 설정 엔진 (`src/setup-runner.ts`, `scripts/`)**:
-  - 8대 주요 AI 개발 환경(Antigravity, Pi Desktop / Pi Agent, Cursor, GitHub Copilot (VS Code), Hermes Desktop / Agent, Kimi Work / Kimi Code, Claude Desktop, Devin Desktop)에 대한 무의존성 원클릭 자동 구성 지원.
-  - CLI 명령어 `superpowers-setup` 및 `superpowers-mcp setup`을 제공하며, 크로스 플랫폼 설치 스크립트([`install.sh`](scripts/install.sh) 및 [`install.ps1`](scripts/install.ps1)) 개발.
-  - **명시적 동의 및 안티바이러스 설계 (Explicit Consent & Anti-Virus Design)**: `--target <client>`를 필수로 요구하여 무단 디스크 스캔 및 전체 환경 임의 수정을 원천 차단(`--all` 제거).
-  - **원자적 쓰기 방어 (`safeWriteConfig`)**: 무작위 8바이트 nonce 임시 파일, `flag: "wx"`, `renameSync`를 통한 원자적 조작으로 파일 충돌 및 손상 방지.
-  - **심볼릭 링크 보호 및 최소 권한**: `realpathSync`로 링크 대상을 안전하게 확인하며, 새 디렉토리는 `0o700`, 설정 파일은 `0o600`으로 제한하고 백업 파일은 원본 권한을 보존.
-  - **매개변수 인젝션 방어 및 JSONC 파싱**: `JSON.stringify`를 통한 안전한 이스케이프, 주석/후행 쉼표 허용 및 `isPlainObject` 프로토타입 오염 방어.
-  - **CLI Stdio 격리**: `src/server.ts`에서 setup 인자를 사전 분기하여 MCP Stdio 프로토콜 오염 방지.
-  - **자동화 테스트 스위트**: [`tests/setup_test.js`](tests/setup_test.js) 추가(21개 테스트 100% 통과).
-- **Skill Compositions 스킬 구성 및 엔드투엔드 파이프라인 (`src/server.ts`, `docs/`)**:
-  - 3개의 새로운 MCP 워크플로우 프롬프트 추가: `feature-pipeline`, `structured-debug`, `skill-composition`.
-  - 4개 국어 현지화 가이드([`docs/skill-compositions.ko.md`](docs/skill-compositions.ko.md)), 가로형 Mermaid 플로우차트 및 ASCII 워크플로우 다이어그램 추가.
-  - [`skills/using-superpowers/SKILL.md`](skills/using-superpowers/SKILL.md) 및 [`skills/writing-plans/SKILL.md`](skills/writing-plans/SKILL.md)에 `Recommended Skill` 메타데이터 표준 및 컨트롤러-서브에이전트 간 프로토콜 추가.
-  - [`tests/prompts_compositions_test.js`](tests/prompts_compositions_test.js) 추가(7개 테스트 100% 통과).
-- **프롬프트 보안 강화 및 라이프사이클 완성 (`src/server.ts`)**:
-  - `interpolateTemplate`을 단일 패스 정규식 치환으로 업그레이드하여 연쇄적 플레이스홀더 인젝션 위험 제거.
-  - 전체 9개 프롬프트에 32 KB 길이 제한 및 `hasOwnProperty` 검증 적용.
-  - `structured-debug`에 Stage 6(리뷰 조치) 및 Stage 7(브랜치 정리/마무리) 추가.
-- **포괄적 보안 감사 및 검증**:
-  - `npm audit` 취약점 0건 확인, 전체 5대 테스트 스위트(100+ 어서션) 100% 통과, [`SECURITY.md`](SECURITY.md) 갱신.
-
-### v6.3.3
-
-- **MCP 표준 프롬프트 지원 (`src/server.ts`)**:
-  - 표준 프롬프트 핸들러를 구현하여 IDE 프롬프트 선택기에서 사용할 수 있는 6개의 프롬프트(`session-start`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer`) 등록.
-- **멀티 하네스 참조 매핑**:
-  - Devin CLI([`references/devin-tools.md`](skills/using-superpowers/references/devin-tools.md)) 및 OpenCode([`references/opencode-tools.md`](skills/using-superpowers/references/opencode-tools.md))용 네이티브 도구 매핑 추가.
-- **다국어 문서 동기화**:
-  - 모든 언어의 README에서 MCP 기능 지원 표(Tools / Prompts / Resources) 및 멀티 하네스 지원 매트릭스 통일.
-- **테스트 스위트 확장**:
-  - `prompts/list` 및 `prompts/get` 매개변수 주입에 대한 자동화 테스트 어서션 추가.
 
 👉 *이전 버전의 전체 릴리스 내역은 [CHANGELOG.md](CHANGELOG.md)를 참조하세요.*
 

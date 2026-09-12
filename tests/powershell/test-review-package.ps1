@@ -62,6 +62,33 @@ try {
     & $scriptPath $plan $base $head $custom > $null
     Assert-ExitCode $LASTEXITCODE 0 "explicit outfile exits 0"
     Assert-True (Test-Path -LiteralPath $custom) "explicit outfile written"
+
+    # 7. Greenfield: outside a repo it refuses actionably instead of letting
+    #    git's bare "fatal: not a git repository" through.
+    $gf = Join-Path $root "greenfield"
+    New-Item -ItemType Directory -Force -Path $gf | Out-Null
+    $gfPlan = Join-Path $gf "plan-a.md"
+    Set-Content -Path $gfPlan -Value "# Plan A`n" -NoNewline
+
+    & git -C $gf rev-parse --git-dir *> $null
+    if ($LASTEXITCODE -eq 0) {
+        Fail "greenfield test needs a directory outside any repository"
+    } else {
+        Push-Location $gf
+        try {
+            $prevEap = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            $gfErr = (& pwsh -NoProfile -File "$scriptPath" $gfPlan HEAD~1 HEAD 2>&1 | Out-String)
+            $gfRc = $LASTEXITCODE
+            $ErrorActionPreference = $prevEap
+            Assert-ExitCode $gfRc 2 "review-package outside a repo exits 2"
+            Assert-True ($gfErr -match "not a git repository") "review-package outside a repo errors actionably"
+            Assert-True ($gfErr -match "BASE and HEAD") "review-package names the missing commits"
+        }
+        finally {
+            Pop-Location
+        }
+    }
     }
     finally {
         Pop-Location

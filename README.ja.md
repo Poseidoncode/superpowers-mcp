@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.3.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.3.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -173,9 +173,41 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
+## 🔧 アップストリームへの追従
+
+この fork は上流 [`obra/superpowers`](https://github.com/obra/superpowers) のスキル内容をレビュー済みバッチで取り込みます。最後の同期時点の上流 blob SHA は [`tests/upstream-sync-baseline.json`](tests/upstream-sync-baseline.json) に記録されています。
+
+```bash
+npm run drift                    # ベースラインと上流を比較し、変更点を一覧表示
+npm run drift:record             # レビュー済み同期の後にベースラインを更新
+node scripts/upstream-drift.js   # オフライン：ベースライン整合性 + ローカル網羅率
+```
+
+レポートは、上流で変更されたファイル、上流の追加・削除、追跡対象だがローカルに無いファイル、fork 独自の追加を分けて表示します。意図的に採用しない上流スキルは drift ではなく「判断待ち」として報告され、`npm run drift:record -- --ignore <skill>` で記録します。取り込み済みの上流ファイルが削除されたり、スキルの上流系譜が失われると `npm test` が失敗します。
+
 ## 🆕 最近の更新
 
-### v6.3.6（最新）
+### v6.3.7（最新）
+
+- **上流同期 — バッチ 1〜3（obra/superpowers）**：
+  - **スキルの自動ルーティング**：`systematic-debugging` と `test-driven-development` の description にトリガーフレーズ（`"tdd"`、`"systematic debug"` など）と相互クロスルートを追加し、MCP クライアントでのスキル選択精度を向上。
+  - **テストコマンドがない場合のエビデンス律**：`verification-before-completion` に「When There Is No Test Command」を追加。レポート、調査、監査、書簡では成果物を再度開き、証明できる事項を証明し、未完了項目を明示。主張できるのは「完全」であり「正しい」ではない。
+  - **ブレインストーミングの意図ゲート**：「Establish Shared Understanding」（意図の探索 → 理解の書き戻し → 設計への引き継ぎ）を新設し、HARD-GATE をパスごとの前提条件を列挙する形に書き直し。一度の承認を残り工程の省略許可と見なすことを禁止。
+  - **プランニング・ハンドオフ・レビュー**：brainstorming の仕様セルフレビューを 0.0–9.9 の評価 + burden ledger + 単一の有界改善パス + 読み取り専用の再評価に昇格。失敗時は初稿へ復元する安全則付き。
+  - **保存済みプランのレビューと文脈的ハンドオフ**：`writing-plans` は実行前に人間が保存プランをレビューすることを必須化。実行方法が未指定の場合は、固定の既定値ではなくこのプラン固有の推奨を提示。
+  - **プランのチェックボックス簿記**：`executing-plans` と `subagent-driven-development` が完了メッセージと同時にプランファイルの手順をチェック。
+  - **リモート安全境界**：`using-git-worktrees` は共有 ref から分岐する際に `--no-track` を必須化し、`git branch -vv` による追跡確認（初回 commit 前に `--unset-upstream`）を求める。`executing-plans` は commit をローカルに留め、共有ブランチの書き換えを禁止。implementer はタスク中の push 要求を BLOCKED として controller に報告する。
+  - **Discoveries 台帳**：SDD の進捗台帳に `## Discoveries` セクションを追加し、タスク横断の知見が compaction を越えて次のディスパッチのインターフェース条項に引き継がれる。
+  - **保留所見のエクスポート**：プランワークスペース削除前に、`Ruling:`／`minor (deferred)`／`parked` 行を PR の「Deferred items」チェックリスト、またはコミット済み `docs/superpowers/follow-ups/<plan>.md` へ退避する。
+  - **Greenfield SDD スクリプト**：リポジトリ未作成時は `sdd-workspace` がカレントディレクトリへフォールバック（`.ps1` も同様）。`review-package` は非リポジトリ環境で実行可能なエラーを返す。
+  - **TDD 特性化ガード**：振る舞いを保つリファクタリング向けの 5 ステップ手順（変異→失敗確認→VCS 復元→グリーン維持）。境界とミューテーション検査の各節から参照。
+- **上流コンテンツ同期 — バッチ 4**：brainstorm の起動スクリプトは `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST` からホスト既定値を取得（`--host`/`--url-host` が優先）。`writing-skills` にコンテンツ移動時のリンク再解決手順を追加し、SDD レビュアは完全なレポートを `…/task-N-review.md` に書いて 15 行未満の要約のみを返すようになり、MCP 側に `review_file` 引数（指定パスが正規化後にレポート／brief ファイルと一致する場合は導出した `-review.md` に置換）と、`[FIX_BASE_SHA]` を実際に展開する `fix_base_sha` 別名を追加。
+- **上流ドリフトレポート**：`npm run drift` がコミット済みベースラインと `obra/superpowers` を比較し、採用済みファイルの変更・ローカルに無い取り込み・fork 独自追加を一覧表示。`npm run drift:record -- --ignore <skill>` でレビュー済み同期後に更新。
+- **MCP サーフェス網羅テスト**：ディスク上の各スキルは自身のコンテンツを返す MCP リソースとして公開され、プロンプト一覧は 4 つの README と完全一致すること。
+- **MCP 説明文の忠実性**：上流のエスケープ引用形式を非引用の YAML plain scalar に適応し、`SkillsManager` が MCP 経由で余分なバックスラッシュを出力しないようにした。
+- **回帰ガード**：`tests/upstream_sync_test.js` をバッチ 1〜4 を覆う 22 個のラベル付きチェックに拡張。全スイート合格（npm 8 スイート 139 チェック、PowerShell 90 アサーション、SDD 16 + ホスト既定 11 + render-graph 8 の bash アサーション）。
+
+### v6.3.6
 
 - **極限のパフォーマンス最適化（2倍〜8.1倍の高速化）**：
   - **スキルの並行インデックスと事前キャッシュ**：`SkillsManager.listSkills` を非同期並行ディレクトリ走査（`Promise.all`）とルートパス事前解決キャッシュにアップグレードし、コールドスタート時のインデックス遅延を 4.79ms から 2.35ms に短縮（**2.04倍の高速化**）。
@@ -194,60 +226,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - 85 件のコアユニット/結合テストと 174 件の回帰アサーションが 100% 合格（`setup_test.js` は 33 件すべて合格）。[`SECURITY.md`](SECURITY.md)、[`tests/code_review_report.md`](tests/code_review_report.md)、[`tests/performance_optimization_report.md`](tests/performance_optimization_report.md) を整備。
 - **多言語ドキュメントの同期**：
   - 4 言語すべての README（[`README.md`](README.md)、[`README.zh-TW.md`](README.zh-TW.md)、[`README.ja.md`](README.ja.md)、[`README.ko.md`](README.ko.md)）でサポート環境一覧、パフォーマンス指標、ワンクリックコマンド表を同期。
-
-### v6.3.5
-
-- **7 つの新しい AI エージェント・エディタ環境のワンクリックインストール対応 (`src/setup-runner.ts`, `scripts/install.sh`)**：
-  - 構成エンジンを拡張し、合計 15 種類の AI 開発環境に対応：
-    - **GitHub Copilot (VS Code Insiders)**：`Code - Insiders/User/mcp.json`（安定版 VS Code との競合を防ぐ物理パス完全分離、エイリアス: `copilot-insiders`, `vscode-insiders`, `code-insiders`, `insiders`, `insider`）
-    - **QwenPaw (パーソナル AI アシスタントワークステーション)**：`~/.qwenpaw/config.json`（`copaw` 互換、エイリアス: `qwenpaw`, `copaw`）
-    - **Cline (VS Code / CLI)**：`.../saoudrizwan.claude-dev/settings/cline_mcp_settings.json`（エイリアス: `cline`, `claude-dev`）
-    - **Kilo Code**：`~/.config/kilo/kilo.jsonc`（自適応 `"mcp"` ルート仕様、エイリアス: `kilo`, `kilocode`）
-    - **Qoder**：`~/.qoder/settings.json`（エイリアス: `qoder`）
-    - **Kiro**：`~/.kiro/settings/mcp.json`（エイリアス: `kiro`, `kiro-code`）
-    - **Trae**：`.../Trae/User/mcp.json`（macOS、Windows、Linux、Trae CN をクロスプラットフォームでサポート）
-  - Kilo Code 固有の辞書形式を適応する `"json-mcp"` フォーマットタイプを追加。
-  - `runSetup` を介して `harness.defaultConfig` からテンプレートを注入し、Single Source of Truth (SSOT) を確立。
-- **デュアル Subagent によるアーキテクチャおよびコード品質レビュー**：
-  - 「アーキテクチャ・セキュリティレビュアー」と「品質・エッジケースレビュアー」の 2 人のエージェントによるレビューを実施。
-  - アトミック書き込み（`crypto.randomBytes(8)` + `flag: "wx"`）、シンボリックリンク防御、最小権限（`0o700`/`0o600`）、デフォルトのゼロディスク汚染を完全検証。
-  - プロジェクト全体のセキュリティ監査を完了し、[`SECURITY.md`](SECURITY.md) を更新（173 件の自動化アサーション 100% 合格）。
-- **テストスイートの大幅拡充 (`tests/setup_test.js`)**：
-  - 単元テストを 21 件から 32 件に拡充（100% 合格）。Claude Desktop、Kimi Work、Hermes Desktop のエンドツーエンドサンドボックステストを追加。
-
-### v6.3.4
-
-- **Universal One-Click グローバルセットアップエンジン (`src/setup-runner.ts`, `scripts/`)**：
-  - 8 大主要 AI 環境（Antigravity、Pi Desktop / Pi Agent、Cursor、GitHub Copilot (VS Code)、Hermes Desktop / Agent、Kimi Work / Kimi Code、Claude Desktop、Devin Desktop）向けの依存関係ゼロのワンクリック自動構成。
-  - CLI コマンド `superpowers-setup` および `superpowers-mcp setup` を提供し、クロスプラットフォームのインストーラスクリプト（[`install.sh`](scripts/install.sh) および [`install.ps1`](scripts/install.ps1)）を開発。
-  - **明示的同意とアンチウイルス設計 (Explicit Consent & Anti-Virus Design)**：`--target <client>` を必須とし、未承認のディスク自動スキャンや全環境の一括変更を根絶（`--all` を削除）。
-  - **アトミック書き込み防御 (`safeWriteConfig`)**：ランダム 8 バイト nonce 一時ファイル、`flag: "wx"`、`renameSync` によるアトミック操作で、ファイル競合や破損を防止。
-  - **シンボリックリンク保護と最小特権権限**：`realpathSync` でリンク先を安全に解決。新規ディレクトリは `0o700`、設定ファイルは `0o600` に制限し、バックアップは元のパーミッションを継承。
-  - **パラメータインジェクション防御と JSONC 解析**：`JSON.stringify` で安全にエスケープ。コメントや末尾カンマを許容し、`isPlainObject` でプロトタイプ汚染を防御。
-  - **CLI Stdio 分離**：`src/server.ts` で setup 引数を事前インターセプトし、MCP プロトコルの stdio 汚染を防止。
-  - **自動化テストスイート**：[`tests/setup_test.js`](tests/setup_test.js) を追加（21 テスト 100% 合格）。
-- **Skill Compositions スキル合成とエンドツーエンドパイプライン (`src/server.ts`, `docs/`)**：
-  - 3 つの新しい MCP ワークフロープロンプトを追加：`feature-pipeline`、`structured-debug`、`skill-composition`。
-  - 4 言語による包括的なドキュメント（[`docs/skill-compositions.ja.md`](docs/skill-compositions.ja.md)）と横型 Mermaid フローチャート、ASCII 図を追加。
-  - [`skills/using-superpowers/SKILL.md`](skills/using-superpowers/SKILL.md) および [`skills/writing-plans/SKILL.md`](skills/writing-plans/SKILL.md) に `Recommended Skill` メタデータ標準とコントローラー・サブエージェント間プロトコルを追加。
-  - [`tests/prompts_compositions_test.js`](tests/prompts_compositions_test.js) を追加（7 テスト 100% 合格）。
-- **プロンプトセキュリティ強化とライフサイクルの完結 (`src/server.ts`)**：
-  - `interpolateTemplate` を 1 パス正規表現置換にアップグレードし、連鎖的なプレースホルダー展開攻撃を根絶。
-  - 全 9 プロンプトに 32 KB 長さクランプと `hasOwnProperty` 検証を適用。
-  - `structured-debug` に Stage 6（レビュー修正）と Stage 7（ブランチ整理・完了）を追加。
-- **包括的なセキュリティ監査と検証**：
-  - `npm audit` で脆弱性 0 を確認。全 5 テストスイート（100+ アサーション）が 100% 合格。[`SECURITY.md`](SECURITY.md) を更新。
-
-### v6.3.3
-
-- **MCP 標準プロンプトサポート (`src/server.ts`)**：
-  - 標準プロンプトハンドラーを実装し、IDE プロンプトピッカーで利用可能な 6 つのプロンプト（`session-start`、`sdd-implementer`、`sdd-task-reviewer`、`sdd-re-review`、`spec-reviewer`、`plan-reviewer`）を登録。
-- **マルチハーネスリファレンスマッピング**：
-  - Devin CLI（[`references/devin-tools.md`](skills/using-superpowers/references/devin-tools.md)）および OpenCode（[`references/opencode-tools.md`](skills/using-superpowers/references/opencode-tools.md)）向けのネイティブツールマッピングを追加。
-- **多言語ドキュメントの同期**：
-  - 全言語の README で MCP 機能対応表（Tools / Prompts / Resources）およびマルチハーネス対応マトリックスを統一。
-- **テストスイートの拡張**：
-  - `prompts/list` および `prompts/get` パラメータ注入の自動化テストアサーションを追加。
 
 👉 *これまでの詳細なリリース履歴については、完全な [CHANGELOG.md](CHANGELOG.md) を参照してください。*
 

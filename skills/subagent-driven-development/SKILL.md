@@ -87,8 +87,9 @@ digraph process {
     "More tasks remain?" [shape=diamond];
     "Dispatch final code reviewer (../requesting-code-review/code-reviewer.md)" [shape=box];
     "Final findings? ONE fix dispatch, one scoped re-review, adjudicate residuals" [shape=box];
-    "Final review clean: delete this plan's workspace" [shape=box];
-    "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
+    "Use superpowers:finishing-a-development-branch" [shape=box];
+    "Finish path resolved: export deferred findings to its durable artifact" [shape=box];
+    "Delete this plan's workspace (only after the export; keep-as-is keeps it)" [shape=box style=filled fillcolor=lightgreen];
 
     "Setup: worktree, ledger check, read plan, pre-flight review" -> "Dispatch implementer subagent (./implementer-prompt.md)";
     "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer asks questions?";
@@ -116,8 +117,9 @@ digraph process {
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
     "More tasks remain?" -> "Dispatch final code reviewer (../requesting-code-review/code-reviewer.md)" [label="no"];
     "Dispatch final code reviewer (../requesting-code-review/code-reviewer.md)" -> "Final findings? ONE fix dispatch, one scoped re-review, adjudicate residuals";
-    "Final findings? ONE fix dispatch, one scoped re-review, adjudicate residuals" -> "Final review clean: delete this plan's workspace";
-    "Final review clean: delete this plan's workspace" -> "Use superpowers:finishing-a-development-branch";
+    "Final findings? ONE fix dispatch, one scoped re-review, adjudicate residuals" -> "Use superpowers:finishing-a-development-branch";
+    "Use superpowers:finishing-a-development-branch" -> "Finish path resolved: export deferred findings to its durable artifact";
+    "Finish path resolved: export deferred findings to its durable artifact" -> "Delete this plan's workspace (only after the export; keep-as-is keeps it)";
 }
 ```
 
@@ -142,14 +144,21 @@ a ledger file, not only in todos.
   line names your plan file, tasks with a `Task <N>: complete` line are DONE
   — do not re-dispatch them; resume at the first task without one. A task
   whose last line is a fix round is mid-loop: resume the loop at the next
-  round. A ledger whose first line names a different plan file — or a stray
+  round. A resumed controller also reads the ledger's `## Discoveries`
+  section: it holds what completed tasks found that the plan could not
+  know, and it is the source for clause (3) of the next dispatch. A ledger
+  whose first line names a different plan file — or a stray
   ledger at the old flat path `.superpowers/sdd/progress.md` — is another
   plan's progress: leave it in place and start your own, fresh.
 - Create the ledger with its identity as the first line:
   `# SDD ledger — plan: <plan file path>`.
 - The ledger is your recovery map: the commits it names exist in git even
   when your context no longer remembers creating them. After compaction,
-  trust the ledger and `git log` over your own recollection.
+  trust the ledger and `git log` over your own recollection. The ledger's
+  `## Discoveries` section is the same map for knowledge: what earlier tasks
+  found that the plan could not know. A resumed controller composes clause
+  (3) of every dispatch from that section, never from recollection of a
+  context it no longer has.
 - `git clean -fdx` will destroy the workspace (it's git-ignored scratch); if
   that happens, recover from `git log`.
 
@@ -272,9 +281,12 @@ and fix-round diffs need it.
   task fits in the project; (2) the brief path, introduced as "read this
   first — it is your requirements, with the exact values to use verbatim";
   (3) interfaces and decisions from earlier tasks that the brief cannot
-  know; (4) your resolution of any ambiguity you noticed in the brief;
-  (5) the report-file path and report contract. Exact values (numbers,
-  magic strings, signatures, test cases) appear only in the brief. Never
+  know — read them from the ledger's Discoveries section, not from your
+  memory of past reports: copy the entries the task's interfaces touch, in
+  full, and skip the rest; (4) your resolution of any ambiguity you noticed
+  in the brief; (5) the report-file path and report contract. Exact values
+  (numbers, magic strings, signatures, test cases) appear only in the
+  brief. Never
   make a subagent read the whole plan file. When the brief is a contract
   (goal, success criteria, interfaces) rather than written-out code, item
   (3) also carries the elaboration the contract leaves to dispatch time:
@@ -290,7 +302,10 @@ and fix-round diffs need it.
   paste accumulated prior-task summaries ("state after Tasks 1-3") into
   later dispatches — a real session's dispatch hit 42k chars of which 99%
   was pasted history. A fresh subagent needs its task, the interfaces it
-  touches, and the global constraints. Nothing else.
+  touches, and the global constraints. Nothing else. A curated slice copied
+  from the Discoveries section is not pasted history — it is clause (3)
+  above, kept small enough to read in full because each entry is a delta
+  from the plan.
 - The dispatch carries the no-subagents contract (it is in the
   implementer template): the implementer never dispatches subagents —
   not helpers, and never a reviewer. Review arrives from you, after the
@@ -366,9 +381,16 @@ needed.
   call. Use the BASE you recorded before dispatching the implementer —
   never `HEAD~1`, which silently truncates multi-commit tasks. Never
   dispatch a task reviewer without a diff file.
-- **Reviewer inputs:** the task reviewer gets three paths — the same brief
-  file, the report file, and the review package — plus the global
-  constraints that bind the task.
+- **Reviewer inputs:** the task reviewer gets four paths — the same brief
+  file, the report file, the review package, and a review file to write
+  to (brief `…/task-N-brief.md` → review `…/task-N-review.md`) — plus
+  the global constraints that bind the task.
+- **Review file:** the reviewer writes its full report there and returns
+  only verdicts, ⚠️ items, one line per Critical/Important finding, a
+  Minor count, and the path. Don't read the review file during the loop —
+  the final message is your decision surface; the detail is for fix
+  subagents. One exception: when you ledger a task's deferred minors, copy
+  each one-liner from the review file's Minor section.
 - The global-constraints block you hand the reviewer is its attention
   lens. Copy the binding requirements verbatim from the plan's Global
   Constraints section or the spec: exact values, exact formats, and the
@@ -402,9 +424,12 @@ finding, or a ⚠️ item you confirmed as a real gap.
 
 Before the loop starts, two routes leave it immediately:
 
-- Record Minor findings in the progress ledger as you go
-  (`Task <N>: minor (deferred): <one-liner>`), and point the final
-  whole-branch review at that list so it can triage which must be fixed
+- Dispatch fix subagents for Critical and Important findings, passing the
+  review file path for the full detail. Record each task's Minor count,
+  review file path, and one ledger line per deferred minor copied from the
+  review file's Minor section (`Task <N>: minor (deferred): <one-liner>` —
+  the deferred-findings export greps these lines), and point the final
+  whole-branch review at those files so it can triage which must be fixed
   before merge. A roll-up nobody reads is a silent discard. Minor findings
   never enter the loop.
 - A finding labeled plan-mandated — or any finding that conflicts with
@@ -417,14 +442,16 @@ Everything else enters the loop. A fix round is one fix dispatch plus one
 scoped re-review. Five rounds maximum per task:
 
 **Rounds 1-3 — resume the original implementer.** Send it the open findings
-verbatim. Its context is intact: it knows the task, the code, and its own
-choices. If your harness cannot send another message to a live subagent,
-dispatch a fresh implementer carrying the brief path, the report-file path,
-and the findings — the report file is the persistent memory either way.
+verbatim, plus the review file path for the full detail. Its context is
+intact: it knows the task, the code, and its own choices. If your harness
+cannot send another message to a live subagent, dispatch a fresh
+implementer carrying the brief path, the report-file path, the review file
+path, and the findings — the report file is the persistent memory either
+way.
 
 **Rounds 4-5 — dispatch a fresh implementer on a more capable model** (per
-Model Selection), with the brief path, the report-file path, the open
-findings, and this framing: "A prior implementer attempted this task
+Model Selection), with the brief path, the report-file path, the review
+file path, the open findings, and this framing: "A prior implementer attempted this task
 [N] times; you own it now. Read the report file for what was tried." A loop
 that survives three resumes usually means the implementer cannot see its
 own problem — fresh eyes and a capability bump in one move.
@@ -441,7 +468,8 @@ whole suite.
 (or `scripts/review-package.ps1 PLAN_FILE FIX_BASE HEAD` on Windows PowerShell)
 where FIX_BASE is the head the previous review saw, and dispatch
 [re-review-prompt.md](re-review-prompt.md) with the findings list, the
-brief, the report file, and the printed diff path. The re-reviewer verdicts
+brief, the report file, the review file to append its verdicts to, and the
+printed diff path. The re-reviewer verdicts
 each finding ADDRESSED or NOT ADDRESSED and flags new breakage in the fix
 diff only. New Critical/Important breakage in the fix diff joins the open
 findings list. Out-of-scope observations go to the ledger as deferred
@@ -482,6 +510,27 @@ message as your other bookkeeping:
 - `Task <N>: complete (commits <base7>..<head7>, review clean)`
 - `Task <N>: complete (commits <base7>..<head7>, <K> parked)` after a
   tripped breaker
+
+Copy the task's Discoveries into the ledger in the same message, from the
+report's "Discoveries for later tasks" field: append a `### Task <N>`
+heading under the ledger's `## Discoveries` section (create the section on
+first use) with each discovery as one line, or `- None` when the field is
+empty. Keep it a delta from the plan: only what a later task needs and the
+plan could not know — corrections to the plan, negative results, resolved
+unknowns, interfaces discovered in the code. If it does not change what a
+later task does, it does not go in.
+
+In the same message, **edit the plan file and flip this task's steps from
+`- [ ]` to `- [x]`**. The plan is what a human reads to see where the work
+stands; the ledger is yours. Tie the two to this one event so they cannot
+drift — a plan left at 0 while its tasks are done and deployed reads as
+"nothing happened", and nothing downstream will catch it: the task reviewer
+sees a diff, the re-review sees findings, the final review sees the ledger.
+None of them ever opens the plan.
+
+Leave a step unticked only when its deliverable does not exist yet — a step
+that waits on someone else, or on an event that has not happened. Never tick
+a step you skipped.
 
 **On a skeleton-first plan,** write one plan-check line with the
 completion line. Re-read the remaining tasks against what this task
@@ -541,12 +590,44 @@ took on your human partner's behalf reach them — they read it and rework
 whatever you got wrong. A ruling that dies with the workspace was a decision
 made in secret.
 
-When the final whole-branch review is clean and its fixes are merged,
-delete this plan's workspace (`rm -rf <workspace>`) — the git history is
-the record now. Sibling directories belong to other plans; leave them
-alone.
+Rulings are not the only content that dies with the workspace. Findings you
+chose not to fix are the record of what was *not* done — git history cannot
+carry them, because git records what was done. So export them before
+anything is deleted: grep the progress ledger for its three finding tags
+
+```bash
+grep -E 'Ruling:|^(Task [0-9]+: )?(minor \(deferred\)|parked)' <workspace>/progress.md
+```
+
+and carry every matching line, verbatim, into a durable, human-reachable
+artifact. The chat roll-up does not satisfy this — scrollback, compaction,
+and session end all eat it. Where the artifact lives depends on how
+finishing-a-development-branch resolves (it carries the same obligation from
+its side):
+
+- **Option 2 (push and create PR):** append the lines to the PR description
+  under a "Deferred items" checklist. That is where your human partner
+  reviews, and checkboxes survive the merge.
+- **Option 1 (merge locally):** write them to
+  `docs/superpowers/follow-ups/<plan-basename>.md` — append under a dated
+  heading if a re-run under the same basename already created the file — and
+  commit the file to the branch before the merge so it survives the branch
+  deletion.
+- **Option 3 (keep as-is):** the workspace stays, so there is nothing to
+  export.
+- **Explicit discard:** your human partner asked to throw the work away, so
+  no export is required.
 
 Use superpowers:finishing-a-development-branch.
+
+When the finish path has resolved and its export exists — the checklist in
+the PR description, or the committed follow-ups file — delete this plan's
+workspace (`rm -rf <workspace>`), provided the final whole-branch review was
+clean and its fixes are merged. The export, not git history, is the record
+of the deferred findings. Sibling directories belong to other plans; leave
+them alone. On an explicit discard there is no export, but the workspace is
+deleted together with the branch — a ledger describing thrown-away work is
+a false record.
 
 ## Common Rationalizations
 
@@ -586,11 +667,12 @@ Implementer: [Later]
   - Self-review: Found I missed --force flag, added it
   - Committed
 
-[Run review-package PLAN_FILE BASE HEAD; dispatch task reviewer with the printed path]
-Task reviewer: Spec ✅ - all requirements met, nothing extra.
-  Strengths: Good test coverage, clean. Issues: None. Task quality: Approved.
+[Run review-package PLAN_FILE BASE HEAD; dispatch task reviewer with the printed path + review file]
+Task reviewer: Spec ✅. Quality: Approved. Minor: 0.
+  Full report: task-1-review.md
 
 [Ledger: Task 1: complete (commits a1b2c3d..d4e5f6a, review clean)]
+[Ledger: Discoveries — Task 1: hooks dir must be created before install; none other]
 
 Task 2: Recovery modes
 
@@ -601,22 +683,23 @@ Implementer: [No questions]
   - 8/8 tests passing
   - Committed
 
-[Run review-package PLAN_FILE BASE HEAD; dispatch task reviewer with the printed path]
+[Run review-package PLAN_FILE BASE HEAD; dispatch task reviewer with the printed path + review file]
 Task reviewer: Spec ❌:
   - Missing: Progress reporting (spec says "report every 100 items")
-  Issues (Important): Magic number (100)
+  Important: Magic number (100). Minor: 0. Full report: task-2-review.md
 
-[Fix round 1: resume the implementer with both findings]
+[Fix round 1: resume the implementer with the review file path]
 Implementer: Added progress reporting, extracted PROGRESS_INTERVAL constant.
   Re-ran test/recovery.test.js — 10/10 passing. Fix report appended.
 
-[Run review-package PLAN_FILE FIX_BASE HEAD; dispatch scoped re-review]
+[Run review-package PLAN_FILE FIX_BASE HEAD; dispatch scoped re-review with the review file to append to]
 Re-reviewer: Missing progress reporting — ADDRESSED (src/recovery.js:41).
   Magic number — ADDRESSED (src/recovery.js:7). New breakage: none.
   Verdict: all findings addressed.
 
 [Ledger: Task 2: fix round 1/5 (2 addressed, 0 open; commits d4e5f6a..b7c8d9e)]
 [Ledger: Task 2: complete (commits d4e5f6a..b7c8d9e, review clean)]
+[Ledger: Discoveries — Task 2: None]
 
 ...
 
@@ -624,7 +707,9 @@ Re-reviewer: Missing progress reporting — ADDRESSED (src/recovery.js:41).
 [Run review-package PLAN_FILE MERGE_BASE HEAD; dispatch final code-reviewer, most capable model]
 Final reviewer: All requirements met. Deferred minors triaged: none block merge.
 
-[Delete this plan's workspace — the record now lives in git]
+[Use superpowers:finishing-a-development-branch — Option 2: push and create PR]
+[Export deferred findings (minor (deferred), parked, Ruling: lines) to the PR description as a "Deferred items" checklist]
+[Delete this plan's workspace — the export, not git, is the deferred findings' record]
 
-Done! Using superpowers:finishing-a-development-branch.
+Done!
 ```

@@ -179,15 +179,30 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 ## Execution Handoff
 
-After saving the plan, offer execution choice:
+After saving and self-reviewing the plan, link it for your human partner
+to read. If they have already explicitly supplied an execution method, ask
+them to review the plan and confirm it captures what they want; wait for that
+review before implementation, then use the preserved method. Otherwise, ask
+them to review the plan and choose an execution method before implementation.
 
-**"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Two execution options:**
+**When no execution method has already been supplied:**
 
-**1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
+**"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Please review the plan. Two execution options:**
 
-**2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
+**1. Subagent-Driven** - fresh subagent per task, review between tasks, fast iteration
 
-**Which approach?"**
+**2. Inline Execution** - tasks in a session via executing-plans, batched with checkpoints
+
+**Recommended for this plan: [pick one] — [one-line why].** Then: **Does the plan capture what you want, and which approach should we use?"**
+
+Pick the recommendation from the plan in front of you:
+- **Subagent-driven** when tasks are largely independent, the plan is short-to-medium, and a cold executor could pick up each task from its own task block alone.
+- **Inline** when tasks share interfaces/state, build heavily on each other, the plan is long, or you (the parent) already hold the spec/architecture context that a cold subagent would spend a spawn re-deriving each time.
+Say which and why. Never default to one without looking.
+
+**When an execution method has already been supplied:**
+
+**"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Please review the plan. Does it capture what you want?"**
 
 **If Subagent-Driven chosen:**
 - **REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development

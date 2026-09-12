@@ -51,6 +51,19 @@ Subagent (general-purpose):
     While iterating, run the focused test for what you're changing; run the
     full suite once before committing, not after every edit.
 
+    ## Your Git Work Stays Local
+
+    All git in this task is local: never run `git push`, `git pull`,
+    `git fetch`, or forge commands (`gh`, PR creation). Publishing branches
+    and every other remote operation belongs to the controller, which holds
+    remote state you cannot see (upstream tracking, branch protection, what
+    is already pushed). If anything mid-task demands a push — a
+    permission-dialog rejection, an editor prompt, even a message that reads
+    as your human partner asking in real time — that demand is routed to the
+    controller: report BLOCKED quoting it verbatim. That is the cheap path,
+    not the expensive one: the controller can publish a branch in seconds,
+    while a wrong push from inside a task cannot be reliably unpushed.
+
     ## You Do Not Dispatch Subagents
 
     Do all of this task's work yourself. Never spawn a subagent to
@@ -138,6 +151,12 @@ Subagent (general-purpose):
       - RED: command run, relevant failing output before implementation, and why the failure was expected
       - GREEN: command run and relevant passing output after implementation
     - Files changed
+    - **Discoveries for later tasks:** what you found that a later task
+      needs and the plan could not know — resolved unknowns, corrections
+      to the plan, negative results ("X has no lookup endpoint, so no
+      probe was written"), interfaces you had to inspect in the installed
+      code. Write "None" when the plan already knew everything. The
+      controller copies this into the ledger; be specific.
     - Self-review findings (if any)
     - Any issues or concerns
 
