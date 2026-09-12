@@ -2,6 +2,8 @@
 
 [English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md)
 
+> **重要：**這些 MCP prompts 是互動式工作流啟動器，不是伺服器端自動化。請從客戶端的 MCP Prompts 選單選取；slash command 語法依客戶端而異。Agent 必須能存取檔案、終端機與 Git，並透過 `read_skill` 載入各階段技能。流程會在設計核准、計畫審閱及分支收尾時等待使用者決定。完整指南也可透過 `guide://superpowers/skill-compositions` 讀取。
+
 > **單一來源（Source of Truth）：** 本英文文件為正式版本。技能行為變更時請先更新英文版，再同步翻譯。
 
 ## 1. 為什麼需要技能組合 (Why Skill Compositions Matter)
@@ -146,8 +148,8 @@ flowchart LR
 
 | MCP Prompt 名稱 | 參數 | 用途 |
 | :--- | :--- | :--- |
-| **`feature-pipeline`** | `feature_name`, `requirements` | 啟動端到端新功能開發流水線引導 |
-| **`structured-debug`** | `issue_description`, `failing_tests` | 啟動結構化除錯與平行假說驗證引導 |
+| **`feature-pipeline`** | 必填 `feature_name`、選填 `requirements` | 啟動互動式端到端新功能開發流程 |
+| **`structured-debug`** | `issue_description`, `failing_tests` | 啟動互動式結構化除錯流程；主機支援時可平行驗證假說 |
 | **`skill-composition`** | `scenario` | 根據開發情境動態推薦技能組合流程 |
 | **`session-start`** | - | 注入 Superpowers 基礎環境與技能使用守則 |
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD 任務實作子代理 Prompt |
@@ -162,31 +164,31 @@ flowchart LR
 
 只要安裝了 `superpowers-mcp`，您**完全不需要手動記住 14 個技能名稱**。有以下兩種最簡單的使用方式：
 
-### 方式 A：使用 IDE 的 MCP Prompts 功能（最推薦、一鍵啟動）
+### 方式 A：使用客戶端的 MCP Prompts 選單（最推薦）
 在 Cursor, Antigravity, VS Code 或 Devin Desktop 的對話框中：
-1. **開發新功能**：輸入 `/feature-pipeline` 或在 Prompts 選單中選擇 `feature-pipeline`，並輸入您的功能需求。
+1. **開發新功能**：在 Prompts 選單中選擇 `feature-pipeline`，輸入必要的 `feature_name` 與選填的 `requirements`。Slash command 的實際名稱依客戶端而異，可能包含 MCP server namespace。
 2. **排查 Bug / 失敗測試**：選擇 `structured-debug`，貼上錯誤訊息或測試檔案。
 3. **不知道選什麼流程**：選擇 `skill-composition`，讓 AI 針對您的情境為您推薦專屬步驟。
 
 ### 方式 B：直接用自然語言告訴 AI
-您也可以在任何對話中直接輸入以下指令，AI 會自動識別並載入標準管線：
+您也可以在一般對話中提出以下要求，但這不保證客戶端會取回原生 MCP prompt；需要確定行為時，請使用 MCP Prompts 選單：
 - *「請按照 `feature-pipeline` 的流程，幫我開發 [功能名稱]」*
 - *「請用 `structured-debug` 流程幫我分析並修復這個報錯：[貼上報錯訊息]」*
 - *「請按照 `docs/skill-compositions.zh-TW.md` 的 Refactoring Pipeline 幫我重構 [模組名稱]」*
 
 ### 💬 實戰互動節奏示範（以開發新功能為例）：
 ```text
-【您】:「請按照 feature-pipeline 開發購物車折扣券功能」
+【您】:（從 MCP Prompts 選單選取 `feature-pipeline`，輸入「購物車折扣券功能」）
   ↓
-【AI】: (自動執行 brainstorming) 「好的，請問折扣券是否有使用期限？是否能與其他優惠疊加？」
+【AI】:（透過 `read_skill` 載入 brainstorming）「好的，請問折扣券是否有使用期限？是否能與其他優惠疊加？」
   ↓
 【您】:「有期限，不能與全館折扣疊加」
   ↓
-【AI】: (自動執行 writing-plans) 「設計已確認，我已生成實作計畫 docs/superpowers/plans/... 請確認任務清單」
+【AI】:（設計核准後載入 writing-plans）「我已生成實作計畫 docs/superpowers/plans/...，請確認任務清單」
   ↓
 【您】:「計畫沒問題，開始執行」
   ↓
-【AI】: (自動建立 worktree ➔ 啟動 SDD ➔ 各任務以 TDD 撰寫測試與代碼 ➔ 執行全套測試 ➔ 發起代碼審查 ➔ 收尾分支)
+【AI】:（建立或確認 worktree ➔ 使用 SDD 或行內 fallback ➔ TDD 實作 ➔ 驗證與審查 ➔ 提供分支收尾選項）
   ↓
 【AI】: 「所有任務與全套測試皆已 100% 通過，Review 完成，分支已就緒！」
 ```

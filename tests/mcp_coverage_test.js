@@ -18,6 +18,7 @@ const ROOT = path.join(__dirname, "..");
 const SKILLS_DIR = path.join(ROOT, "skills");
 const README_FILES = ["README.md", "README.zh-TW.md", "README.ja.md", "README.ko.md"];
 const COMPOSITIONS_DOC = path.join(ROOT, "docs", "skill-compositions.md");
+const COMPOSITIONS_GUIDE_URI = "guide://superpowers/skill-compositions";
 // Meta skills that deliberately stay out of the composition guide.
 const UNDOCUMENTED_SKILLS = ["using-superpowers", "writing-skills"];
 
@@ -136,8 +137,11 @@ async function main() {
     const promptNames = (prompts.prompts || []).map((prompt) => prompt.name).sort();
 
     check("1 (one resource per skill on disk)", () => {
-        const expected = skills.map((name) => `skill://superpowers/${encodeURIComponent(name)}`).sort();
-        assert.deepStrictEqual(resourceUris.slice().sort(), expected, "resources/list must match skills/*/SKILL.md exactly");
+        const expected = [
+            ...skills.map((name) => `skill://superpowers/${encodeURIComponent(name)}`),
+            COMPOSITIONS_GUIDE_URI,
+        ].sort();
+        assert.deepStrictEqual(resourceUris.slice().sort(), expected, "resources/list must expose every skill plus the compositions guide");
         assert.strictEqual(new Set(resourceUris).size, resourceUris.length, "resource URIs must be unique");
     });
 
@@ -167,6 +171,23 @@ async function main() {
     }
     check("3 (each resource serves its own skill content)", () => {
         assert.deepStrictEqual(markerFailures, [], markerFailures.join("; "));
+    });
+
+    let guideText = "";
+    try {
+        const guide = await request("resources/read", { uri: COMPOSITIONS_GUIDE_URI });
+        guideText = (guide.contents || []).map((entry) => entry.text || "").join("");
+    } catch (err) {
+        failures.push(`3a (composition guide resource is readable): ${err.message}`);
+    }
+    check("3a (composition guide resource is readable)", () => {
+        assert.ok(guideText.includes("Four Standard Workflow Pipelines"), "guide resource returned the wrong content");
+        assert.ok(guideText.includes("feature-pipeline"), "guide resource does not document feature-pipeline");
+    });
+
+    check("3b (composition guides are included in the npm package)", () => {
+        const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+        assert.ok(manifest.files.includes("docs"), "package.json files must include the published composition guides");
     });
 
     check("4 (prompt list is unique and non-empty)", () => {

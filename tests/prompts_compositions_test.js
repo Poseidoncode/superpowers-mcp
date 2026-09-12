@@ -79,6 +79,15 @@ server.stdout.on("data", (data) => {
                 }
                 console.log("✅ prompts/list declares the SDD review-file arguments");
 
+                const featureNameArg = prompts
+                    .find((p) => p.name === "feature-pipeline")
+                    ?.arguments?.find((arg) => arg.name === "feature_name");
+                if (!featureNameArg?.required) {
+                    console.error("❌ feature-pipeline must require feature_name");
+                    process.exit(1);
+                }
+                console.log("✅ feature-pipeline requires feature_name");
+
                 // Test feature-pipeline get
                 sendRequest({
                     jsonrpc: "2.0",
@@ -102,8 +111,13 @@ server.stdout.on("data", (data) => {
                     text.includes("superpowers:test-driven-development") &&
                     text.includes("superpowers:verification-before-completion") &&
                     text.includes("superpowers:requesting-code-review") &&
-                    text.includes("superpowers:finishing-a-development-branch")) {
-                    console.log("✅ prompts/get feature-pipeline returned complete workflow with all stages");
+                    text.includes("superpowers:finishing-a-development-branch") &&
+                    text.includes('read_skill({"skill_name":"brainstorming"})') &&
+                    text.includes('read_skill({"skill_name":"executing-plans"})') &&
+                    text.includes("does not execute the stages server-side") &&
+                    text.includes("wait for explicit user approval") &&
+                    text.includes("when the host provides multi-agent tools")) {
+                    console.log("✅ prompts/get feature-pipeline returned an actionable interactive workflow");
                 } else {
                     console.error("❌ prompts/get feature-pipeline content mismatch:", text);
                     process.exit(1);
@@ -132,8 +146,11 @@ server.stdout.on("data", (data) => {
                     text.includes("superpowers:verification-before-completion") &&
                     text.includes("superpowers:requesting-code-review") &&
                     text.includes("superpowers:receiving-code-review") &&
-                    text.includes("superpowers:finishing-a-development-branch")) {
-                    console.log("✅ prompts/get structured-debug returned complete troubleshooting workflow with lifecycle completion");
+                    text.includes("superpowers:finishing-a-development-branch") &&
+                    text.includes('read_skill({"skill_name":"systematic-debugging"})') &&
+                    text.includes("Otherwise investigate hypotheses sequentially") &&
+                    text.includes("does not execute the stages server-side")) {
+                    console.log("✅ prompts/get structured-debug returned an actionable interactive workflow");
                 } else {
                     console.error("❌ prompts/get structured-debug content mismatch:", text);
                     process.exit(1);
@@ -384,11 +401,28 @@ server.stdout.on("data", (data) => {
                 const target = (text.match(/Write your full report to ([^\s`]+)/) || [])[1] || "";
                 if (target === "/tmp/task-14-review.md") {
                     console.log("✅ prompts/get substitutes the derived review file for review_file == brief_file");
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 15,
+                        method: "tools/call",
+                        params: {
+                            name: "read_skill",
+                            arguments: { skill_name: "superpowers:brainstorming" }
+                        }
+                    });
+                    continue;
+                }
+                console.error("❌ prompts/get did not substitute review_file == brief_file (target:", target, ")");
+                process.exit(1);
+            } else if (response.id === 15) {
+                const text = response.result?.content?.[0]?.text || "";
+                if (text.includes("# Skill: brainstorming")) {
+                    console.log("✅ read_skill accepts the documented superpowers: prefix");
                     console.log("🎉 ALL ADVANCED COMPOSITIONS & SECURITY PROMPT TESTS PASSED 100%!");
                     server.kill();
                     process.exit(0);
                 }
-                console.error("❌ prompts/get did not substitute review_file == brief_file (target:", target, ")");
+                console.error("❌ read_skill did not normalize the superpowers: prefix:", response);
                 process.exit(1);
             }
         } catch (err) {

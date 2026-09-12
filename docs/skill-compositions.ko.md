@@ -2,6 +2,8 @@
 
 [English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md)
 
+> **중요:** 이 MCP prompts는 대화형 워크플로 런처이며 서버 측 자동화가 아닙니다. 클라이언트의 MCP Prompts 메뉴에서 선택하세요. slash command 문법은 클라이언트마다 다릅니다. 에이전트는 파일, 터미널, Git에 접근할 수 있어야 하며 각 단계에서 `read_skill`을 호출합니다. 설계 승인, 계획 검토, 브랜치 마무리 단계에서는 사용자 결정을 기다립니다. 전체 가이드는 `guide://superpowers/skill-compositions`에서도 읽을 수 있습니다.
+
 > **단일 소스(Source of Truth):** 이 영어 문서가 정본입니다. 스킬 동작이 바뀌면 영어 문서를 먼저 갱신하고 번역을 동기화하세요.
 
 ## 1. 스킬 조합이 중요한 이유 (Why Skill Compositions Matter)
@@ -146,8 +148,8 @@ flowchart LR
 
 | MCP Prompt 명 | 매개변수 | 용도 |
 | :--- | :--- | :--- |
-| **`feature-pipeline`** | `feature_name`, `requirements` | 새 기능 개발을 위한 원클릭 워크플로우 오케스트레이터. |
-| **`structured-debug`** | `issue_description`, `failing_tests` | 체계적 디버깅 및 다중 에이전트 조사를 위한 오케스트레이터. |
+| **`feature-pipeline`** | 필수 `feature_name`, 선택 `requirements` | 대화형 새 기능 개발 워크플로 런처. |
+| **`structured-debug`** | `issue_description`, `failing_tests` | 대화형 체계적 디버깅 런처이며 호스트 지원 시 병렬 조사도 수행합니다. |
 | **`skill-composition`** | `scenario` | 개발 시나리오에 맞춘 동적 스킬 조합 가이드. |
 | **`session-start`** | - | Superpowers 기본 환경 및 스킬 호출 규칙 주입. |
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD 태스크 구현 서브에이전트 프롬프트. |
@@ -162,27 +164,27 @@ flowchart LR
 
 `superpowers-mcp`를 설정하면 **14개의 개별 스킬 이름을 일일이 기억할 필요가 없습니다**. 아래의 두 가지 간단한 방법으로 시작할 수 있습니다:
 
-### 방법 A: IDE의 MCP Prompts 사용 (가장 권장, 원클릭 시작)
+### 방법 A: 클라이언트의 MCP Prompts 메뉴 사용 (권장)
 Cursor, Antigravity, VS Code, Devin Desktop 등의 대화창에서:
-1. **새 기능 개발**: `/feature-pipeline`을 입력하거나 Prompts 메뉴에서 `feature-pipeline`을 선택하고 요구사항을 전달합니다.
+1. **새 기능 개발**: Prompts 메뉴에서 `feature-pipeline`을 선택하고 필수 `feature_name`과 선택적 `requirements`를 입력합니다. 실제 slash command 이름은 클라이언트에 따라 다르며 MCP server namespace가 포함될 수 있습니다.
 2. **버그 해결 / 테스트 실패**: `structured-debug`를 선택하고 오류 로그 또는 실패한 테스트를 붙여넣습니다.
 3. **적절한 흐름을 모를 때**: `skill-composition`을 선택하여 현재 상황에 맞는 맞춤형 파이프라인을 추천받습니다.
 
 ### 방법 B: 자연어로 직접 지시하기
-일반 대화창에서 파이프라인 이름을 지정하기만 하면 AI가 표준 파이프라인을 자동으로 인식하여 로드합니다:
+일반 대화에서도 아래처럼 요청할 수 있지만 네이티브 MCP prompt가 조회된다는 보장은 없습니다. 확실하게 사용하려면 MCP Prompts 메뉴를 선택하세요:
 - *"`feature-pipeline` 흐름에 따라 [기능 이름] 개발을 진행해줘."*
 - *"`structured-debug` 프로세스를 사용하여 다음 오류를 분석하고 수정해줘: [오류 로그]"*
 - *"`docs/skill-compositions.ko.md`의 리팩토링 파이프라인에 따라 [모듈 이름]을 리팩토링해줘."*
 
 ### 💬 실제 상호작용 예시 (새 기능 개발 기준):
 ```text
-[사용자]: "feature-pipeline에 따라 장바구니 쿠폰 결제 기능을 개발해줘"
+[사용자]: (MCP Prompts 메뉴에서 `feature-pipeline`을 선택하고 쿠폰 기능 입력)
   ↓
-[AI]: (brainstorming 자동 실행) "네, 쿠폰의 유효기간이 있는지, 다른 할인과 중복 적용이 가능한지 확인 부탁드립니다."
+[AI]: (`read_skill`로 brainstorming 로드) "쿠폰의 유효기간이 있는지, 다른 할인과 중복 적용이 가능한지 확인 부탁드립니다."
   ↓
 [사용자]: "유효기간이 있고, 중복 적용은 불가능합니다."
   ↓
-[AI]: (writing-plans 자동 실행) "설계가 완료되어 docs/superpowers/plans/...에 구현 계획을 작성했습니다. 검토해 주세요."
+[AI]: (설계 승인 후 writing-plans 로드) "docs/superpowers/plans/...에 구현 계획을 작성했습니다. 검토해 주세요."
   ↓
 [사용자]: "계획 좋습니다. 진행해 주세요."
   ↓

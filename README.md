@@ -23,11 +23,11 @@ This document summarizes the information and usage instructions for packaging th
 | :--- | :--- | :--- |
 | **Tools** | `list_skills`, `read_skill` | Discover, search, and load full skill instructions and checklists on demand. |
 | **Prompts** | 9 Native Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
-| **Resources** | 14 Direct Skill URIs | `skill://superpowers/<skill-name>` (Standard direct URI access) |
+| **Resources** | 14 Skill URIs + 1 Guide | `skill://superpowers/<skill-name>` plus `guide://superpowers/skill-compositions` |
 
 ### Chatting with the AI Agent (Basic Usage)
 
-Once installed or configured, your AI Agent will automatically discover and invoke `Superpowers Skills` and `Prompts`.
+Once installed or configured, your MCP client can discover the Superpowers tools, prompts, and resources. MCP prompts are user-invoked; select one from your client's MCP Prompts menu. Skill loading then depends on the agent following the selected prompt and calling `read_skill`.
 
 **Basic Interaction Examples:**
 - **Initialize Engineering Discipline:** "Apply `session-start` prompt" (Injects Superpowers rules & context)
@@ -125,24 +125,25 @@ This is the easiest way as it handles path resolution automatically.
 
 ## 🔄 Skill Compositions & Workflow Pipelines
 
-For complex, multi-step engineering tasks, use these **one-click end-to-end pipelines** where the AI guides you step-by-step (see detailed guide: [`docs/skill-compositions.md`](docs/skill-compositions.md)):
+For complex engineering tasks, use these **interactive workflow launchers**. They start an agent-guided process and pause at design, plan-review, and branch-finishing decisions; they do not execute server-side or run unattended. See the published [`Skill Compositions Guide`](docs/skill-compositions.md), also available as the MCP resource `guide://superpowers/skill-compositions`.
 
 ### 1. New Feature Development Pipeline
 ```
 brainstorming ➔ writing-plans ➔ using-git-worktrees ➔ subagent-driven-development (TDD) ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **One-Click Command:** "Please apply `feature-pipeline` to build [Feature Name]"
-- **Workflow:** Clarifies requirements (Spec) ➔ Decomposes plan ➔ Isolates worktree ➔ Implements via fresh subagents & TDD ➔ Runs full test suite ➔ Conducts code review ➔ Finishes branch.
+- **Start it:** Select `feature-pipeline` from your client's MCP Prompts menu and provide `feature_name` plus optional `requirements`.
+- **Workflow:** Clarifies requirements (Spec) ➔ waits for design approval ➔ creates a reviewable plan ➔ waits for plan approval ➔ isolates a worktree ➔ implements with SDD or the inline fallback and TDD ➔ verifies ➔ reviews ➔ asks how to finish the branch.
+- **Fallback:** If the host has no multi-agent tools, the workflow uses `executing-plans` instead of claiming to dispatch subagents.
 
 ### 2. Structured Troubleshooting Pipeline
 ```
 systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **One-Click Command:** "Please apply `structured-debug` to investigate this error: [Paste Trace / Logs]"
+- **Start it:** Select `structured-debug` from your client's MCP Prompts menu and provide the issue or failing tests.
 - **Workflow:** Hypothesizes root causes ➔ Isolates worktrees for parallel agents ➔ Authors failing reproduction tests ➔ Applies targeted fix ➔ Confirms zero regressions ➔ Reviews fix ➔ Finishes branch.
 
 ### 3. Dynamic Workflow Guide
-- **One-Click Command:** "Please apply `skill-composition` for [Refactoring / Migration / Legacy Codebase]"
+- **Start it:** Select `skill-composition` to get a recommended workflow for refactoring, migration, or a legacy codebase. These scenarios do not currently have dedicated launcher prompts.
 - **Workflow:** Dynamically recommends the optimal multi-skill composition for large refactors, migration safety nets, or onboarding:
   - **Large Refactoring & Migration:** `brainstorming` ➔ `writing-plans (skeleton-first)` ➔ `using-git-worktrees` ➔ `subagent-driven-development` ➔ `verification-before-completion` ➔ `requesting-code-review` ➔ `finishing-a-development-branch`
   - **Legacy Codebase Safety Net:** `brainstorming` ➔ `writing-plans` ➔ `test-driven-development (characterization)` ➔ `systematic-debugging` ➔ `verification-before-completion`
@@ -171,16 +172,15 @@ To help you choose the right skill, we have structured all 14 skills across the 
 | 13 | **🤖 Advanced Agents** | **`using-superpowers`** | **Superpowers Foundation & Discipline**: Establishes mandatory skill discovery, loading discipline, and priority rules. | Automatically loaded at session start to enforce software engineering standards. |
 | 14 | **🤖 Advanced Agents** | **`writing-skills`** | **Skill Authoring & Maintenance**: Guides the creation, testing, and packaging of new Superpowers skills. | When creating custom skills or enhancing existing skill instructions. |
 
----
-
-## Project Lineage
-
-This project imports reviewed skill content from [`obra/superpowers`](https://github.com/obra/superpowers). Maintainers can find the synchronization procedure in the [upstream synchronization guide](docs/maintainers/upstream-sync.md).
-
 ## 🆕 Recent Updates
 
 ### v6.3.8 (Latest)
 
+- **Actionable Interactive Workflow Launchers**:
+  - `feature-pipeline` and `structured-debug` now emit explicit stage-by-stage `read_skill` calls, preserve required user approval gates, and clearly state that execution happens through the client agent rather than inside the MCP server.
+  - Hosts with multi-agent support can use subagent execution; other hosts fall back to inline or sequential execution without claiming unavailable capabilities.
+  - `read_skill` accepts both bare skill names and the documented `superpowers:` prefix.
+  - The composition guide is included in the npm package and available through `guide://superpowers/skill-compositions`.
 - **Universal Global Setup Concurrency & Symlink Breakout Defense**:
   - **Allowed Roots Boundary Containment**: Enforces destination restriction to explicit allowed user roots (`homeDir`, `appData`, `localAppData`), blocking parent-directory symlink breakout attacks.
   - **Optimistic Concurrency Conflict Defense**: Compares file content against `expectedContent` immediately prior to atomic `fs.renameSync`, preventing race conditions from silently overwriting newer configurations.
@@ -198,8 +198,6 @@ This project imports reviewed skill content from [`obra/superpowers`](https://gi
   - `find-polluter.sh` & `find-polluter.ps1`: Caller-supplied test command with safe array expansion (`"${TEST_COMMAND[@]}"`, `& $testCommand @testCommandArgs`) and space-safe while loop, preventing shell command injection.
   - `sdd-workspace`: Sanitizes `CDPATH=''` before all `cd` operations, neutralizing directory redirection attacks.
   - `sdd-workspace.ps1`: Lossless Unicode plan marker persistence using UTF-8 without BOM (`[System.Text.UTF8Encoding]::new($false)`).
-- **Project Lineage & Maintainer Guidance**:
-  - Extracted maintainer-facing synchronization workflows to [`docs/maintainers/upstream-sync.md`](docs/maintainers/upstream-sync.md) for clean separation of user and maintainer concerns.
 - **Automated Regression Verification Floor**:
   - Expanded test suite to **274 automated test assertions** across Node.js (145), Bash (35), and PowerShell (94) with a 100% pass rate.
 

@@ -23,11 +23,11 @@
 | :--- | :--- | :--- |
 | **Tools (工具)** | `list_skills`, `read_skill` | 依需求隨時探索、搜尋並載入技能完整內容與操作規範。 |
 | **Prompts (提示詞)** | 9 個原生 Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
-| **Resources (資源)** | 14 項技能 Direct URI | `skill://superpowers/<skill-name>`（支援 MCP 協議標準資源直讀） |
+| **Resources (資源)** | 14 項技能 URI + 1 項指南 | `skill://superpowers/<skill-name>`，以及 `guide://superpowers/skill-compositions` |
 
 ### 與 AI Agent 對話（基礎操作）
 
-安裝或配置完成後，您的 AI Agent 將能夠自動識別並調用 `Superpowers Skills` 與 `Prompts`。
+安裝或配置完成後，MCP 客戶端即可發現 Superpowers 的 tools、prompts 與 resources。MCP prompt 必須由使用者選取；之後是否載入技能，取決於 Agent 是否遵循 prompt 並呼叫 `read_skill`。
 
 **基礎互動範例：**
 - **初始化工程規範**：「套用 `session-start` prompt」（注入 Superpowers 技能體系與工程紀律）
@@ -125,24 +125,24 @@
 
 ## 🔄 技能編排與工作流流水線 (Skill Compositions & Pipelines)
 
-當執行多步驟的複雜任務時，請直接使用以下**一鍵端到端工作流**，AI 會自動按標準工程步驟引導（詳見完整指南：[`docs/skill-compositions.zh-TW.md`](docs/skill-compositions.zh-TW.md)）：
+當執行多步驟的複雜任務時，請使用以下**互動式工作流啟動器**。它會啟動 Agent 引導的流程，並在設計、計畫審閱與分支收尾時等待使用者決定；它不是伺服器端無人值守自動化。詳見 [`docs/skill-compositions.zh-TW.md`](docs/skill-compositions.zh-TW.md)。
 
 ### 1. 端到端新功能開發管線 (Feature Development Pipeline)
 ```
 brainstorming ➔ writing-plans ➔ using-git-worktrees ➔ subagent-driven-development (TDD) ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **一鍵指令：**「請套用 `feature-pipeline`，幫我開發 [新功能名稱]」
+- **啟動方式：**從客戶端的 MCP Prompts 選單選取 `feature-pipeline`，提供必要的 `feature_name` 與選填的 `requirements`。
 - **流程特色：** 需求確認 (Spec) ➔ 任務拆解 (Plan) ➔ Worktree 隔離 ➔ 獨立 Subagent + TDD 實作 ➔ 全套測試驗證 ➔ 專家代碼審查 ➔ 分支收尾。
 
 ### 2. 結構化多點除錯管線 (Structured Troubleshooting Pipeline)
 ```
 systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **一鍵指令：**「請套用 `structured-debug`，幫我排查這個報錯：[貼上錯誤訊息]」
+- **啟動方式：**從 MCP Prompts 選單選取 `structured-debug`，提供錯誤描述或失敗測試。
 - **流程特色：** 根因分析拆解假說 ➔ Worktree 隔離平行排查 ➔ 多 Agent 驗證 ➔ 編寫失敗測試並修復 ➔ 全套迴歸驗證 ➔ 審查結果解決 ➔ 分支合併收尾。
 
 ### 3. 動態技能導引 (Dynamic Workflow Guide)
-- **一鍵指令：**「請套用 `skill-composition`，我目前的情境是 [重構/遷移/接手舊專案]」
+- **啟動方式：**選取 `skill-composition` 取得重構、遷移或舊系統的流程建議；這些情境目前沒有各自獨立的啟動 prompt。
 - **流程特色：** 針對大型重構、舊代碼防護網建立或團隊新人上手，動態推薦最佳步驟：
   - **大型重構與遷移 (Pipeline 3)：** `brainstorming` ➔ `writing-plans (skeleton-first)` ➔ `using-git-worktrees` ➔ `subagent-driven-development` ➔ `verification-before-completion` ➔ `requesting-code-review` ➔ `finishing-a-development-branch`
   - **舊專案工程防護網 (Pipeline 4)：** `brainstorming` ➔ `writing-plans` ➔ `test-driven-development (characterization)` ➔ `systematic-debugging` ➔ `verification-before-completion`
@@ -171,16 +171,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 | 13 | **🤖 進階調度** | **`using-superpowers`** | **Superpowers 基礎紀律**：MCP 入口技能，引導 Agent 在任何任務前主動搜尋並載入對應技能規範。 | 開啟對話時自動載入，規範 AI 的行為準則。 |
 | 14 | **🤖 進階調度** | **`writing-skills`** | **技能撰寫與維護**：規範如何為團隊建立、測試與封裝新的 Superpowers 技能。 | 需要擴充專屬新技能或更新既有技能時。 |
 
----
-
-## 專案來源
-
-本專案引進並審閱 [`obra/superpowers`](https://github.com/obra/superpowers) 的技能內容。維護者可參閱[上游同步指南](docs/maintainers/upstream-sync.md)了解同步程序。
-
 ## 🆕 最近更新
 
 ### v6.3.8 (最新版)
 
+- **可執行的互動式工作流啟動器**：
+  - `feature-pipeline` 與 `structured-debug` 會逐階段給出明確的 `read_skill` 呼叫，保留必要的使用者核准關卡，並清楚說明流程由客戶端 Agent 執行，不是 MCP 伺服器內部自動執行。
+  - 支援多 Agent 的 Host 可使用 Subagent；其他 Host 會退回會話內或序列執行，不會聲稱使用不存在的能力。
+  - `read_skill` 同時接受純技能名稱與文件所載的 `superpowers:` 前綴。
+  - Skill Compositions 指南已納入 npm 套件，並可透過 `guide://superpowers/skill-compositions` 讀取。
 - **全域安裝引擎並行安全、Inode 防禦與符號連結跳脫隔離**：
   - **Allowed Roots 邊界隔離**：強制限制目的地路徑必須在使用者允許目錄（`homeDir`、`appData`、`localAppData`），杜絕父層符號連結跳脫攻擊。
   - **樂觀並行衝突檢測**：在原子 `fs.renameSync` 前比對磁碟檔案與 `expectedContent`，防止多行程競態覆寫較新的設定檔。
@@ -198,8 +197,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - `find-polluter.sh` 與 `find-polluter.ps1`：指令參數陣列化展開 (`"${TEST_COMMAND[@]}"`、`& $testCommand @testCommandArgs`) 搭配含空白檔名安全讀取迴圈，杜絕 Shell 注入。
   - `sdd-workspace`：執行 `cd` 前重設 `CDPATH=''`，阻絕環境變數目錄劫持。
   - `sdd-workspace.ps1`：以 UTF-8 without BOM (`[System.Text.UTF8Encoding]::new($false)`) 寫入計畫標記，確保無損 Unicode 路徑往返。
-- **專案來源與維護者指南分流**：
-  - 將上游同步作業流程獨立移至 [`docs/maintainers/upstream-sync.md`](docs/maintainers/upstream-sync.md)，保持根目錄文檔清晰聚焦。
 - **全自動化回歸測試底線**：
   - 擴展測試套件至 **274 項自動化斷言全數通過**（Node.js: 145 項、Bash: 35 項、PowerShell: 94 項），維持 100% 通過率。
 

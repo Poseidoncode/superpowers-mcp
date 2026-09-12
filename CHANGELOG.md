@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security Hardening, Race Defense & Concurrency Inode Verification
 
+- **Actionable Interactive Workflow Launchers**:
+  - Moved `feature-pipeline` and `structured-debug` stage definitions into `src/pipelines.ts`; rendered prompts now give exact bare-name `read_skill` calls, state that execution is agent-side, preserve approval gates, and provide honest inline/sequential fallbacks when multi-agent tools are unavailable.
+  - `read_skill` and direct skill-resource lookup now accept both bare names and the documented `superpowers:` prefix.
+  - Published the composition guides in the npm package and exposed the canonical guide as `guide://superpowers/skill-compositions`.
+  - Reworked all four READMEs and composition guides to distinguish launcher prompts from recommendations and remove non-portable slash-command and unattended-automation guarantees.
+  - Verified the packaged server through a real MCP SDK stdio connection: prompt discovery, `feature-pipeline` rendering, prefixed skill loading, guide resource listing, and guide reading all succeed end to end.
+
 - **Universal Global Setup Concurrency & Symlink Breakout Defense (`src/setup-runner.ts`)**:
   - **Allowed Roots Boundary Containment (`safeWriteConfig`)**: Enforced destination confinement within explicit user allowed roots (`homeDir`, `appData`, `localAppData`), blocking parent-directory symlink redirection attacks outside user bounds.
   - **Optimistic Concurrency & Race Conflict Defense**: Added disk content validation against `expectedContent` immediately prior to atomic `fs.renameSync`, preventing race conditions from silently overwriting newer configurations.
@@ -27,8 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Test Runner Command Injection Defense (`find-polluter.sh`, `find-polluter.ps1`)**: Supports caller-supplied test commands through safe array expansion (`"${TEST_COMMAND[@]}"` and `& $testCommand @testCommandArgs`), while using `while IFS= read -r` loops to safely parse test paths containing spaces.
   - **CDPATH Redirection Sanitization (`sdd-workspace`)**: Sanitizes `CDPATH=''` before all `cd` operations, neutralizing directory redirection attacks in environments with configured `CDPATH`.
   - **Lossless Unicode Plan Marker Persistence (`sdd-workspace.ps1`)**: Writes plan marker files with `[System.Text.UTF8Encoding]::new($false)` (UTF-8 without BOM), ensuring lossless Unicode path round-tripping across PowerShell executions.
-- **Documentation & Maintainer Guidance**:
-  - Extracted upstream sync procedures from user-facing READMEs to [`docs/maintainers/upstream-sync.md`](docs/maintainers/upstream-sync.md), keeping root documentation clear and focused.
 - **Comprehensive Regression Verification**:
   - Expanded test suites to **274 automated test assertions** across Node.js (145), Bash (35), and PowerShell (94), achieving 100% pass rate with 0 failures and 0 regressions.
 

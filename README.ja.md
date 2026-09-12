@@ -23,11 +23,11 @@
 | :--- | :--- | :--- |
 | **Tools** | `list_skills`, `read_skill` | 14 種類の Superpowers スキルをオンデマンドで検索・読み込み。 |
 | **Prompts** | 9 個のネイティブ Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
-| **Resources** | 14 個の Direct URI | `skill://superpowers/<skill-name>` (MCP 規格に準拠した直接アクセス) |
+| **Resources** | 14 個の Skill URI + 1 ガイド | `skill://superpowers/<skill-name>` と `guide://superpowers/skill-compositions` |
 
 ### AI エージェントとの対話（基本操作）
 
-インストールまたは設定が完了すると、AI エージェントが自動的に `Superpowers Skills` および `Prompts` を認識して呼び出せるようになります。
+インストールまたは設定後、MCP クライアントは Superpowers の tools、prompts、resources を検出できます。MCP prompt はユーザーが選択して起動し、その後エージェントが指示に従って `read_skill` を呼び出します。
 
 **基本的な対話例：**
 - **エンジニアリング規律の初期化**：「`session-start` プロンプトを適用して」（Superpowers のルールとコンテキストを注入）
@@ -125,24 +125,24 @@
 
 ## 🔄 スキル構成 & ワークフローパイプライン (Skill Compositions & Pipelines)
 
-複数ステップの複雑なタスクを実行する際は、以下の**ワンクリック・エンドツーエンドパイプライン**を使用してください（詳細ガイド：[`docs/skill-compositions.ja.md`](docs/skill-compositions.ja.md)）：
+複数ステップの複雑なタスクには、以下の**対話型ワークフローランチャー**を使用してください。設計、計画レビュー、ブランチ完了時にはユーザーの判断を待つため、サーバー側の無人自動化ではありません（詳細：[`docs/skill-compositions.ja.md`](docs/skill-compositions.ja.md)）。
 
 ### 1. エンドツーエンド新機能開発パイプライン (Feature Development Pipeline)
 ```
 brainstorming ➔ writing-plans ➔ using-git-worktrees ➔ subagent-driven-development (TDD) ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **ワンクリック指示：**「`feature-pipeline` を適用して、[機能名] の開発を進めてください」
+- **起動方法：**MCP Prompts メニューから `feature-pipeline` を選択し、必須の `feature_name` と任意の `requirements` を入力します。
 - **特徴：** 要件明確化 (Spec) ➔ 計画分解 (Plan) ➔ Worktree 分離 ➔ 独立サブエージェント＋TDD 実装 ➔ フルテスト検証 ➔ 敵対的コードレビュー ➔ ブランチ完了。
 
 ### 2. 構造化トラブルシューティングパイプライン (Structured Troubleshooting Pipeline)
 ```
 systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **ワンクリック指示：**「`structured-debug` を適用して、次のエラーを調査・修正してください：[エラーログ]」
+- **起動方法：**MCP Prompts メニューから `structured-debug` を選択し、問題または失敗テストを入力します。
 - **特徴：** 根本原因の仮説分解 ➔ Worktree 隔離並行調査 ➔ 複数エージェント検証 ➔ 失敗テスト作成・修正 ➔ 完全な回帰検証 ➔ レビュー指摘解決 ➔ ブランチ完了。
 
 ### 3. 動的ワークフローガイド (Dynamic Workflow Guide)
-- **ワンクリック指示：**「`skill-composition` を適用して、現在の状況 [リファクタリング/移行/レガシーコード保護] の手順を提示してください」
+- **起動方法：**`skill-composition` を選択してリファクタリング、移行、レガシーコード向けの推奨手順を取得します。これらには現在、専用ランチャー prompt はありません。
 - **特徴：** 大規模リファクタリング、レガシーシステムの安全網構築、オンボーディングに最適なパイプラインを動的に提案：
   - **大規模リファクタリング＆移行 (Pipeline 3)：** `brainstorming` ➔ `writing-plans (skeleton-first)` ➔ `using-git-worktrees` ➔ `subagent-driven-development` ➔ `verification-before-completion` ➔ `requesting-code-review` ➔ `finishing-a-development-branch`
   - **レガシーコード安全網 (Pipeline 4)：** `brainstorming` ➔ `writing-plans` ➔ `test-driven-development (characterization)` ➔ `systematic-debugging` ➔ `verification-before-completion`
@@ -173,14 +173,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
-## プロジェクトの由来
-
-このプロジェクトは [`obra/superpowers`](https://github.com/obra/superpowers) のスキル内容をレビューしたうえで取り込んでいます。同期手順はメンテナー向けの[アップストリーム同期ガイド](docs/maintainers/upstream-sync.md)を参照してください。
-
 ## 🆕 最近の更新
 
 ### v6.3.8（最新）
 
+- **実行可能な対話型ワークフローランチャー**：
+  - `feature-pipeline` と `structured-debug` は、ステージごとに明示的な `read_skill` 呼び出しを示し、必要なユーザー承認ゲートを保持し、実行が MCP サーバー内ではなくクライアント Agent 側で行われることを明記します。
+  - マルチ Agent 対応 Host では Subagent を使い、非対応 Host では利用できない機能を称することなくインラインまたは逐次実行にフォールバックします。
+  - `read_skill` はスキル名単体と、文書化された `superpowers:` プレフィックスの両方を受け付けます。
+  - Skill Compositions ガイドを npm パッケージに含め、`guide://superpowers/skill-compositions` からも参照できます。
 - **ユニバーサルセットアップエンジンの並行安全性・Inode 防御・シンボリックリンク脱出防止**：
   - **Allowed Roots 境界隔離**：設定の書き込み先を明示的な許可ルート（`homeDir`、`appData`、`localAppData`）内に限定し、親ディレクトリシンボリックリンク経由の脱出攻撃を遮断。
   - **楽観的並行競合検知**：アトミックな `fs.renameSync` の直前にディスク内容と `expectedContent` を照合し、マルチプロセス競合による新しい設定の上書きを防止。
@@ -198,8 +199,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - `find-polluter.sh` および `find-polluter.ps1`：配列展開引数受け渡し (`"${TEST_COMMAND[@]}"`、`& $testCommand @testCommandArgs`) と空白セーフな読み込みループにより、シェルインジェクションを根絶。
   - `sdd-workspace`：`cd` 実行前に `CDPATH=''` をリセットし、環境変数によるディレクトリハイジャックを防止。
   - `sdd-workspace.ps1`：BOM なし UTF-8 (`[System.Text.UTF8Encoding]::new($false)`) でプランマーカーを保存し、Unicode パスの完全性を保護。
-- **プロジェクトの由来とメンテナーガイドの分離**：
-  - アップストリーム同期手順を [`docs/maintainers/upstream-sync.md`](docs/maintainers/upstream-sync.md) に独立させ、ルート文書を整理。
 - **全自動回帰テストの基盤**：
   - テストスイートを **274 の全自動アサーション**（Node.js: 145、Bash: 35、PowerShell: 94）に拡張し、100% の合格率を維持。
 

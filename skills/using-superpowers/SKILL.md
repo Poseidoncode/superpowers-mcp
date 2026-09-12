@@ -32,7 +32,7 @@ When multiple skills apply, process skills come first — they set the approach,
 
 ## Skill Compositions & Pipelines
 
-Complex engineering workflows chain multiple skills end-to-end (see `docs/skill-compositions.md`):
+Complex engineering workflows chain multiple skills end-to-end. The complete published guide is available from the MCP resource `guide://superpowers/skill-compositions`:
 
 - **Feature Pipeline:** `brainstorming` → `writing-plans` → `using-git-worktrees` → `subagent-driven-development` (with `test-driven-development`) → `verification-before-completion` → `requesting-code-review` → `finishing-a-development-branch`
 - **Troubleshooting Pipeline:** `systematic-debugging` → `using-git-worktrees` → `dispatching-parallel-agents` → `test-driven-development` → `verification-before-completion` → `requesting-code-review`

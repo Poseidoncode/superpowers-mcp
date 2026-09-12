@@ -5,7 +5,29 @@
 > **Source of truth:** this English document is canonical. Update it first when skill behavior changes, then sync the translations.
 
 
-## 1. Why Skill Compositions Matter
+## 1. Choose a Workflow
+
+These prompts are **interactive workflow launchers**, not server-side automation. Selecting one adds structured instructions to the conversation; the host agent must have file, terminal, and Git access and must call `read_skill` for each stage. The workflow pauses whenever a skill requires design approval, plan review, or a branch-finishing choice.
+
+| Goal | MCP Prompt | What It Does |
+| :--- | :--- | :--- |
+| Build a new feature | `feature-pipeline` | Starts the complete interactive feature workflow. |
+| Investigate and fix a complex bug | `structured-debug` | Starts the structured debugging workflow. |
+| Plan a large refactor or migration | `skill-composition` with a refactor scenario | Recommends Pipeline 3; there is no dedicated launcher prompt yet. |
+| Stabilize a legacy codebase | `skill-composition` with a legacy scenario | Recommends Pipeline 4; there is no dedicated launcher prompt yet. |
+
+The portable invocation method is your client's **MCP Prompts menu**. Slash-command names vary by client and may include the configured MCP server name. Merely mentioning a prompt name in ordinary chat does not guarantee that the client will retrieve that MCP prompt.
+
+The same guide is exposed to MCP clients as `guide://superpowers/skill-compositions`.
+
+### Prerequisites
+
+- Run in an agent session with access to the target repository, files, terminal, and Git.
+- Worktree creation requires a Git repository and permission to create branches and directories.
+- `subagent-driven-development` requires host-provided multi-agent tools. When unavailable, `feature-pipeline` uses `executing-plans` as its inline fallback.
+- Pushes, pull requests, merges, and destructive cleanup remain explicit user decisions.
+
+## 2. Why Skill Compositions Matter
 
 The 14 core skills in `superpowers-mcp` span the entire software development lifecycle (SDLC): from requirements discovery, architecture planning, isolated workspace setup, test-driven development (TDD), and systematic debugging, to full verification, code review, and branch integration.
 
@@ -13,7 +35,7 @@ While each atomic skill acts as a precision engineering tool, production-grade d
 
 ---
 
-## 2. Core Architectural Principles
+## 3. Core Architectural Principles
 
 When composing skills, always enforce these five safety mechanisms:
 
@@ -25,7 +47,7 @@ When composing skills, always enforce these five safety mechanisms:
 
 ---
 
-## 3. Four Standard Workflow Pipelines
+## 4. Four Standard Workflow Pipelines
 
 ### Pipeline 1: End-to-End Feature Development
 **Ideal for:** Building new features, major modules, or core subsystem enhancements.
@@ -34,11 +56,10 @@ When composing skills, always enforce these five safety mechanisms:
 flowchart LR
     F1[brainstorming] --> F2[writing-plans]
     F2 --> F3[using-git-worktrees]
-    F3 --> F4[subagent-driven-development / executing-plans]
-    F4 --> F5[test-driven-development]
-    F5 --> F6[verification-before-completion]
-    F6 --> F7[requesting-code-review]
-    F7 --> F8[finishing-a-development-branch]
+    F3 --> F4["subagent-driven-development / executing-plans (with TDD)"]
+    F4 --> F5[verification-before-completion]
+    F5 --> F6[requesting-code-review]
+    F6 --> F7[finishing-a-development-branch]
 ```
 
 | Step | Skill | Responsibility & Deliverable |
@@ -46,11 +67,10 @@ flowchart LR
 | **1. Requirements & Design** | `brainstorming` | Clarify intent, constraints, architecture decisions, and edge cases; confirm shared understanding, run the planning-handoff review, and output the Design Spec. |
 | **2. Plan Construction** | `writing-plans` | Decompose Spec into bite-sized, testable tasks annotated with Recommended Skills. |
 | **3. Workspace Isolation** | `using-git-worktrees` | Create an isolated Git worktree to protect the main branch and active work. |
-| **4. Task Execution** | `subagent-driven-development` | Dispatch fresh, context-isolated subagents to execute tasks sequentially. |
-| **5. Core Implementation** | `test-driven-development` | Enforce the strict Red ➔ Green ➔ Refactor cycle for all business logic. |
-| **6. Full Suite Verification** | `verification-before-completion` | Execute the full test suite, linter, and type checks to ensure zero regressions; when there is no test command, re-open the artifact and account for every part of the request. |
-| **7. Adversarial Review** | `requesting-code-review` | Assemble review package and perform comprehensive code & architecture reviews. |
-| **8. Branch Finalization** | `finishing-a-development-branch` | Export deferred findings (PR checklist or committed follow-ups file), then merge/PR, clean up worktrees, and delete temporary branches cleanly. |
+| **4. Task Execution** | `subagent-driven-development` or `executing-plans` | Use fresh subagents when the host supports them; otherwise execute inline. Load `test-driven-development` for implementation tasks and enforce Red ➔ Green ➔ Refactor. |
+| **5. Full Suite Verification** | `verification-before-completion` | Execute the full test suite, linter, and type checks to ensure zero regressions; when there is no test command, re-open the artifact and account for every part of the request. |
+| **6. Adversarial Review** | `requesting-code-review` | Assemble review package and perform comprehensive code & architecture reviews. |
+| **7. Branch Finalization** | `finishing-a-development-branch` | Export deferred findings (PR checklist or committed follow-ups file), then present the available merge/PR/keep choices and perform only the option the user selects. |
 
 ---
 
@@ -118,7 +138,7 @@ flowchart LR
 
 ---
 
-## 4. Plan-Driven Skill Metadata Schema
+## 5. Plan-Driven Skill Metadata Schema
 
 In plans generated by `writing-plans`, specify recommended skills for each task:
 
@@ -141,14 +161,14 @@ When the controller agent dispatches a task subagent:
 
 ---
 
-## 5. Native MCP Prompts Reference
+## 6. Native MCP Prompts Reference
 
 `superpowers-mcp` provides native, ready-to-use MCP prompts across IDEs (Cursor, Antigravity, VS Code, Devin Desktop):
 
 | MCP Prompt | Arguments | Purpose |
 | :--- | :--- | :--- |
-| **`feature-pipeline`** | `feature_name`, `requirements` | One-click orchestrator for end-to-end feature development. |
-| **`structured-debug`** | `issue_description`, `failing_tests` | One-click orchestrator for systematic debugging & multi-agent investigation. |
+| **`feature-pipeline`** | required `feature_name`, optional `requirements` | Interactive launcher for end-to-end feature development. |
+| **`structured-debug`** | `issue_description`, `failing_tests` | Interactive launcher for systematic debugging and optional multi-agent investigation. |
 | **`skill-composition`** | `scenario` | Dynamic skill composition recommender for feature, debug, refactor, or legacy tasks. |
 | **`session-start`** | - | Injects foundational Superpowers context and skill invocation rules. |
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD task implementer subagent prompt template. |
@@ -159,35 +179,38 @@ When the controller agent dispatches a task subagent:
 
 ---
 
-## 6. Practical Usage Guide (How to Use in Practice)
+## 7. Practical Usage Guide
 
-With `superpowers-mcp` installed, you **do not need to memorize or invoke 14 individual skill names manually**. Choose one of two simple ways to get started:
+With `superpowers-mcp` installed, start from a native MCP prompt and let its instructions load the required skills.
 
-### Method A: One-Click via IDE MCP Prompts (Recommended)
-In Cursor, Antigravity, VS Code, or Devin Desktop:
-1. **New Feature Development**: Type `/feature-pipeline` or select `feature-pipeline` from the MCP prompts menu and provide your feature goal.
-2. **Troubleshooting & Bugfixes**: Select `structured-debug` and paste the error logs or failing test names.
-3. **Custom / Architecture Tasks**: Select `skill-composition` to let the AI recommend the best pipeline for your scenario.
+### Method A: MCP Prompts Menu (Recommended)
+In a client that supports MCP prompts:
+1. Confirm that the configured `superpowers` MCP server is connected.
+2. **New Feature Development**: Select `feature-pipeline` and provide `feature_name` plus optional `requirements`.
+3. **Troubleshooting & Bugfixes**: Select `structured-debug` and paste the error logs or failing test names.
+4. **Custom / Architecture Tasks**: Select `skill-composition` to let the AI recommend the best pipeline for your scenario.
 
-### Method B: Natural Language Direct Instructions
-Simply state the pipeline name in your prompt; the AI will load the methodology automatically:
+Your client may also expose a namespaced slash command. Consult its prompt picker for the exact syntax rather than assuming `/feature-pipeline` is portable.
+
+### Method B: Natural-Language Fallback
+You may ask the agent to follow a named workflow, but this does not guarantee that the client retrieves the native MCP prompt. For deterministic use, select it from the MCP Prompts menu.
 - *"Please follow the `feature-pipeline` to build [Feature Name]."*
 - *"Run the `structured-debug` workflow on this error: [Paste error / trace]."*
 - *"Apply the Refactoring Pipeline from `docs/skill-compositions.md` to refactor [Module]."*
 
 ### 💬 Interactive Step-by-Step Walkthrough Example:
 ```text
-[You]: "Please follow feature-pipeline to build a coupon code checkout system."
+[You]: (Selects the `feature-pipeline` MCP prompt and enters "coupon code checkout system".)
   ↓
-[AI]: (Auto-invokes brainstorming) "Understood. Does the coupon have an expiry date, and can it stack with site-wide sales?"
+[AI]: (Loads brainstorming with `read_skill`) "Understood. Does the coupon have an expiry date, and can it stack with site-wide sales?"
   ↓
 [You]: "It has an expiry date, and it cannot stack."
   ↓
-[AI]: (Auto-invokes writing-plans) "Spec finalized. Created implementation plan at docs/superpowers/plans/... Please review."
+[AI]: (After design approval, loads `writing-plans`) "Created implementation plan at docs/superpowers/plans/... Please review."
   ↓
 [You]: "Looks good, proceed."
   ↓
-[AI]: (Auto-provisions worktree ➔ runs SDD ➔ implements tasks via TDD ➔ runs full test suite ➔ requests code review ➔ finishes branch)
+[AI]: (Creates or verifies a worktree ➔ uses SDD or the inline fallback ➔ implements via TDD ➔ verifies ➔ reviews ➔ presents branch-finishing choices)
   ↓
 [AI]: "All tasks and full test suite passed (100%). Code review clean. Branch ready for merge!"
 ```

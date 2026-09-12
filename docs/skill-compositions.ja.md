@@ -2,6 +2,8 @@
 
 [English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md)
 
+> **重要:** これらの MCP prompts は対話型ワークフローランチャーであり、サーバー側の自動化ではありません。クライアントの MCP Prompts メニューから選択してください。slash command の構文はクライアントごとに異なります。エージェントにはファイル、ターミナル、Git へのアクセスが必要で、各段階で `read_skill` を呼び出します。設計承認、計画レビュー、ブランチ完了時にはユーザーの判断を待ちます。完全なガイドは `guide://superpowers/skill-compositions` でも取得できます。
+
 > **正典（Source of Truth）：** 本英語版が原本です。スキルの振る舞いが変わったら英語版を先に更新し、翻訳を同期してください。
 
 ## 1. スキル構成が重要な理由 (Why Skill Compositions Matter)
@@ -146,8 +148,8 @@ flowchart LR
 
 | MCP Prompt 名 | 引数 | 用途 |
 | :--- | :--- | :--- |
-| **`feature-pipeline`** | `feature_name`, `requirements` | 新機能開発のワンクリックワークフローオーケストレーター。 |
-| **`structured-debug`** | `issue_description`, `failing_tests` | 体系的デバッグ＆並行エージェント調査のオーケストレーター。 |
+| **`feature-pipeline`** | 必須 `feature_name`、任意 `requirements` | 対話型の新機能開発ワークフローランチャー。 |
+| **`structured-debug`** | `issue_description`, `failing_tests` | 対話型の体系的デバッグランチャー。ホスト対応時は並行調査も可能。 |
 | **`skill-composition`** | `scenario` | 開発シナリオに応じた動的スキル構成ガイド。 |
 | **`session-start`** | - | Superpowers の基本環境とスキル利用ルールを注入。 |
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD タスク実装サブエージェント用プロンプト。 |
@@ -162,27 +164,27 @@ flowchart LR
 
 `superpowers-mcp` を設定すれば、**14 個の個別スキル名を覚える必要は一切ありません**。以下の 2 つの方法で簡単に利用できます：
 
-### 方法 A: IDE の MCP Prompts を使用（推奨・ワンクリック起動）
+### 方法 A: クライアントの MCP Prompts メニューを使用（推奨）
 Cursor、Antigravity、VS Code、Devin Desktop などのチャット入力欄で：
-1. **新機能開発**：`/feature-pipeline` と入力するか、Prompts 一覧から `feature-pipeline` を選択して要件を入力します。
+1. **新機能開発**：Prompts 一覧から `feature-pipeline` を選び、必須の `feature_name` と任意の `requirements` を入力します。slash command の実際の名前はクライアントによって異なり、MCP server namespace を含む場合があります。
 2. **バグ修正・テスト失敗**：`structured-debug` を選択し、エラーログやテスト名を貼り付けます。
 3. **ワークフローに迷った時**：`skill-composition` を選択すると、現在の状況に応じた最適なパイプラインが自動提案されます。
 
 ### 方法 B: 自然言語で直接指示
-通常のチャットでパイプライン名を指定するだけで、AI が自動的にワークフローを適用します：
+通常のチャットでも次のように依頼できますが、ネイティブ MCP prompt が取得される保証はありません。確実に使用するには MCP Prompts メニューを選択してください：
 - *「`feature-pipeline` の手順に従って、[機能名] の開発を進めてください」*
 - *「`structured-debug` を使用して、次のエラーを調査・修正してください：[エラー貼り付け]」*
 - *「`docs/skill-compositions.ja.md` のリファクタリングパイプラインを適用して [モジュール名] を再構築してください」*
 
 ### 💬 実際の対話フロー例（新機能開発の場合）：
 ```text
-【ユーザー】:「feature-pipeline に従ってクーポンの割引チェックアウト機能を実装して」
+【ユーザー】:（MCP Prompts メニューから `feature-pipeline` を選択し、クーポン機能を入力）
   ↓
-【AI】: (brainstorming を自動実行) 「承知いたしました。クーポンの有効期限や他の割引との重複適用の可否について確認させてください」
+【AI】:（`read_skill` で brainstorming を読み込み）「クーポンの有効期限や他の割引との重複適用の可否について確認させてください」
   ↓
 【ユーザー】:「有効期限あり、重複適用は不可でお願いします」
   ↓
-【AI】: (writing-plans を自動実行) 「設計が完了し、docs/superpowers/plans/... に実装計画を作成しました。ご確認ください」
+【AI】:（設計承認後に writing-plans を読み込み）「docs/superpowers/plans/... に実装計画を作成しました。ご確認ください」
   ↓
 【ユーザー】:「計画に問題ありません。進めてください」
   ↓

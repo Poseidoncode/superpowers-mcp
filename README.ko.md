@@ -23,11 +23,11 @@
 | :--- | :--- | :--- |
 | **Tools** | `list_skills`, `read_skill` | 14개의 Superpowers 스킬을 온디맨드로 검색, 로드 및 확인합니다. |
 | **Prompts** | 9개의 네이티브 Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
-| **Resources** | 14개의 Direct Skill URIs | `skill://superpowers/<skill-name>` (MCP 표준 기반 직접 접근) |
+| **Resources** | 14개 Skill URI + 1개 가이드 | `skill://superpowers/<skill-name>` 및 `guide://superpowers/skill-compositions` |
 
 ### AI 에이전트와 대화하기 (기본 사용법)
 
-설치 또는 구성이 완료되면 AI 에이전트가 `Superpowers Skills` 및 `Prompts`를 자동으로 인식하고 호출할 수 있습니다.
+설치 또는 구성 후 MCP 클라이언트는 Superpowers tools, prompts, resources를 탐색할 수 있습니다. MCP prompt는 사용자가 선택하여 시작하며, 이후 에이전트가 지침에 따라 `read_skill`을 호출합니다.
 
 **기본 대화 예시:**
 - **엔지니어링 규율 초기화**: "`session-start` 프롬프트 적용해줘" (Superpowers 규칙 및 환경 주입)
@@ -125,24 +125,24 @@
 
 ## 🔄 스킬 조합 및 워크플로우 파이프라인 (Skill Compositions & Pipelines)
 
-여러 단계의 복잡한 엔지니어링 작업을 수행할 때는 아래의 **원클릭 엔드투엔드 파이프라인**을 사용하세요(상세 가이드: [`docs/skill-compositions.ko.md`](docs/skill-compositions.ko.md)):
+여러 단계의 복잡한 작업에는 아래 **대화형 워크플로 런처**를 사용하세요. 설계, 계획 검토, 브랜치 마무리 단계에서 사용자 결정을 기다리므로 서버 측 무인 자동화가 아닙니다(상세: [`docs/skill-compositions.ko.md`](docs/skill-compositions.ko.md)).
 
 ### 1. 엔드투엔드 새 기능 개발 파이프라인 (Feature Development Pipeline)
 ```
 brainstorming ➔ writing-plans ➔ using-git-worktrees ➔ subagent-driven-development (TDD) ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **원클릭 명령어:** "`feature-pipeline`을 적용하여 [기능 이름] 개발을 진행해줘"
+- **시작 방법:** MCP Prompts 메뉴에서 `feature-pipeline`을 선택하고 필수 `feature_name`과 선택적 `requirements`를 입력합니다.
 - **특징:** 요구사항 확인 (Spec) ➔ 작업 분해 (Plan) ➔ Worktree 격리 ➔ 독립 서브에이전트 + TDD 구현 ➔ 전체 테스트 검증 ➔ 대립 코드 리뷰 ➔ 브랜치 마무리.
 
 ### 2. 구조화된 문제 해결 파이프라인 (Structured Troubleshooting Pipeline)
 ```
 systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **원클릭 명령어:** "`structured-debug`를 적용하여 다음 오류를 분석하고 수정해줘: [오류 로그]"
+- **시작 방법:** MCP Prompts 메뉴에서 `structured-debug`를 선택하고 문제 또는 실패 테스트를 입력합니다.
 - **특징:** 근본 원인 가설 분해 ➔ Worktree 격리 병렬 조사 ➔ 다중 에이전트 검증 ➔ 실패 테스트 작성 및 수정 ➔ 완전한 회귀 검증 ➔ 리뷰 지적 해결 ➔ 브랜치 마무리.
 
 ### 3. 동적 워크플로우 가이드 (Dynamic Workflow Guide)
-- **원클릭 명령어:** "`skill-composition`을 적용하여 현재 상황 [리팩토링/마이그레이션/레거시 코드 보호]에 맞는 절차를 안내해줘"
+- **시작 방법:** `skill-composition`을 선택해 리팩터링, 마이그레이션, 레거시 코드용 권장 흐름을 확인합니다. 현재 이 시나리오에는 전용 런처 prompt가 없습니다.
 - **특징:** 대규모 리팩토링, 레거시 시스템 안전망 구축, 온보딩에 맞는 최적의 파이프라인을 동적으로 추천:
   - **대규모 리팩토링 및 마이그레이션 (Pipeline 3):** `brainstorming` ➔ `writing-plans (skeleton-first)` ➔ `using-git-worktrees` ➔ `subagent-driven-development` ➔ `verification-before-completion` ➔ `requesting-code-review` ➔ `finishing-a-development-branch`
   - **레거시 코드베이스 안전망 (Pipeline 4):** `brainstorming` ➔ `writing-plans` ➔ `test-driven-development (characterization)` ➔ `systematic-debugging` ➔ `verification-before-completion`
@@ -171,16 +171,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 | 13 | **🤖 고급 에이전트 제어** | **`using-superpowers`** | **기본 규율 및 스킬 로드**：작업 전 적절한 스킬을 탐색하고 적용하도록 안내하는 Superpowers 기본 규율. | 세션 시작 시 자동으로 로드되어 AI의 행동 규범을 설정. |
 | 14 | **🤖 고급 에이전트 제어** | **`writing-skills`** | **스킬 작성 및 관리**：새로운 Superpowers 스킬을 생성, 테스트 및 패키징하는 표준 가이드. | 팀 전용 새 스킬을 작성하거나 기존 스킬을 확장할 때. |
 
----
-
-## 프로젝트 계보
-
-이 프로젝트는 [`obra/superpowers`](https://github.com/obra/superpowers)의 스킬 콘텐츠를 검토한 후 가져옵니다. 동기화 절차는 유지관리자용 [업스트림 동기화 가이드](docs/maintainers/upstream-sync.md)를 참조하세요.
-
 ## 🆕 최근 업데이트
 
 ### v6.3.8 (최신)
 
+- **실행 가능한 대화형 워크플로 런처**:
+  - `feature-pipeline`과 `structured-debug`는 단계별 명시적 `read_skill` 호출을 제공하고, 필수 사용자 승인 게이트를 유지하며, MCP 서버 내부가 아닌 클라이언트 Agent가 실행한다는 점을 명확히 밝힙니다.
+  - 멀티 Agent를 지원하는 Host에서는 Subagent를 사용하고, 그 외에는 없는 기능을 사용했다고 표현하지 않고 인라인 또는 순차 실행으로 폴백합니다.
+  - `read_skill`은 스킬 이름 단독 형식과 문서화된 `superpowers:` 접두사 형식을 모두 지원합니다.
+  - Skill Compositions 가이드가 npm 패키지에 포함되며 `guide://superpowers/skill-compositions`에서도 읽을 수 있습니다.
 - **유니버설 글로벌 설정 엔진 동시성 안전, Inode 방어 및 심볼릭 링크 탈출 격리**:
   - **Allowed Roots 경계 격리**: 설정 파일 대상을 사용자가 명시한 허용 루트(`homeDir`, `appData`, `localAppData`) 내부로 제한하여 상위 디렉터리 심볼릭 링크 탈출 공격 차단.
   - **낙관적 동시성 충돌 감지**: 원자적 `fs.renameSync` 직전에 디스크 내용과 `expectedContent`를 대조하여 다중 프로세스 경쟁으로 인한 최신 설정 덮어쓰기 방지.
@@ -198,8 +197,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - `find-polluter.sh` 및 `find-polluter.ps1`: 배열 전개 인자 전달 (`"${TEST_COMMAND[@]}"`, `& $testCommand @testCommandArgs`)과 공백 안전 읽기 루프로 셸 주입 원천 차단.
   - `sdd-workspace`: `cd` 실행 전 `CDPATH=''`를 재설정하여 환경 변수를 통한 디렉터리 탈취 차단.
   - `sdd-workspace.ps1`: BOM 없는 UTF-8(`[System.Text.UTF8Encoding]::new($false)`)로 플랜 마커를 저장하여 Unicode 경로 정합성 유지.
-- **프로젝트 계보 및 유지관리자 지침 분리**:
-  - 업스트림 동기화 절차를 [`docs/maintainers/upstream-sync.md`](docs/maintainers/upstream-sync.md)로 분리하여 루트 문서 정리.
 - **전체 자동 회귀 테스트 기준선**:
   - 테스트 스위트를 **274개 자동 어서션**(Node.js: 145, Bash: 35, PowerShell: 94)으로 확장하고 100% 통과율 유지.
 

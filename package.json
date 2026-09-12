@@ -34,7 +34,8 @@
     "out/setup.js",
     "out/setup-runner.js",
     "scripts",
-    "skills"
+    "skills",
+    "docs"
   ],
   "overrides": {
     "@hono/node-server": "^2.1.1",

@@ -14,6 +14,12 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { SkillsManager } from "./skills-manager.js";
 import { runSetupCli } from "./setup-runner.js";
+import {
+    FEATURE_PIPELINE,
+    STRUCTURED_DEBUG_PIPELINE,
+    renderFeaturePipeline,
+    renderStructuredDebug,
+} from "./pipelines.js";
 
 // ---------------------------------------------------------------------------
 // Paths & Environment Protection
@@ -64,6 +70,12 @@ function getSafeSkillsPath(): string {
 
 const SKILLS_PATH = getSafeSkillsPath();
 const skillsManager = new SkillsManager(SKILLS_PATH);
+const COMPOSITIONS_GUIDE_URI = "guide://superpowers/skill-compositions";
+const COMPOSITIONS_GUIDE_PATH = path.join(__dirname, "..", "docs", "skill-compositions.md");
+
+function normalizeSkillName(value: string): string {
+    return value.trim().replace(/^superpowers:/i, "");
+}
 
 // ---------------------------------------------------------------------------
 // Server setup
@@ -90,17 +102,37 @@ const server = new Server(
 server.setRequestHandler(ListResourcesRequestSchema, async () => {
     const skills = await skillsManager.listSkills();
     return {
-        resources: skills.map((skill) => ({
-            uri: `skill://superpowers/${encodeURIComponent(skill.name)}`,
-            name: skill.name,
-            description: skill.description,
-            mimeType: "text/markdown",
-        })),
+        resources: [
+            ...skills.map((skill) => ({
+                uri: `skill://superpowers/${encodeURIComponent(skill.name)}`,
+                name: skill.name,
+                description: skill.description,
+                mimeType: "text/markdown",
+            })),
+            {
+                uri: COMPOSITIONS_GUIDE_URI,
+                name: "Skill Compositions Guide",
+                description: "Workflow selection, prerequisites, invocation, and lifecycle guidance for Superpowers pipelines.",
+                mimeType: "text/markdown",
+            },
+        ],
     };
 });
 
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const uri = request.params.uri;
+
+    if (uri === COMPOSITIONS_GUIDE_URI) {
+        try {
+            const text = await fs.promises.readFile(COMPOSITIONS_GUIDE_PATH, "utf8");
+            return {
+                contents: [{ uri, mimeType: "text/markdown", text }],
+            };
+        } catch (_guideErr: unknown) {
+            throw new McpError(ErrorCode.InternalError, "Failed to read the skill compositions guide.");
+        }
+    }
+
     const match = uri.match(/^skill:\/\/superpowers\/(.+)$/);
 
     if (!match) {
@@ -115,7 +147,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         // instead of letting the URIError surface as an internal error.
         throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
     }
-    const skill = await skillsManager.findSkill(skillName);
+    const skill = await skillsManager.findSkill(normalizeSkillName(skillName));
 
     if (!skill) {
         throw new McpError(ErrorCode.InvalidRequest, `Skill not found: ${skillName}`);
@@ -405,13 +437,13 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                 ],
             },
             {
-                name: "feature-pipeline",
-                description: "Feature Development Pipeline Prompt. Chains brainstorming, writing-plans, git-worktrees, SDD/TDD, verification, code review, and branch finishing into a structured workflow.",
+                name: FEATURE_PIPELINE.promptName,
+                description: FEATURE_PIPELINE.purpose,
                 arguments: [
                     {
                         name: "feature_name",
                         description: "Name or title of the feature to develop",
-                        required: false,
+                        required: true,
                     },
                     {
                         name: "requirements",
@@ -421,8 +453,8 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
                 ],
             },
             {
-                name: "structured-debug",
-                description: "Structured Troubleshooting Pipeline Prompt. Chains systematic debugging, worktree isolation, parallel agent investigation, TDD fix, full verification, and review.",
+                name: STRUCTURED_DEBUG_PIPELINE.promptName,
+                description: STRUCTURED_DEBUG_PIPELINE.purpose,
                 arguments: [
                     {
                         name: "issue_description",
@@ -680,56 +712,15 @@ ${skillContent}
         };
     }
 
-    if (promptName === "feature-pipeline") {
+    if (promptName === FEATURE_PIPELINE.promptName) {
         const rawFeatureName = getStringArg("feature_name");
         const featureName = rawFeatureName ? rawFeatureName.replace(/[\r\n]+/g, " ") : "(Unspecified feature)";
         const rawRequirements = getStringArg("requirements");
-        const requirements = rawRequirements ? `\n### Requirements / Context:\n${rawRequirements}\n` : "";
 
-        const text = `# Feature Development Pipeline
-
-You are executing an end-to-end feature development workflow using Superpowers skills.
-
-**Target Feature:** ${featureName}
-${requirements}
-## Mandatory Execution Stages:
-
-1. **Stage 1: Requirements & Architecture Discovery**
-   - **Invoke Skill:** \`superpowers:brainstorming\`
-   - Clarify user intent, requirements, constraints, and architecture decisions.
-   - Produce a design specification document (e.g., in \`docs/superpowers/specs/\`).
-
-2. **Stage 2: Plan Construction**
-   - **Invoke Skill:** \`superpowers:writing-plans\`
-   - Decompose the spec into bite-sized, independently testable tasks.
-   - Specify Recommended Skills (e.g. \`superpowers:test-driven-development\`) for each task.
-   - Save plan to \`docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md\`.
-
-3. **Stage 3: Workspace Isolation**
-   - **Invoke Skill:** \`superpowers:using-git-worktrees\`
-   - Create an isolated Git worktree for this feature development to keep main branch pristine.
-
-4. **Stage 4: Execution & Implementation**
-   - **Invoke Skill:** \`superpowers:subagent-driven-development\` (or \`superpowers:executing-plans\`)
-   - For each task:
-     - Follow \`superpowers:test-driven-development\` (Red -> Green -> Refactor).
-     - Run task-level verification and self-review.
-     - Dispatch fresh task reviewer per task.
-
-5. **Stage 5: Full Suite Verification**
-   - **Invoke Skill:** \`superpowers:verification-before-completion\`
-   - Run complete repository test suite, linter, and type checks. Do NOT skip.
-
-6. **Stage 6: Code Review**
-   - **Invoke Skill:** \`superpowers:requesting-code-review\` (and \`superpowers:receiving-code-review\`)
-   - Generate review package and resolve all findings.
-
-7. **Stage 7: Branch Finishing & Cleanup**
-   - **Invoke Skill:** \`superpowers:finishing-a-development-branch\`
-   - Merge/PR, remove temporary worktree, and clean up.`;
+        const text = renderFeaturePipeline(featureName, rawRequirements);
 
         return {
-            description: "Feature Development Pipeline Prompt",
+            description: FEATURE_PIPELINE.purpose,
             messages: [
                 {
                     role: "user",
@@ -742,51 +733,13 @@ ${requirements}
         };
     }
 
-    if (promptName === "structured-debug") {
+    if (promptName === STRUCTURED_DEBUG_PIPELINE.promptName) {
         const rawIssueDescription = getStringArg("issue_description");
-        const issueDescription = rawIssueDescription ? `\n### Issue Description / Logs:\n${rawIssueDescription}\n` : "";
         const rawFailingTests = getStringArg("failing_tests");
-        const failingTests = rawFailingTests ? `\n### Failing Tests:\n${rawFailingTests}\n` : "";
-
-        const text = `# Structured Troubleshooting Pipeline
-
-You are executing a rigorous root-cause debugging process for complex failures or multiple failing tests.
-${issueDescription}${failingTests}
-## Mandatory Troubleshooting Stages:
-
-1. **Stage 1: Systematic Root Cause Analysis**
-   - **Invoke Skill:** \`superpowers:systematic-debugging\`
-   - Gather exact error traces, logs, and state.
-   - Decompose into testable, mutually exclusive hypotheses.
-
-2. **Stage 2: Workspace Isolation for Investigation**
-   - **Invoke Skill:** \`superpowers:using-git-worktrees\`
-   - If investigating multiple independent hypotheses in parallel, create separate worktrees to prevent test interference and race conditions.
-
-3. **Stage 3: Parallel Hypothesis Verification (Optional / Recommended for multi-bug)**
-   - **Invoke Skill:** \`superpowers:dispatching-parallel-agents\`
-   - Dispatch subagents into isolated worktrees to prove/disprove hypotheses.
-
-4. **Stage 4: Test-Driven Bugfix**
-   - **Invoke Skill:** \`superpowers:test-driven-development\`
-   - Write a minimal failing reproduction test first (RED).
-   - Apply the fix until test passes (GREEN).
-   - Refactor without altering semantics.
-
-5. **Stage 5: Full Regression Verification**
-   - **Invoke Skill:** \`superpowers:verification-before-completion\`
-   - Run entire repository test suite to confirm zero regressions.
-
-6. **Stage 6: Code Review & Findings Resolution**
-   - **Invoke Skill:** \`superpowers:requesting-code-review\` (and \`superpowers:receiving-code-review\`)
-   - Review fix delta, ensure regression tests are defensive, and resolve all review findings.
-
-7. **Stage 7: Branch Finishing & Cleanup**
-   - **Invoke Skill:** \`superpowers:finishing-a-development-branch\`
-   - Merge/PR the bugfix branch, clean up temporary worktrees, and delete obsolete branches.`;
+        const text = renderStructuredDebug(rawIssueDescription, rawFailingTests);
 
         return {
-            description: "Structured Troubleshooting Pipeline Prompt",
+            description: STRUCTURED_DEBUG_PIPELINE.purpose,
             messages: [
                 {
                     role: "user",
@@ -821,7 +774,9 @@ ${issueDescription}${failingTests}
 
 You are selecting or executing a multi-skill workflow pipeline.
 ${scenario}${scenarioFocus}
-## Available Workflow Pipelines (see docs/skill-compositions.md for full details):
+## Available Workflow Pipelines
+
+The canonical published guide is available as the MCP resource \`${COMPOSITIONS_GUIDE_URI}\`.
 
 1. **New Feature Development:**
    \`brainstorming\` ➔ \`writing-plans\` ➔ \`using-git-worktrees\` ➔ \`subagent-driven-development\` (TDD) ➔ \`verification-before-completion\` ➔ \`requesting-code-review\` ➔ \`finishing-a-development-branch\`
@@ -913,7 +868,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (name === "read_skill") {
         const readArgs = args as ReadSkillArguments | undefined;
-        const skillName = typeof readArgs?.skill_name === 'string' ? readArgs.skill_name.trim() : undefined;
+        const skillName = typeof readArgs?.skill_name === "string" ? normalizeSkillName(readArgs.skill_name) : undefined;
 
         if (!skillName) {
             throw new McpError(ErrorCode.InvalidParams, "skill_name is required");
