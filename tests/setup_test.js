@@ -214,9 +214,25 @@ it("should emit clean desktop import JSON without modifying client files", () =>
             command: bun ? "bunx" : "npx", args: ["-y", "superpowers-mcp"],
         } } });
     }
-    const invalid = spawnSync(process.execPath, [cli, "--print-config", "--target", "lmstudio"], { encoding: "utf8" });
-    assert.strictEqual(invalid.status, 1);
-    assert.strictEqual(invalid.stdout, "");
+    // Verify fail-closed defense against conflicting flags in both out/setup.js and out/server.js
+    const serverCli = path.join(__dirname, "../out/server.js");
+    const conflictingCombos = [
+        ["--target", "lmstudio"],
+        ["--remove"],
+        ["--backup"],
+        ["--dry-run"],
+    ];
+    for (const combo of conflictingCombos) {
+        const resSetup = spawnSync(process.execPath, [cli, "--print-config", ...combo], { encoding: "utf8" });
+        assert.strictEqual(resSetup.status, 1, `out/setup.js with ${combo[0]} must exit code 1`);
+        assert.strictEqual(resSetup.stdout, "");
+        assert.ok(resSetup.stderr.includes("--print-config supports only --bun"));
+
+        const resServer = spawnSync(process.execPath, [serverCli, "setup", "--print-config", ...combo], { encoding: "utf8" });
+        assert.strictEqual(resServer.status, 1, `out/server.js with ${combo[0]} must exit code 1`);
+        assert.strictEqual(resServer.stdout, "");
+        assert.ok(resServer.stderr.includes("--print-config supports only --bun"));
+    }
 });
 
 it("should create valid YAML structure from empty file", () => {

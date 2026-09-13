@@ -914,7 +914,7 @@ async function main() {
     if (firstArg === "setup" || firstArg === "--setup") {
         try {
             await runSetupCli(args);
-            process.exit(0);
+            process.exit(process.exitCode || 0);
         } catch (err) {
             console.error("Setup failed:", err);
             process.exit(1);
