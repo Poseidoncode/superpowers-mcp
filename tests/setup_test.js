@@ -161,6 +161,64 @@ it("should throw a clear error on completely malformed JSON", () => {
 });
 
 // 3. YAML Configuration Tests (Hermes)
+it("should preserve commented YAML declarations through install, update and remove", () => {
+    const original = 'mcp_servers: # configured servers\r\n# keep this comment\r\n  other:\r\n    command: "other#literal"\r\n';
+    const installed = updateYamlConfig(original, "npx", ["-y", "superpowers-mcp"]);
+    assert.ok(installed.includes("mcp_servers: # configured servers"));
+    const commented = installed.replace("  superpowers:", "  superpowers: # my agent");
+    const updated = updateYamlConfig(commented, "bunx", ["-y", "superpowers-mcp"]);
+    assert.strictEqual((updated.match(/^  superpowers:/gm) || []).length, 1);
+    assert.ok(updated.includes('command: "bunx"'));
+    assert.ok(updated.includes("superpowers: # my agent"));
+    assert.strictEqual(updateYamlConfig(updated, "bunx", ["-y", "superpowers-mcp"]), updated);
+    const removed = updateYamlConfig(updated, "npx", [], true);
+    assert.ok(!removed.includes("superpowers:"));
+    assert.ok(removed.includes('# keep this comment'));
+    assert.ok(removed.includes('command: "other#literal"'));
+    assert.throws(() => updateYamlConfig('mcp_servers: # one\nmcp_servers: # two\n', 'npx', []), /duplicate/);
+});
+
+it("should stay linear on YAML padded with long whitespace runs", () => {
+    // Regression guard for js/polynomial-redos: the old `\s*(.*?)\s*$` key match and the
+    // unanchored `\s+#.*$` comment extraction both blew up on whitespace-padded input.
+    const padding = " ".repeat(60000);
+    const start = Date.now();
+
+    const padded = `mcp_servers:${padding}\n  superpowers:${padding}# keep me\n`;
+    const updated = updateYamlConfig(padded, "npx", ["-y", "superpowers-mcp"]);
+    assert.strictEqual((updated.match(/superpowers:/g) || []).length, 1, "Must not duplicate superpowers block");
+    assert.ok(updated.includes("# keep me"), "Must preserve the padded inline comment");
+    assert.ok(updated.includes('command: "npx"'), "Must still rewrite the command");
+
+    assert.throws(
+        () => updateYamlConfig(`mcp_servers:${padding}extra\n`, "npx", []),
+        /root-level block mapping/,
+        "Padded inline values must still be rejected"
+    );
+
+    const removed = updateYamlConfig(`mcp_servers:\n  superpowers:${padding}# c\n  other:\n    command: x\n`, "npx", [], true);
+    assert.ok(!removed.includes("superpowers:"), "Must remove the padded superpowers block");
+    assert.ok(removed.includes("other:"), "Must preserve sibling servers");
+
+    const elapsed = Date.now() - start;
+    assert.ok(elapsed < 2000, `Padded YAML handling must stay linear (took ${elapsed}ms)`);
+});
+
+it("should emit clean desktop import JSON without modifying client files", () => {
+    const { execFileSync, spawnSync } = require("child_process");
+    const cli = path.join(__dirname, "../out/setup.js");
+    for (const bun of [false, true]) {
+        const flags = [cli, "--print-config", ...(bun ? ["--bun"] : [])];
+        const json = JSON.parse(execFileSync(process.execPath, flags, { encoding: "utf8" }));
+        assert.deepStrictEqual(json, { mcpServers: { superpowers: {
+            command: bun ? "bunx" : "npx", args: ["-y", "superpowers-mcp"],
+        } } });
+    }
+    const invalid = spawnSync(process.execPath, [cli, "--print-config", "--target", "lmstudio"], { encoding: "utf8" });
+    assert.strictEqual(invalid.status, 1);
+    assert.strictEqual(invalid.stdout, "");
+});
+
 it("should create valid YAML structure from empty file", () => {
     const yaml = updateYamlConfig("", "npx", ["-y", "superpowers-mcp"]);
     assert.ok(yaml.includes("mcp_servers:"), "Must create mcp_servers root");
@@ -237,6 +295,14 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
     const home = "/mock/home";
     const appData = "C:\\Users\\mock\\AppData\\Roaming";
     const localAppData = "C:\\Users\\mock\\AppData\\Local";
+
+    for (const platform of ["darwin", "win32", "linux"]) {
+        assert.strictEqual(HARNESS_CONFIGS.lmstudio.getConfigPath(platform, home, appData), path.join(home, ".lmstudio", "mcp.json"));
+        const base = platform === "win32" ? appData : platform === "darwin"
+            ? path.join(home, "Library", "Application Support") : path.join(home, ".config");
+        assert.strictEqual(HARNESS_CONFIGS.roo.getConfigPath(platform, home, appData),
+            path.join(base, "Code", "User", "globalStorage", "rooveterinaryinc.roo-cline", "settings", "mcp_settings.json"));
+    }
 
     // Copilot
     assert.strictEqual(
@@ -404,6 +470,30 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
         }, /Unknown harness target/);
         console.log("  ✅ PASS: Unknown harness target correctly rejected with error");
         passed++;
+
+        // Desktop targets: real temporary-file merge, idempotence, dry run and removal.
+        for (const target of ["lm-studio", "roo-code"]) {
+            const installed = await runSetup({ platform: "darwin", homeDir: mockHome, target });
+            assert.strictEqual(installed[0].status, "created");
+            const configPath = installed[0].path;
+            const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+            config.mcpServers.other = { command: "other" };
+            config.theme = "dark";
+            fs.writeFileSync(configPath, JSON.stringify(config));
+            const before = fs.readFileSync(configPath, "utf8");
+            await runSetup({ platform: "darwin", homeDir: mockHome, target, bun: true, dryRun: true });
+            assert.strictEqual(fs.readFileSync(configPath, "utf8"), before);
+            const changed = await runSetup({ platform: "darwin", homeDir: mockHome, target, bun: true });
+            assert.strictEqual(changed[0].status, "updated");
+            assert.strictEqual(JSON.parse(fs.readFileSync(configPath, "utf8")).mcpServers.superpowers.command, "bunx");
+            const again = await runSetup({ platform: "darwin", homeDir: mockHome, target, bun: true });
+            assert.strictEqual(again[0].status, "up-to-date");
+            const removed = await runSetup({ platform: "darwin", homeDir: mockHome, target, remove: true });
+            assert.strictEqual(removed[0].status, "removed");
+            assert.deepStrictEqual(JSON.parse(fs.readFileSync(configPath, "utf8")), { mcpServers: { other: { command: "other" } }, theme: "dark" });
+            console.log(`  ✅ PASS: ${target} install, merge, dry run, Bun, idempotence and removal`);
+            passed++;
+        }
 
         // Test explicit target cursor creation
         const results = await runSetup({

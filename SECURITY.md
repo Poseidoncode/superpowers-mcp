@@ -40,6 +40,10 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
   - **Optimistic Concurrency & Race Conflict Defense**: Verifies disk content against `expectedContent` immediately prior to atomic `fs.renameSync`, throwing an actionable error if configuration changed concurrently to prevent stale overwrites.
   - **Directory Inode & Device TOCTOU Verification**: Re-checks parent directory canonical path, device ID (`dev`), and inode (`ino`) before and after temporary file creation, blocking directory swap attacks during configuration commits.
   - **Fail-Closed Configuration Validation**: `updateJsonConfig` strictly validates that the root and `mcpServers`/`servers`/`mcp` fields are objects, failing closed on invalid shapes; `updateYamlConfig` rejects duplicate keys and non-root blocks.
+  - **YAML Polynomial ReDoS Mitigation & Linear Scanning (`updateYamlConfig`, `extractInlineComment`)**: Replaced unanchored backtracking patterns `\s*(.*?)\s*$` and unanchored comment regexes with unambiguous key matching and single-pass linear string scans. Mitigated CodeQL `js/polynomial-redos`, guaranteeing linear processing time (<1ms) even on YAML padded with 60,000+ whitespace characters.
+  - **YAML Comment Preservation & Round-Trip Resilience**: Preserves user-authored inline comments (`extractInlineComment`) and block comments across installation, command update, and removal lifecycles.
+  - **Desktop App Configuration Safe Export (`--print-config`)**: Generates importable `mcpServers` JSON without touching or modifying filesystem paths; strictly rejects file-mutating flags (`--target`, `--remove`, `--backup`, `--dry-run`) when `--print-config` is used.
+  - **Expanded Multi-Harness Ecosystem (17 AI Agent Environments)**: Adds support for LM Studio (`~/.lmstudio/mcp.json`) and Roo Code (`mcp_settings.json` across macOS, Windows, Linux) with idempotent lifecycle merging, backup, and removal safety.
 - **Skills Core Engine Collision Defense & Dynamic Cache Revalidation (`src/skills-manager.ts`, `src/server.ts`)**:
   - **Deterministic Sorting & Name Collision Defense**: Catalogs directories in deterministic alphabetical order and detects alias/name collisions in `newSkillMap`, emitting diagnostic warnings and skipping duplicates rather than arbitrarily overwriting memory caches.
   - **Automatic Cache Revalidation (`CACHE_REVALIDATE_MS = 1000`)**: Transparently re-reads disk state when cache age exceeds 1 second, allowing on-disk edits to reflect immediately without requiring MCP server restarts.
@@ -161,7 +165,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.3.8 - Verified: 2026-09-12)
+## Current Security Status (v6.3.8 - Verified: 2026-09-13)
 
 | Check | Status |
 | ----- | ------ |
@@ -177,6 +181,9 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Destination Allowed Roots Boundary Containment | :white_check_mark: Secured — `safeWriteConfig` requires `allowedRoots` check on canonical destination, blocking symlink breakouts |
 | Optimistic Concurrency Conflict Defense | :white_check_mark: Secured — `safeWriteConfig` verifies disk content against `expectedContent` immediately before atomic rename |
 | Directory Swap TOCTOU Defense | :white_check_mark: Secured — `safeWriteConfig` re-verifies directory canonical path, device `dev` and inode `ino` before commit |
+| YAML Polynomial ReDoS Defense | :white_check_mark: Secured — CodeQL `js/polynomial-redos` mitigated via linear scan and slice (`updateYamlConfig`, `extractInlineComment`), linear execution time on 60,000+ whitespace runs |
+| Desktop App Safe Configuration Export | :white_check_mark: Secured — `--print-config` generates clean JSON for desktop client import without disk or file modification |
+| Expanded Multi-Harness Ecosystem | :white_check_mark: Secured — 17 AI agent harnesses supported (including LM Studio & Roo Code), physical file isolation and idempotent lifecycle |
 | Command Injection (`execFileSync` in `render-graphs.js` & `server.cjs`) | :white_check_mark: Secured — direct binary execution, shell interpreters eliminated |
 | Test Runner Parameter Injection Defense | :white_check_mark: Secured — `find-polluter.sh` & `find-polluter.ps1` use array-based parameter expansion and handle spaced filenames |
 | CDPATH Redirection Sanitization | :white_check_mark: Secured — `sdd-workspace` sets `CDPATH=''` before cd operations |
@@ -202,9 +209,9 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Shell Command Injection (`BRAINSTORM_OPEN_CMD`) | :white_check_mark: Patched — `cp.execFile` with argv array in v6.0.3 |
 | Shell Script Security (`install.sh`, `install.ps1`) | :white_check_mark: Secured — `set -euo pipefail` and quoted expansions in Bash; `$ErrorActionPreference = "Stop"` and array argument splatting in PowerShell |
 | CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — exact `hono` override (GHSA-8j4g-w8fx-2239) |
-| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-12) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 274/274 automated test assertions passed |
+| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-13) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 281/281 automated test assertions passed |
 
-## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-12)
+## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-13)
 
 A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, secret hygiene, and automated regression testing.
 
@@ -255,6 +262,16 @@ A full repository security audit was conducted covering dependencies, core MCP s
 ### 4. Universal Global Setup Engine & Installation Scripts (`src/setup-runner.ts`, `scripts/`)
 - **Explicit Consent & Anti-Virus Design**:
   - Abolished all unprompted bulk scanning or blind directory crawling (`--all` removed). Setup strictly requires `--target <client>`. Running without arguments outputs interactive guidance and cleanly exits without touching or reading the host filesystem.
+- **Desktop App Configuration Safe Export (`--print-config`)**:
+  - `runSetupCli` supports `--print-config` (with optional `--bun`) to emit cleanly formatted `mcpServers` JSON for GUI desktop applications that require JSON import, without creating, modifying, or reading any host client configuration files.
+  - Strictly validates flag compatibility: fails closed with exit code 1 if combined with file-altering flags (`--target`, `--remove`, `--backup`, `--dry-run`).
+- **Expanded Multi-Harness Ecosystem (17 AI Agent Environments)**:
+  - Broadened coverage across 17 AI agent harnesses: Antigravity, Pi Desktop, Cursor, Copilot, Copilot Insiders, Hermes, Kimi, Claude, Devin (Windsurf), QwenPaw (CoPaw), Cline, Kilo Code, Qoder, Kiro, Trae, LM Studio (`~/.lmstudio/mcp.json`), and Roo Code (`mcp_settings.json`).
+  - Standardized path resolution and isolated backup/commit lifecycles across macOS, Linux, and Windows.
+- **YAML Polynomial ReDoS Mitigation & Comment Preservation**:
+  - `updateYamlConfig` replaces unanchored regexes `\s*(.*?)\s*$` with exact key matching and linear string slicing (`line.slice(match[0].length).trim()`), eliminating polynomial backtracking (CodeQL `js/polynomial-redos`).
+  - `extractInlineComment` executes a single-pass linear character scan, safely extracting inline comments while avoiding exponential backtracking on whitespace-padded lines.
+  - Preserves existing YAML inline comments on the server declaration and sibling comments across add, update, and remove operations.
 - **Multi-Harness Co-existence & Copilot Insiders Isolation**:
   - Distinct physical configuration separation between standard VS Code (`Code/User/mcp.json`) and VS Code Insiders (`Code - Insiders/User/mcp.json`) across macOS, Linux, and Windows. Prevents cross-contamination and guarantees independent updates, additions, and uninstalls.
 - **Atomic Operations, Concurrency & Inode Defense**:
@@ -287,8 +304,8 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **Edge Cases & Security Suite** (`tests/edge_cases_test.js`): Passed **9/9 tests** (BOM handling, traversal blocking, concurrency locks, dot-named skills, transient failure cache preservation, automatic cache revalidation, duplicate skill-name collision handling).
 - **MCP Protocol & Prompts Suite** (`tests/run_test.js`): Passed **7/7 tests** (Initialization, `list_skills`, `read_skill`, malformed URI handling, `prompts/list`, `prompts/get` dynamic injection).
 - **Companion Server Suite** (`tests/brainstorm_server_test.js`): Passed **33/33 tests** (Authentication, token persistence, WS caps, CSP, traversal protection, PID lifecycle, fragmented text assembly, resilient tail event compaction).
-- **Compositions & Prompts Injection Suite** (`tests/prompts_compositions_test.js`): Passed **14/14 checks** (Workflow prompts coverage, multi-stage integrity, dynamic scenario focus, cascading injection defense, unknown prompt rejection, declared SDD review-file arguments, an explicitly named review file, and the report-file / normalised-path / brief-file substitutions).
-- **Global Setup Engine Suite** (`tests/setup_test.js`): Passed **36/36 tests** (Full coverage across 15 AI agent harnesses: Antigravity, Pi Desktop, Cursor, Copilot, Copilot Insiders, Hermes, Kimi, Claude, Devin, QwenPaw, Cline, Kilo Code, Qoder, Kiro, Trae; JSONC comment tolerance, `json-mcp` local format, YAML injection defense, plain object validation, anti-bulk target consent, cross-platform path resolution, atomic write sandbox & symlink preservation, idempotent removal, double invocation defense, parent-directory symlink breakout defense, concurrent config change detection, fail-closed shape parsing).
+- **Compositions & Prompts Injection Suite** (`tests/prompts_compositions_test.js`): Passed **16/16 checks** (Workflow prompts coverage, multi-stage integrity, dynamic scenario focus, cascading injection defense, unknown prompt rejection, declared SDD review-file arguments, an explicitly named review file, normalised-path substitution, brief-file substitution, and `superpowers:` prefix normalization).
+- **Global Setup Engine Suite** (`tests/setup_test.js`): Passed **41/41 tests** (Full coverage across 17 AI agent harnesses: Antigravity, Pi Desktop, Cursor, Copilot, Copilot Insiders, Hermes, Kimi, Claude, Devin, QwenPaw, Cline, Kilo Code, Qoder, Kiro, Trae, LM Studio, Roo Code; JSONC comment tolerance, YAML comment preservation, YAML linear ReDoS guard with 60,000 whitespace padding, `--print-config` clean JSON emission, `json-mcp` local format, YAML injection defense, plain object validation, anti-bulk target consent, cross-platform path resolution, atomic write sandbox & symlink preservation, idempotent removal, double invocation defense, parent-directory symlink breakout defense, concurrent config change detection, fail-closed shape parsing).
 - **SDD Workspace Bash Suite** (`tests/sdd/test-sdd-workspace.sh`): Passed **16/16 tests** (Workspace isolation, path normalization, collision counters, commit range validation, permission-stripped execution).
 - **Writing Skills Render Graphs Suite** (`tests/writing-skills/test-render-graphs.sh`): Passed **8/8 tests** (Direct binary execution, SVG rendering, output verification, error capture).
 - **PowerShell Script Hardening Suite** (`tests/powershell/`): Passed **94/94 assertions** across 5 test scripts (`test-brainstorming-server.ps1`: 29, `test-find-polluter.ps1`: 12, `test-review-package.ps1`: 20, `test-sdd-workspace.ps1`: 20, `test-task-brief.ps1`: 13).
@@ -296,7 +313,7 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **MCP Surface Coverage Suite** (`tests/mcp_coverage_test.js`): Passed **14/14 checks** (one resource per skill on disk, each resource serves that skill's own content, prompt inventory matches all four READMEs exactly, composition guide references only real surfaces).
 - **Upstream Drift Suite** (`tests/drift_test.js`): Passed **10/10 checks** (the offline CLI run is one of them); the committed baseline (`tests/upstream-sync-baseline.json`) records the upstream blob SHAs of every adopted skill file, so a deleted import, a lost upstream lineage or a stale ignore entry fails here. Network mode (`npm run drift`) compares the baseline against upstream without writing anything.
 - **Brainstorm Host Defaults Bash Suite** (`tests/brainstorming/test-start-server-env-hosts.sh`): Passed **11/11 tests** (env-supplied bind/url hosts, flag precedence, empty values, and the non-loopback refusal).
-- **Total Automated Regression Floor**: **274 automated test assertions across Node.js (145), Bash (35), and PowerShell (94), 100% pass rate, 0 regressions**.
+- **Total Automated Regression Floor**: **281 automated test assertions across Node.js (152), Bash (35), and PowerShell (94), 100% pass rate, 0 regressions**.
 
 
 ---

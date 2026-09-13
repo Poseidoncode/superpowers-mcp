@@ -43,6 +43,8 @@
 > [!NOTE]
 > **可在系統任何目錄下直接執行**：您不需要預先切換到特定專案目錄，也無須 clone 本儲存庫。在終端機的**任意目錄**皆可直接執行以下指令！安裝程式會自動鎖定您系統中的全域設定檔（以使用者家目錄為基準），一次設定、全域與所有專案皆可自動生效。
 
+桌面版快速安裝：[LM Studio、Roo Code、ChatWise 與 Cherry Studio](docs/desktop-setup.md)。以下新增的 CLI 選項尚未發布至 npm；發布前請使用指南中的本機指令。
+
 > [!TIP]
 > **透明與零污染保護原則**：Superpowers 絕不會像惡意軟體般擅自全域掃描或批量改寫您未指定的其他編輯器。您使用哪一款 AI 工具，就執行該工具的專屬一鍵指令，完全透明、可控且安全無損（採用**原子寫入技術**，保證斷電不壞檔，且**預設零磁碟垃圾殘留**，不隨意產生 `.bak`，亦絕不影響原有其他 MCP 伺服器）。
 
@@ -52,6 +54,8 @@
 
 | Harness / 客戶端 | 支援 OS | 專屬一鍵設定指令 | 全域設定檔路徑 |
 | :--- | :--- | :--- | :--- |
+| **LM Studio** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target lmstudio` | `~/.lmstudio/mcp.json` |
+| **Roo Code (VS Code Desktop)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target roo` | `.../rooveterinaryinc.roo-cline/settings/mcp_settings.json` |
 | **Antigravity (Google DeepMind)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target antigravity` | `~/.gemini/config/mcp_config.json` |
 | **Pi Desktop / Pi Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target pi-desktop` | `~/.pi/agent/mcp.json` |
 | **Cursor** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target cursor` | `~/.cursor/mcp.json` |

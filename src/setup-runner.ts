@@ -3,7 +3,7 @@
  * Supports: macOS, Windows, Linux
  * Targets: GitHub Copilot (VS Code / VS Code Insiders), Cursor, Hermes Desktop, Kimi Work,
  *          Claude Desktop, Devin Desktop, Antigravity, Pi Desktop, QwenPaw, Cline,
- *          Kilo Code, Qoder, Kiro, Trae
+ *          Kilo Code, Qoder, Kiro, Trae, LM Studio, Roo Code (VS Code Desktop)
  */
 
 import * as fs from "fs";
@@ -22,6 +22,27 @@ export interface HarnessConfig {
 }
 
 export const HARNESS_CONFIGS: Record<string, HarnessConfig> = {
+    lmstudio: {
+        name: "LM Studio",
+        aliases: ["lmstudio", "lm-studio"],
+        getConfigPath: (_platform, homeDir) => path.join(homeDir, ".lmstudio", "mcp.json"),
+        type: "json-mcpServers",
+        defaultConfig: (command, args) => ({ command, args }),
+    },
+    roo: {
+        name: "Roo Code (VS Code Desktop)",
+        aliases: ["roo", "roo-code", "roocode"],
+        getConfigPath: (platform, homeDir, appData) => {
+            const base = platform === "win32"
+                ? appData || path.join(homeDir, "AppData", "Roaming")
+                : platform === "darwin"
+                    ? path.join(homeDir, "Library", "Application Support")
+                    : path.join(homeDir, ".config");
+            return path.join(base, "Code", "User", "globalStorage", "rooveterinaryinc.roo-cline", "settings", "mcp_settings.json");
+        },
+        type: "json-mcpServers",
+        defaultConfig: (command, args) => ({ command, args }),
+    },
     copilot: {
         name: "GitHub Copilot (VS Code)",
         aliases: ["vscode", "code", "copilot"],
@@ -425,20 +446,48 @@ export function stripJsonComments(content: string, skipFastPath = false): string
     return output.join("");
 }
 
+/** Single whitespace character test, mirroring the `\s` class used by the YAML patterns. */
+const WHITESPACE_CHAR = /\s/;
+
+/**
+ * Returns a YAML line's trailing inline comment, including the whitespace run directly
+ * before it (e.g. `"  superpowers: # note"` -> `" # note"`), or an empty string when the
+ * line has no inline comment.
+ *
+ * Implemented as a single linear scan because the equivalent unanchored pattern with a
+ * leading quantifier backtracks quadratically on lines padded with long whitespace runs.
+ */
+function extractInlineComment(line: string): string {
+    for (let i = 1; i < line.length; i++) {
+        if (line[i] !== "#" || !WHITESPACE_CHAR.test(line[i - 1])) continue;
+        let start = i - 1;
+        while (start > 0 && WHITESPACE_CHAR.test(line[start - 1])) start--;
+        return line.slice(start);
+    }
+    return "";
+}
+
 /**
  * Parses simple YAML to locate/inject mcp_servers.superpowers safely without external dependencies.
  */
 export function updateYamlConfig(existingContent: string, cmd: string, args: string[], remove = false): string {
     const lines = existingContent ? existingContent.split(/\r?\n/) : [];
     const mcpDeclarations = lines
-        .map((line, index) => ({ index, match: line.match(/^(\s*)mcp_servers:\s*(.*?)\s*$/) }))
-        .filter((entry) => entry.match !== null);
+        // Match the key with a single unambiguous pattern, then trim the remainder with
+        // String#trim: the previous `\s*(.*?)\s*$` tail backtracks polynomially on input
+        // padded with long whitespace runs (CodeQL js/polynomial-redos).
+        .map((line, index) => {
+            const match = line.match(/^(\s*)mcp_servers:/);
+            if (!match) return null;
+            return { index, indent: match[1], tail: line.slice(match[0].length).trim() };
+        })
+        .filter((entry) => entry !== null);
     if (mcpDeclarations.length > 1) {
         throw new Error("Cannot safely update YAML with duplicate mcp_servers keys");
     }
     if (mcpDeclarations.length === 1) {
-        const match = mcpDeclarations[0].match!;
-        if (match[1] !== "" || match[2] !== "") {
+        const declaration = mcpDeclarations[0];
+        if (declaration.indent !== "" || (declaration.tail !== "" && !declaration.tail.startsWith("#"))) {
             throw new Error("Cannot safely update YAML unless mcp_servers is a root-level block mapping");
         }
     }
@@ -462,7 +511,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
         let superpowersIndent = 0;
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            const mcpMatch = line.match(/^(\s*)mcp_servers:\s*$/);
+            const mcpMatch = line.match(/^(\s*)mcp_servers:\s*(?:#.*)?$/);
             if (mcpMatch) {
                 inMcpServers = true;
                 mcpIndent = mcpMatch[1].length;
@@ -472,11 +521,15 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
 
             if (inMcpServers) {
                 const curIndent = line.match(/^(\s*)/)?.[1].length || 0;
+                if (line.trimStart().startsWith("#")) {
+                    newLines.push(line);
+                    continue;
+                }
                 if (line.trim() !== "" && curIndent <= mcpIndent) {
                     inMcpServers = false;
                     inSuperpowers = false;
                 } else {
-                    const spMatch = line.match(/^(\s*)superpowers:\s*$/);
+                    const spMatch = line.match(/^(\s*)superpowers:\s*(?:#.*)?$/);
                     if (spMatch && spMatch[1] === indent) {
                         inSuperpowers = true;
                         superpowersIndent = spMatch[1].length;
@@ -520,7 +573,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             break;
         }
         const leadingWhitespace = line.match(/^(\s*)/)?.[1] || "";
-        if (leadingWhitespace === indent && /^\s+superpowers:\s*$/.test(line)) {
+        if (leadingWhitespace === indent && /^\s+superpowers:\s*(?:#.*)?$/.test(line)) {
             superpowersIndex = i;
             break;
         }
@@ -538,6 +591,8 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
                 break;
             }
         }
+        // Keep the user's inline comment on the server declaration.
+        superpowersBlock[0] += extractInlineComment(lines[superpowersIndex]);
         lines.splice(superpowersIndex, endIndex - superpowersIndex, ...superpowersBlock);
         return lines.join("\n");
     } else {
@@ -895,6 +950,7 @@ export async function runSetup(options: SetupOptions = {}): Promise<SetupResult[
  * CLI parser and runner.
  */
 export async function runSetupCli(argv = process.argv.slice(2)): Promise<void> {
+    let printConfig = false;
     const options: SetupOptions = {
         dryRun: false,
         remove: false,
@@ -907,6 +963,8 @@ export async function runSetupCli(argv = process.argv.slice(2)): Promise<void> {
         const arg = argv[i];
         if (arg === "setup" || arg === "--setup") {
             continue;
+        } else if (arg === "--print-config") {
+            printConfig = true;
         } else if (arg === "--dry-run") {
             options.dryRun = true;
         } else if (arg === "--remove" || arg === "--uninstall") {
@@ -940,12 +998,28 @@ export async function runSetupCli(argv = process.argv.slice(2)): Promise<void> {
         }
     }
 
+    if (printConfig) {
+        if (options.target || options.remove || options.backup || options.dryRun) {
+            console.error("--print-config supports only --bun; omit target and file-operation flags.");
+            process.exitCode = 1;
+            return;
+        }
+        console.log(JSON.stringify({ mcpServers: { superpowers: {
+            command: options.bun ? "bunx" : "npx",
+            args: ["-y", "superpowers-mcp"],
+        } } }, null, 2));
+        return;
+    }
+
     console.log("\n========================================================");
     console.log("⚡ Superpowers MCP - Targeted Client Setup");
     console.log("========================================================\n");
 
     if (!options.target) {
         console.log("Please select which AI Agent client you would like to configure:\n");
+        console.log("  npx -y superpowers-mcp setup --target lmstudio   # LM Studio (~/.lmstudio/mcp.json)");
+        console.log("  npx -y superpowers-mcp setup --target roo        # Roo Code in VS Code Desktop");
+        console.log("  npx -y superpowers-mcp setup --print-config      # JSON for desktop app import");
         console.log("  npx -y superpowers-mcp setup --target antigravity # Antigravity (~/.gemini/config/mcp_config.json)");
         console.log("  npx -y superpowers-mcp setup --target pi-desktop  # Pi Desktop / Pi Agent (~/.pi/agent/mcp.json)");
         console.log("  npx -y superpowers-mcp setup --target cursor     # Cursor (~/.cursor/mcp.json)");
@@ -1027,7 +1101,8 @@ Options:
                         copilot (vscode), copilot-insiders (vscode-insiders, code-insiders, insiders),
                         hermes, kimi, claude, devin (windsurf),
                         qwenpaw (qwen-paw, copaw), cline (claude-dev), kilo (kilocode),
-                        qoder, kiro (kiro-code), trae
+                        qoder, kiro (kiro-code), trae, lmstudio (lm-studio), roo (roo-code, roocode)
+  --print-config        Print importable mcpServers JSON without writing files (optional --bun)
   --bun                 Use "bunx" instead of "npx" in server commands
   --backup              Create a timestamped .bak backup before modifying (Default: false, zero-pollution)
   --remove              Remove superpowers MCP configuration from target

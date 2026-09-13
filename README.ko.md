@@ -43,6 +43,8 @@
 > [!NOTE]
 > **모든 디렉터리에서 바로 실행 가능**: 이 저장소를 복제(clone)하거나 특정 폴더로 이동할 필요가 없습니다. 터미널의 **어느 위치에서나** 바로 아래 명령어를 실행할 수 있습니다. 설치 도구가 사용자 홈 디렉터리(`~`)를 기준으로 전역 설정 파일을 자동 탐지하여 모든 작업 공간에서 즉시 활성화합니다.
 
+데스크톱 빠른 설정: [LM Studio, Roo Code, ChatWise, Cherry Studio](docs/desktop-setup.md). 새 CLI 옵션은 아직 npm에 배포되지 않았습니다. 배포 전에는 가이드의 로컬 명령을 사용하세요.
+
 > [!TIP]
 > **투명성 및 환경 보호 원칙**: Superpowers MCP는 악성코드처럼 선택되지 않은 다른 에디터를 임의로 스캔하거나 일괄 수정하지 않습니다. 사용 중인 AI 클라이언트 전용 명령어를 실행하기만 하면, **원자적 쓰기(Atomic Swap) 기술**을 통해 설정을 안전하게 병합합니다 (충돌 시 손상 제로, **기본적으로 불필요한 `.bak` 쓰레기 파일을 남기지 않는 클린 사양**, 기존 다른 MCP 서버 무영향).
 
@@ -52,6 +54,8 @@
 
 | Harness / 클라이언트 | 지원 OS | 원클릭 설정 명령어 | 기본 설정 파일 경로 |
 | :--- | :--- | :--- | :--- |
+| **LM Studio** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target lmstudio` | `~/.lmstudio/mcp.json` |
+| **Roo Code (VS Code Desktop)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target roo` | `.../rooveterinaryinc.roo-cline/settings/mcp_settings.json` |
 | **Antigravity (Google DeepMind)** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target antigravity` | `~/.gemini/config/mcp_config.json` |
 | **Pi Desktop / Pi Agent** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target pi-desktop` | `~/.pi/agent/mcp.json` |
 | **Cursor** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target cursor` | `~/.cursor/mcp.json` |

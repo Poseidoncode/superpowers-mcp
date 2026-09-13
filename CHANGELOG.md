@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- Fix Hermes setup for inline comments on `mcp_servers:` and `superpowers:` declarations; preserve header comments and other servers during update/removal.
+- Add LM Studio (`lmstudio`, `lm-studio`) and Roo Code in VS Code Desktop (`roo`, `roo-code`, `roocode`) setup targets for macOS, Windows and Linux.
+- Add `setup --print-config` (optional `--bun`) for desktop JSON import without writing configuration files.
+- Document ChatWise one-click/clipboard import and Cherry Studio JSON import and Agent binding, with upstream references in `docs/desktop-setup.md`.
+
 ## [6.3.8] - 2026-09-12
 
 ### Security Hardening, Race Defense & Concurrency Inode Verification
