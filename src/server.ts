@@ -84,7 +84,7 @@ function normalizeSkillName(value: string): string {
 const server = new Server(
     {
         name: "superpowers-mcp",
-        version: "6.3.8",
+        version: "6.3.9",
     },
     {
         capabilities: {

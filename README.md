@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -178,7 +178,22 @@ To help you choose the right skill, we have structured all 14 skills across the 
 
 ## 🆕 Recent Updates
 
-### v6.3.8 (Latest)
+### v6.3.9 (Latest)
+
+- **Permanent ReDoS Defense (CodeQL Alert #4 Resolved)**:
+  - Replaced ambiguous regex backtracking in YAML parsing (`updateYamlConfig`) with unambiguous prefix key matching and native `String.prototype.trim()`.
+  - Added `extractInlineComment` linear scan ($O(N)$), preventing polynomial backtracking on inputs padded with long whitespace runs. Formally closed CodeQL Alert #4 (`js/polynomial-redos`).
+  - Added regression test suite in `tests/setup_test.js` validating linear processing (<1ms) against 60,000 whitespace characters.
+- **Client Setup Expansion (17 Supported AI Agent Clients)**:
+  - Added setup targets for **LM Studio** (`lmstudio`, `~/.lmstudio/mcp.json`) and **Roo Code** in VS Code Desktop (`roo`, `rooveterinaryinc.roo-cline/settings/mcp_settings.json`) across macOS, Windows, and Linux.
+  - Enhanced YAML configuration parser to preserve inline comments on `mcp_servers:` and `superpowers:`.
+- **Desktop Import Tooling & Delegation Exit Code Integrity**:
+  - Added `setup --print-config` (optional `--bun`) to output clean MCP JSON for desktop client import (ChatWise, Cherry Studio, etc.) without writing files.
+  - Hardened `src/server.ts` setup delegation to preserve `process.exitCode` from CLI commands.
+- **Desktop Setup Guide**:
+  - Added comprehensive [`docs/desktop-setup.md`](docs/desktop-setup.md) covering LM Studio, Roo Code, ChatWise, and Cherry Studio setup.
+
+### v6.3.8
 
 - **Actionable Interactive Workflow Launchers**:
   - `feature-pipeline` and `structured-debug` now emit explicit stage-by-stage `read_skill` calls, preserve required user approval gates, and clearly state that execution happens through the client agent rather than inside the MCP server.

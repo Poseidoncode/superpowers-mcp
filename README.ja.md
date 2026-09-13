@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.3.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.3.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -179,7 +179,22 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.3.8（最新）
+### v6.3.9（最新）
+
+- **完全な ReDoS 防御（CodeQL Alert #4 の解決）**：
+  - YAML 解析（`updateYamlConfig`）の多項式バックトラック正規表現を明確なプレフィックス一致とネイティブ `String.prototype.trim()` に置換。
+  - `extractInlineComment` 線形スキャナー（$O(N)$）を導入し、長大な空白入力時のバックトラックを防止。GitHub CodeQL Alert #4（`js/polynomial-redos`）の解決を遠隔解析で確認。
+  - `tests/setup_test.js` に 60,000 文字の空白パディングストレステストを追加し、線形時間（<1ms）での処理を保証。
+- **クライアント対応の拡張（17 種類の AI Agent クライアントをサポート）**：
+  - **LM Studio**（`lmstudio`、`~/.lmstudio/mcp.json`）および VS Code Desktop 版 **Roo Code**（`roo`、`rooveterinaryinc.roo-cline/settings/mcp_settings.json`）のターゲットを追加。
+  - YAML パーサーを強化し、`mcp_servers:` および `superpowers:` 宣言のインラインコメントやファイルヘッダーコメントを保持。
+- **デスクトップ向け設定エクスポートと終了コードの整合性**：
+  - `setup --print-config`（`--bun` 対応）を追加し、ChatWise や Cherry Studio などのデスクトップクライアントへ無変更でインポート可能な JSON を出力。
+  - `src/server.ts` の setup 委任において `process.exitCode` を保持し、非ゼロ終了コードの握りつぶしを防止。
+- **デスクトップセットアップガイド**：
+  - LM Studio、Roo Code、ChatWise、Cherry Studio の設定手順を解説した [`docs/desktop-setup.md`](docs/desktop-setup.md) を追加。
+
+### v6.3.8
 
 - **実行可能な対話型ワークフローランチャー**：
   - `feature-pipeline` と `structured-debug` は、ステージごとに明示的な `read_skill` 呼び出しを示し、必要なユーザー承認ゲートを保持し、実行が MCP サーバー内ではなくクライアント Agent 側で行われることを明記します。

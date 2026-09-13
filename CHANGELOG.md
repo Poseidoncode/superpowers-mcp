@@ -5,12 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [6.3.9] - 2026-09-13
 
-- Fix Hermes setup for inline comments on `mcp_servers:` and `superpowers:` declarations; preserve header comments and other servers during update/removal.
-- Add LM Studio (`lmstudio`, `lm-studio`) and Roo Code in VS Code Desktop (`roo`, `roo-code`, `roocode`) setup targets for macOS, Windows and Linux.
-- Add `setup --print-config` (optional `--bun`) for desktop JSON import without writing configuration files.
-- Document ChatWise one-click/clipboard import and Cherry Studio JSON import and Agent binding, with upstream references in `docs/desktop-setup.md`.
+### ReDoS Permanent Defense, Client Ecosystem Expansion & Desktop Setup Tooling
+
+- **CodeQL Alert #4 (js/polynomial-redos) Resolution & YAML ReDoS Defense (`src/setup-runner.ts`)**:
+  - Replaced ambiguous backtracking regex pattern `\s*(.*?)\s*$` with unambiguous prefix key matching and native `String.prototype.trim()`.
+  - Introduced `extractInlineComment` linear scan algorithm ($O(N)$) for trailing comments, preventing catastrophic backtracking on padded whitespace runs.
+  - Added regression test suite in `tests/setup_test.js` validating linear time execution (<1ms) against 60,000 whitespace-padded characters and negative failure branches.
+  - Formally closed GitHub CodeQL Alert #4 (`js/polynomial-redos`, CWE-1333 / CWE-400 / CWE-730) with GitHub remote static analysis verification.
+- **Client Setup Ecosystem Expansion (17 Supported AI Agent Clients)**:
+  - Added LM Studio (`lmstudio`, `lm-studio`) setup target across macOS, Windows, and Linux targeting `~/.lmstudio/mcp.json` with `0o700` secure directory creation.
+  - Added Roo Code in VS Code Desktop (`roo`, `roo-code`, `roocode`) setup target targeting Extension GlobalStorage `rooveterinaryinc.roo-cline/settings/mcp_settings.json`.
+  - Enhanced YAML configuration parser (`updateYamlConfig`) to preserve inline comments on `mcp_servers:` and `superpowers:` declarations while retaining header comments and sibling servers during update and removal.
+- **Desktop Client Safe Import Tooling & Delegation Exit Code Integrity**:
+  - Added `setup --print-config` (optional `--bun`) to emit clean, importable JSON configurations for desktop clients (ChatWise, Cherry Studio, etc.) without filesystem side effects.
+  - Enforced fail-closed defense against conflicting flags (`--target`, `--remove`, `--backup`, `--dry-run`) with `--print-config`.
+  - Updated `src/server.ts` setup command delegation to strictly honor `process.exitCode`, ensuring non-zero exit codes are never overridden by `process.exit(0)`.
+- **Comprehensive Desktop Integration Documentation (`docs/desktop-setup.md`)**:
+  - Documented setup instructions, cross-platform paths, and configuration procedures for LM Studio, Roo Code, ChatWise (one-click & clipboard import), and Cherry Studio (JSON import & Agent binding) with official upstream references.
 
 ## [6.3.8] - 2026-09-12
 

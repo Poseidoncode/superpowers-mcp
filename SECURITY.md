@@ -32,7 +32,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
-## v6.3.8 Security Hardening, Race Defense & Concurrency Inode Verification Notes
+## v6.3.9 Security Hardening & Desktop Setup Notes
 
 - **Universal Global Setup Concurrency, Inode Defense & Symlink Escape Neutralization (`src/setup-runner.ts`)**:
   - **Allowed Roots Boundary Containment (`safeWriteConfig`)**: Enforces explicit allowed destination root boundaries (`allowedRoots: [homeDir, appData, localAppData]`). Checks `path.relative` against canonical realpaths to guarantee that configuration files cannot be redirected outside authorized roots through malicious parent-directory symlinks.
@@ -165,7 +165,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.3.8 - Verified: 2026-09-13)
+## Current Security Status (v6.3.9 - Verified: 2026-09-13)
 
 | Check | Status |
 | ----- | ------ |
