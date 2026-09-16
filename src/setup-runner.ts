@@ -332,6 +332,13 @@ export const HARNESS_CONFIGS: Record<string, HarnessConfig> = {
 };
 
 /**
+ * Root key candidates for JSON configurations, in preference order. A file may use
+ * any of them for the same purpose, so all are inspected before deciding where the
+ * superpowers entry belongs.
+ */
+export const JSON_SERVER_ROOT_KEYS = ["mcpServers", "servers", "mcp"] as const;
+
+/**
  * Checks if a value is a non-null plain object (not an Array, Date, Buffer, etc.).
  */
 export function isPlainObject(val: unknown): val is Record<string, unknown> {
@@ -494,10 +501,14 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
 
     let indent = "  ";
     if (mcpDeclarations.length === 1) {
+        // 以第一個子層級（非空、非註解）行的縮排為準，而不是只看緊接的下一行，
+        // 也不要求該行是 [a-zA-Z0-9_-]+ 形式的 key。舊行為在首個子項 key 含
+        // 點號或引號（例如 "my.key:"）時會退回預設兩空格，導致插入第二個
+        // superpowers: 造成重複 key。
         for (let i = mcpDeclarations[0].index + 1; i < lines.length; i++) {
             if (lines[i].trim() === "" || lines[i].trimStart().startsWith("#")) continue;
             if (/^[^\s]/.test(lines[i])) break;
-            const child = lines[i].match(/^(\s+)[a-zA-Z0-9_-]+:/);
+            const child = lines[i].match(/^(\s+)\S/);
             if (child) indent = child[1];
             break;
         }
@@ -573,7 +584,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             break;
         }
         const leadingWhitespace = line.match(/^(\s*)/)?.[1] || "";
-        if (leadingWhitespace === indent && /^\s+superpowers:\s*(?:#.*)?$/.test(line)) {
+        if (leadingWhitespace === indent && /^\s+["']?superpowers["']?\s*:\s*(?:#.*)?$/.test(line)) {
             superpowersIndex = i;
             break;
         }
@@ -592,8 +603,29 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             }
         }
         // Keep the user's inline comment on the server declaration.
+        const keptChildren: string[] = [];
+        let skipIndent = -1;
+        for (let i = superpowersIndex + 1; i < endIndex; i++) {
+            const line = lines[i];
+            if (line.trim() === "") continue;
+            const childIndent = line.match(/^(\s*)/)?.[1].length ?? 0;
+            if (skipIndent !== -1 && childIndent > skipIndent) {
+                // 被移除欄位的巢狀子行（例如 command 底下的映射）一併移除
+                continue;
+            }
+            skipIndent = -1;
+            if (childIndent > spIndent && /^\s*["']?(?:command|args)["']?\s*:/.test(line)) {
+                skipIndent = childIndent;
+                continue;
+            }
+            keptChildren.push(line);
+        }
+
+        // 保留使用者在此條目下自行加入的欄位（env、type、disabled、cwd…），
+        // 只重寫由我們負責管理的 command / args。舊行為整塊置換，重跑 setup
+        // 會讓使用者的 env 等設定無聲消失。
         superpowersBlock[0] += extractInlineComment(lines[superpowersIndex]);
-        lines.splice(superpowersIndex, endIndex - superpowersIndex, ...superpowersBlock);
+        lines.splice(superpowersIndex, endIndex - superpowersIndex, ...superpowersBlock, ...keptChildren);
         return lines.join("\n");
     } else {
         lines.splice(mcpServersIndex + 1, 0, ...superpowersBlock);
@@ -633,12 +665,17 @@ export function updateJsonConfig(
         }
     }
 
-    let rootKey = "mcpServers";
-    if (formatType === "json-servers") {
-        rootKey = "servers";
-    } else if (formatType === "json-mcp") {
-        rootKey = "mcp";
-    }
+    const conventionalRootKey =
+        formatType === "json-servers" ? "servers" : formatType === "json-mcp" ? "mcp" : "mcpServers";
+
+    // 先尋找任何已經存放 superpowers 條目的 root key。舊行為只在「慣用」key 不存在
+    // 時直接新建一個空物件，因此當設定檔其實使用另一個等效 key（例如 VS Code 的
+    // servers 對上 mcpServers、Kilo 的 mcp 對上 mcpServers）時，會寫入第二份互相
+    // 衝突的 superpowers 設定，而 --remove 也刪不掉原本那一份。
+    const rootKey =
+        JSON_SERVER_ROOT_KEYS.find(
+            (key) => isPlainObject(json[key]) && (json[key] as Record<string, unknown>)["superpowers"] !== undefined
+        ) ?? conventionalRootKey;
 
     if (json[rootKey] !== undefined && !isPlainObject(json[rootKey])) {
         throw new Error(`Existing JSON field "${rootKey}" must be an object`);
@@ -652,25 +689,52 @@ export function updateJsonConfig(
     if (remove) {
         delete targetServers["superpowers"];
     } else {
+        let desired: Record<string, unknown>;
         if (customConfig) {
-            targetServers["superpowers"] = customConfig;
+            desired = { ...customConfig };
         } else if (formatType === "json-servers") {
-            targetServers["superpowers"] = {
+            desired = {
                 command: cmd,
                 args: args,
                 type: "stdio",
             };
         } else if (formatType === "json-mcp") {
-            targetServers["superpowers"] = {
+            desired = {
                 type: "local",
                 command: [cmd, ...args],
                 enabled: true,
             };
         } else {
-            targetServers["superpowers"] = {
+            desired = {
                 command: cmd,
                 args: args,
             };
+        }
+
+        // 與既有條目合併，保留使用者自行加入的欄位（env、envFile、disabled、
+        // alwaysAllow、cwd 等）。舊行為以整塊覆蓋，重跑 setup 會直接刪掉這些設定。
+        const existing = targetServers["superpowers"];
+        if (!isPlainObject(existing)) {
+            targetServers["superpowers"] = desired;
+        } else {
+            const merged: Record<string, unknown> = { ...existing, ...desired };
+
+            // enabled 只是預設值：使用者已明示啟用狀態時不得覆寫，
+            // 否則會出現 `disabled: true` 與 `enabled: true` 並存的矛盾設定。
+            if (existing["enabled"] !== undefined || existing["disabled"] !== undefined) {
+                if (existing["enabled"] !== undefined) {
+                    merged["enabled"] = existing["enabled"];
+                } else {
+                    delete merged["enabled"];
+                }
+            }
+
+            // json-mcp 形式把參數收進 command 陣列，殘留的 args 會與之矛盾。
+            if (formatType === "json-mcp" && Array.isArray(merged["command"])) {
+                delete merged["args"];
+            }
+
+            targetServers["superpowers"] = merged;
         }
     }
 
@@ -961,7 +1025,7 @@ export async function runSetupCli(argv = process.argv.slice(2)): Promise<void> {
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
-        if (arg === "setup" || arg === "--setup") {
+        if (arg === "setup" || arg === "install" || arg === "--setup") {
             continue;
         } else if (arg === "--print-config") {
             printConfig = true;
@@ -977,24 +1041,33 @@ export async function runSetupCli(argv = process.argv.slice(2)): Promise<void> {
             const nextVal = argv[i + 1];
             if (!nextVal || nextVal.startsWith("-")) {
                 console.error("❌ Error: Missing value for --target flag.\n");
-                process.exit(1);
+                process.exitCode = 1;
+                return;
             }
             options.target = argv[++i];
         } else if (arg.startsWith("--target=")) {
             const val = arg.split("=")[1];
             if (!val) {
                 console.error("❌ Error: Missing value for --target flag.\n");
-                process.exit(1);
+                process.exitCode = 1;
+                return;
             }
             options.target = val;
         } else if (arg === "--help" || arg === "-h") {
             printHelp();
             return;
-        } else if (!arg.startsWith("-") && !options.target && arg !== "setup") {
-            options.target = arg;
         } else if (arg.startsWith("-")) {
             console.error(`❌ Error: Unknown option "${arg}". Use --help for usage.\n`);
-            process.exit(1);
+            process.exitCode = 1;
+            return;
+        } else if (!options.target) {
+            options.target = arg;
+        } else {
+            // 舊行為會靜默忽略多餘的位置參數，例如 `setup copilot cursor`
+            // 只會設定 copilot，cursor 被無聲丟棄。
+            console.error(`❌ Error: Unexpected argument "${arg}". Use --help for usage.\n`);
+            process.exitCode = 1;
+            return;
         }
     }
 
@@ -1041,6 +1114,9 @@ export async function runSetupCli(argv = process.argv.slice(2)): Promise<void> {
         console.log("💡 Privacy & Safety:");
         console.log("   Superpowers MCP only configures the specific client you explicitly choose.");
         console.log("   It will NEVER silently scan or modify unselected environments.\n");
+        // --target 是必填參數：缺少時是使用錯誤，應以非零離開碼結束，
+        // 否則 shell 腳本與 CI 會誤判為設定成功。
+        process.exitCode = 1;
         return;
     }
 
@@ -1077,14 +1153,17 @@ export async function runSetupCli(argv = process.argv.slice(2)): Promise<void> {
         console.log("--------------------------------------------------------");
         if (errorCount > 0) {
             console.error(`⚠️ Setup finished with errors: ${errorCount} failure(s), ${successCount} succeeded.`);
-            process.exit(1);
+            // 使用 exitCode 而非 process.exit()：串接管道（例如 npx ... setup | tail）
+            // 時 stdout/stderr 是非同步寫入，process.exit() 會截斷尚未送出的輸出。
+            process.exitCode = 1;
+            return;
         }
 
         console.log(`🎉 Setup complete! ${successCount} environment(s) ready.`);
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`❌ Setup failed: ${msg}\n`);
-        process.exit(1);
+        process.exitCode = 1;
     }
 }
 

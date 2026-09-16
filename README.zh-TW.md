@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.3.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.3.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -177,7 +177,24 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.3.9 (最新版)
+### v6.3.10 (最新版)
+
+- **全域安裝引擎鍵名衝突化解與使用者設定無損保留**：
+  - 自動探索既有的 `servers`、`mcp`、`mcpServers`，防止在不同 AI Client 環境中重複建立互相矛盾的設定區塊。
+  - 重新執行安裝時自動合併並無損保留使用者自訂的 `env`、`cwd`、`disabled`、`alwaysAllow` 等欄位。
+  - 徹底消除 `disabled: true` 與 `enabled: true` 同時並存的矛盾無效狀態。
+  - 嚴格校驗命令列引數，拒絕未預期的位置參數（結束碼 1）；全面以 `process.exitCode` 取代突兀退出，確保非同步串流完整沖刷。
+- **核心技能引擎單次 Stat 快照校驗與世代隔離**：
+  - 引入單次 `fs.stat` 快照校驗 (`dev`, `ino`, `size`, `mtimeMs`)，若符號連結或實體檔案遭置換立即失效快取，無需重新遍歷整個目錄。
+  - `clearCache()` 採用單調遞增的 `scanEpoch` 並重設 `loadingEpoch`，杜絕慢速異步掃描在快取重設後的髒覆寫。
+  - 權威描述元 Inode 校驗 (`readFileNoFollow`) 消除 TOCTOU 描述元置換競態。
+- **MCP Prompt 模板健壯性與去重機制**：
+  - 遇到空白或遺失模板時主動輸出結構化 `stderr` 並拋出標準 `McpError(ErrorCode.InternalError)`。
+  - 以 `appliedInterpolations` 追蹤已替換標記，防止多餘參數重複追加。
+- **全方位安全審計與回歸測試底線**：
+  - 全套件 **292 項自動化測試斷言**（Node.js: 163 項、Bash: 35 項、PowerShell: 94 項）100% 通過，0 漏洞、0 敏感資訊外洩。
+
+### v6.3.9
 
 - **永久 ReDoS 防禦（CodeQL Alert #4 關閉）**：
   - 將 YAML 解析（`updateYamlConfig`）中的多項式回溯正則改為單一無歧義前綴匹配與原生 `String.prototype.trim()`。
@@ -218,47 +235,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - `sdd-workspace.ps1`：以 UTF-8 without BOM (`[System.Text.UTF8Encoding]::new($false)`) 寫入計畫標記，確保無損 Unicode 路徑往返。
 - **全自動化回歸測試底線**：
   - 擴展測試套件至 **274 項自動化斷言全數通過**（Node.js: 145 項、Bash: 35 項、PowerShell: 94 項），維持 100% 通過率。
-
-### v6.3.7
-
-- **上游同步 — 第 1–3 批（obra/superpowers）**：
-  - **技能自動路由**：`systematic-debugging` 與 `test-driven-development` 的 description 新增觸發詞（`"tdd"`、`"systematic debug"` 等）與兄弟技能交叉導引，提升 MCP 客戶端的技能選擇準確度。
-  - **無測試指令的證據律**：`verification-before-completion` 新增「When There Is No Test Command」章節：報告、研究、稽核與書信類工作必須重新開啟成品、逐項證明並誠實列出未完成項，只能宣稱「完整」而非「正確」。
-  - **Brainstorming 意圖閘門**：新增「Establish Shared Understanding」（探索意圖 → 回寫理解 → 帶入設計），並重寫 HARD-GATE 明列各路徑前置條件，禁止把單次核准當成跳過後續階段的許可。
-  - **規劃交接審查（Planning-Handoff Review）**：brainstorming 的規格自我審查升級為 0.0–9.9 評分 + burden ledger + 單次有界改進 + 唯讀複評，並具備失敗時還原初稿的保底規則。
-  - **已存計畫審閱與情境化交接**：`writing-plans` 要求人類先審閱存檔計畫才可執行；未指定執行方式時必須給出針對本計畫的推薦，而非固定預設。
-  - **計畫勾選簿記**：`executing-plans` 與 `subagent-driven-development` 在完成訊息中同步勾選計畫檔步驟。
-  - **遠端安全邊界**：`using-git-worktrees` 要求從共享 ref 開分支時必須加 `--no-track`，並以 `git branch -vv` 檢查追蹤狀態（首次 commit 前先 `--unset-upstream`）；`executing-plans` 要求 commit 保持本地、禁止改寫共享分支；implementer 遇到任何 push 需求一律回報 BLOCKED，不得自行推送。
-  - **Discoveries 帳本**：SDD 進度帳本新增 `## Discoveries` 區段，跨任務發現可穿越 compaction，並成為下一次派工介面條款的來源。
-  - **延後發現匯出**：刪除計畫工作區前，`Ruling:`／`minor (deferred)`／`parked` 行必須匯出到 PR 的「Deferred items」清單，或提交至 `docs/superpowers/follow-ups/<plan>.md`。
-  - **Greenfield SDD Scripts**：repo 尚未建立時 `sdd-workspace` 退回當前目錄（`.ps1` 同步支援），`review-package` 則在非 repo 環境下給出可行動的錯誤。
-  - **TDD 特徵化守門**：行為保持型重構的五步程序（先變異、確認失敗、由 VCS 還原、維持綠燈），並從邊界與變異檢查章節交叉引用。
-- **上游內容同步 — 第 4 批**：brainstorm 啟動腳本改由 `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST` 決定 host（`--host`/`--url-host` 仍優先）、`writing-skills` 新增搬移內容時的連結重解指引，SDD 審查者改為把完整報告寫入 `…/task-N-review.md` 並只回傳少於 15 行摘要 — MCP 端新增 `review_file` 參數（若要求的路徑正規化後等於報告或 brief 檔，改用推導出的 `-review.md`），以及讓 `[FIX_BASE_SHA]` 真正被代入的 `fix_base_sha` 別名。
-- **上游 drift 報告**：`npm run drift` 以已提交的上游基線比對 `obra/superpowers`，列出已採納檔案的變動、本地缺漏的引進檔案與 fork 專屬新增；`npm run drift:record -- --ignore <skill>` 於審閱同步後更新基線，且會在寫入前拒絕遭截斷的 API tree。
-- **MCP 表面覆蓋率測試**：磁碟上的每個 skill 都必須是對外曝露、且讀出內容屬於該 skill 的 MCP resource，prompt 清單必須與 4 個 README 完全一致。
-- **MCP 描述保真**：上游的跳脫引號格式改為未加引號的 YAML plain scalar，確保 `SkillsManager` 經 MCP 輸出時不會出現多餘反斜線。
-- **回歸防護**：`tests/upstream_sync_test.js` 增至 22 項標記檢查（涵蓋第 1–4 批）；全測試套件通過（8 個 npm 套件共 139 項檢查、PowerShell 90 項斷言、SDD 16 + host 預設 11 + render-graph 8 項 bash 斷言）。
-- **發佈前強化**：Bash 與 PowerShell 的 brainstorm host 測試明確強制 background 模式，讓完整 264 項驗證在 `CODEX_CI=1` 下也能正常結束；`package-lock.json` 已同步至 v6.3.7 與 Node `>=18`；npm repository 與 CLI `bin` metadata 已正規化，並經 `npm publish --dry-run` 與打包安裝 smoke test 驗證。
-
-### v6.3.6
-
-- **極致效能躍升優化 (2x~8.1x 加速)**：
-  - **並行技能索引與快取前置**：`SkillsManager.listSkills` 升級為非同步並行目錄遍歷 (`Promise.all`) 搭配根目錄預解析快取，冷啟動技能索引延遲由 4.79ms 銳減至 2.35ms（**2.04x 速度提升**）。
-  - **極速記憶體 Canonical 快取**：針對 `readSkillContent` 引入以實體真實路徑為鍵的 Canonical 快取與別名映射機制，二次技能讀取由 0.013ms 驟降至 1.6µs（**8.1x 速度提升**）。
-  - **Frontmatter 切片與 ReDoS 防護**：`parseFrontmatter` 改以 64 KB 前綴緩衝區局部切片取代全檔正則匹配，徹底消除大檔案 GC 停頓與二次方 ReDoS 風險。
-  - **JSON 解析高速直通路徑**：在 `stripJsonComments` (`src/setup-runner.ts`) 引入原生 JSON 嘗試，無註解設定檔讀取速度提升至 0.55µs（**5.1x 速度提升**）。
-  - **並行多目標打包編譯**：`esbuild.js` 採用 `Promise.all` 並行編譯 4 大產物，全專案打包時間降至 ~50ms（**~42% 速度提升**）。
-- **雙子 Subagent 深度 Code Review 與全面缺陷加固 (FIX ALL)**：
-  - **Partial-Read 緩衝區截斷防禦**：`SkillsManager.readFileNoFollow` 實作累加式讀取迴圈（`while (totalRead < fileSize)`），杜絕高併發磁碟 I/O 或虛擬檔案系統下的無聲截斷。
-  - **Scan Epoch 並發版本防護**：`listSkills` 引入遞增的 `scanEpoch` 代數計數器，防止背景慢速掃描覆寫較新的快取狀態。
-  - **Canonical 快取一致性保證**：以實體真實路徑 (`realFilePath`) 為核心鍵值並透過 `canonicalPathMap` 維護別名映射，徹底消除符號連結別名的快取漂移 (Cache Drift)。
-  - **系統黑名單防禦擴展**：`getSafeSkillsPath` 補齊 macOS `/private/etc` 與 `/private/var`，杜絕攻擊者透過環境變數逃逸至敏感系統目錄。
-  - **設定檔寫入符號連結逃逸防禦**：`safeWriteConfig` 在寫入前透過 `fs.lstat` 與真實路徑解析，嚴格拒絕指向敏感系統路徑的符號連結偽造寫入。
-  - **嚴格 TypeScript 與 Rule 7 零瑕疵合規**：徹底清理廢棄死代碼（`exists` 私有方法），全面通過 `--noUnusedLocals --noUnusedParameters`，並消除全專案所有無型別/空白 catch 區塊。
-- **自動化測試套件擴充與基準回歸**：
-  - 全套件 85 項核心單元/端到端測試與 174 項回歸斷言 100% 通過（包含 `setup_test.js` 33 項測試全部通過），並產出 [`SECURITY.md`](SECURITY.md)、[`tests/code_review_report.md`](tests/code_review_report.md) 與 [`tests/performance_optimization_report.md`](tests/performance_optimization_report.md)。
-- **多語系文檔全面對齊**：
-  - 4 語系 README（[`README.md`](README.md)、[`README.zh-TW.md`](README.zh-TW.md)、[`README.ja.md`](README.ja.md)、[`README.ko.md`](README.ko.md)）同步支援環境清單、效能指標與一鍵指令表格。
 
 👉 *更多歷史版本更新紀錄，請參閱完整的 [CHANGELOG.md](CHANGELOG.md)。*
 

@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.10] - 2026-09-17
+
+### Universal Setup Key Conflict Resolution, Content Cache Stat Integrity & Exit Code Safety
+
+- **Universal Global Setup Key Discovery & User Field Preservation (`src/setup-runner.ts`)**:
+  - **Multi-Root Key Conflict Resolution (`updateJsonConfig`)**: Defensively queries all recognized server root keys (`servers`, `mcp`, `mcpServers`) before insertion, preventing duplicate conflicting declarations across AI client implementations.
+  - **User-Managed Fields Lossless Preservation**: Re-running setup safely merges and preserves user-authored configuration fields (`env`, `cwd`, `disabled`, `alwaysAllow`, `args`), avoiding silent configuration loss across tool upgrades.
+  - **Contradictory Flag Elimination**: Prevents simultaneous presence of opposing flags (such as `disabled: true` and `enabled: true`), maintaining unambiguous client execution states.
+  - **Strict Position Argument & Malformed CLI Guard (`runSetupCli`)**: Fails closed with exit code 1 when extra unexpected arguments or invalid option flags are provided.
+  - **Non-Truncating Process Termination (`process.exitCode = 1`)**: Replaced abrupt `process.exit()` calls with `process.exitCode` assignment in setup CLI and server, ensuring standard I/O streams flush completely over Unix pipelines and package runners.
+- **Skills Core Engine Fast-Path Cache Stat Verification & Scan Epoch Shielding (`src/skills-manager.ts`)**:
+  - **Single-Stat Invalidation Verification (`tryReadFromContentCache`)**: Replaces full directory rescans on individual skill reads with a fast-path `fs.stat` verification against cached filesystem snapshots (checking device ID `dev`, inode `ino`, file size `size`, and modification time `mtimeMs`). Guarantees that symlink redirection or underlying file swapping immediately invalidates stale cache without performance penalty.
+  - **Epoch Single-Flight Scanning & Clear Invalidation (`clearCache`)**: `clearCache()` monotonically increments `scanEpoch` and resets `loadingEpoch`, preventing concurrent in-flight reload operations from committing stale entries after cache invalidation.
+  - **Strict Open File Descriptor Inode Verification**: `readFileNoFollow` performs canonical path checks and binds validation directly to the opened descriptor (`fd.stat()`), defending against TOCTOU races between path check and descriptor open.
+- **MCP Prompt Template Robustness & Deduplication (`src/server.ts`)**:
+  - **Empty Template Rejection & Structured Diagnostics (`readPromptFileSafe`)**: Detects and halts execution on empty prompt template files, outputting structured diagnostics to `stderr` and returning `McpError(ErrorCode.InternalError)` rather than serving silent blanks.
+  - **Applied Interpolation Tracking**: Tracks applied template replacements, eliminating redundant or spurious legacy argument appends when caller arguments match template placeholders.
+- **Automated Regression Verification Floor**:
+  - Expanded test suites to **292 automated test assertions** across Node.js (163), Bash (35), and PowerShell (94) with 100% pass rate.
+
 ## [6.3.9] - 2026-09-13
 
 ### ReDoS Permanent Defense, Client Ecosystem Expansion & Desktop Setup Tooling

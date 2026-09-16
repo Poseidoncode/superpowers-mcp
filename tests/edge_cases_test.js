@@ -198,6 +198,123 @@ async function runEdgeCaseTests() {
         assert.strictEqual((await duplicateManager.findSkill("bom-skill")).description, "Refreshed description");
         console.log("  ✅ Test 9 Passed!");
 
+        // Test 10: reading a single skill must not trigger a full directory rescan.
+        // Regression guard for the cache design: readSkillContent() used to call
+        // listSkills(true) once the entry TTL expired, re-reading every skill file
+        // just to serve one, and letting parallel callers each rescan the tree.
+        console.log("\nTest 10: readSkillContent does not rescan the whole tree...");
+        {
+            const fsp = require("fs/promises");
+            const originalOpen = fsp.open;
+            const originalReaddir = fsp.readdir;
+            let opens = 0;
+            let readdirs = 0;
+            fsp.open = async (...args) => {
+                opens++;
+                return originalOpen.apply(fsp, args);
+            };
+            fsp.readdir = async (...args) => {
+                readdirs++;
+                return originalReaddir.apply(fsp, args);
+            };
+
+            try {
+                const perfDir = path.join(tmpSkillsDir, "perf-skill");
+                fs.mkdirSync(perfDir, { recursive: true });
+                fs.writeFileSync(
+                    path.join(perfDir, "SKILL.md"),
+                    "---\nname: perf-skill\ndescription: Perf\n---\n# Perf\nbody\n",
+                    "utf-8"
+                );
+
+                const perfManager = new SkillsManager(tmpSkillsDir);
+                await perfManager.listSkills();
+
+                // Wait past CACHE_REVALIDATE_MS so the old code would force a rescan.
+                await new Promise((resolve) => setTimeout(resolve, 1200));
+
+                opens = 0;
+                readdirs = 0;
+                const contents = await Promise.all(
+                    Array.from({ length: 10 }, () => perfManager.readSkillContent(path.join(perfDir, "SKILL.md")))
+                );
+
+                assert.ok(contents.every((c) => c.includes("body")), "cached content must still be returned");
+                assert.strictEqual(readdirs, 0, `readSkillContent must not rescan the directory (got ${readdirs} readdir calls)`);
+                assert.strictEqual(opens, 0, `readSkillContent must not re-open any skill file on a cache hit (got ${opens})`);
+            } finally {
+                fsp.open = originalOpen;
+                fsp.readdir = originalReaddir;
+            }
+        }
+        console.log("  ✅ Test 10 Passed!");
+
+        // Test 11: the directory fingerprint must detect an in-place edit, and a
+        // burst of concurrent listSkills() calls must collapse into one scan.
+        console.log("\nTest 11: fingerprint invalidation and single-flight scanning...");
+        {
+            const fsp = require("fs/promises");
+            const sigDir = path.join(tmpSkillsDir, "sig-skill");
+            fs.mkdirSync(sigDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(sigDir, "SKILL.md"),
+                "---\nname: sig-skill\ndescription: Before\n---\n# Sig\nv1\n",
+                "utf-8"
+            );
+
+            const sigManager = new SkillsManager(tmpSkillsDir);
+            const initialList = await sigManager.listSkills();
+            assert.strictEqual(initialList.find((s) => s.name === "sig-skill").description, "Before");
+
+            // In-place overwrite: only the file mtime changes, never the parent dir's.
+            fs.writeFileSync(
+                path.join(sigDir, "SKILL.md"),
+                "---\nname: sig-skill\ndescription: After\n---\n# Sig\nv2\n",
+                "utf-8"
+            );
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+
+            const refreshed = await sigManager.listSkills();
+            assert.strictEqual(
+                refreshed.find((s) => s.name === "sig-skill").description,
+                "After",
+                "a changed file must invalidate the list cache"
+            );
+            assert.ok(
+                (await sigManager.readSkillContent(path.join(sigDir, "SKILL.md"))).includes("v2"),
+                "a changed file must invalidate the content cache"
+            );
+
+            const originalOpen = fsp.open;
+            const originalReaddir = fsp.readdir;
+            let opens = 0;
+            let readdirs = 0;
+            fsp.open = async (...args) => {
+                opens++;
+                return originalOpen.apply(fsp, args);
+            };
+            fsp.readdir = async (...args) => {
+                readdirs++;
+                return originalReaddir.apply(fsp, args);
+            };
+            try {
+                const burstManager = new SkillsManager(tmpSkillsDir);
+                const results = await Promise.all(Array.from({ length: 40 }, () => burstManager.listSkills()));
+                assert.ok(results.every((r) => Array.isArray(r) && r.length > 0), "every caller must receive the list");
+                // One scan reads each SKILL.md exactly once; the fingerprint check adds
+                // one extra readdir. A per-caller rescan would open far more files.
+                const skillFileCount = fs.readdirSync(tmpSkillsDir).filter((n) => fs.statSync(path.join(tmpSkillsDir, n)).isDirectory()).length;
+                assert.ok(
+                    opens <= skillFileCount,
+                    `40 concurrent listSkills() calls must share one scan (opened ${opens} files for ${skillFileCount} skills)`
+                );
+            } finally {
+                fsp.open = originalOpen;
+                fsp.readdir = originalReaddir;
+            }
+        }
+        console.log("  ✅ Test 11 Passed!");
+
         console.log("\n🎉 ALL EDGE CASE & SECURITY UNIT TESTS PASSED!");
     } finally {
         if (fs.existsSync(tmpSkillsDir)) {

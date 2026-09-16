@@ -970,6 +970,108 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 
+    // ---------------------------------------------------------------------
+    // Regression: re-running setup must never destroy user-managed fields
+    // ---------------------------------------------------------------------
+    it("should preserve user-managed JSON fields (env/disabled) on re-install", () => {
+        const existing = JSON.stringify(
+            {
+                mcpServers: {
+                    "other-server": { command: "foo" },
+                    superpowers: {
+                        command: "npx",
+                        args: ["-y", "superpowers-mcp"],
+                        env: { SKILLS_PATH: "/custom/skills" },
+                        disabled: true,
+                    },
+                },
+            },
+            null,
+            2
+        );
+
+        const updated = JSON.parse(updateJsonConfig(existing, "json", "npx", ["-y", "superpowers-mcp"]));
+        const entry = updated.mcpServers.superpowers;
+
+        assert.deepStrictEqual(entry.env, { SKILLS_PATH: "/custom/skills" }, "env must be preserved");
+        assert.strictEqual(entry.disabled, true, "disabled must be preserved");
+        assert.deepStrictEqual(updated.mcpServers["other-server"], { command: "foo" }, "unrelated entries must be preserved");
+        assert.deepStrictEqual(entry.args, ["-y", "superpowers-mcp"], "managed fields must still be updated");
+    });
+
+    it("should reuse an existing root key instead of writing a duplicate entry", () => {
+        const existing = JSON.stringify(
+            { mcpServers: { superpowers: { command: "npx", env: { A: "1" } } } },
+            null,
+            2
+        );
+
+        // json-mcp would conventionally use "mcp"; the file already uses "mcpServers".
+        const updated = JSON.parse(updateJsonConfig(existing, "json-mcp", "npx", ["-y", "superpowers-mcp"]));
+        assert.strictEqual(updated.mcp, undefined, "must not create a second root key");
+        assert.deepStrictEqual(updated.mcpServers.superpowers.env, { A: "1" }, "existing entry must be merged into");
+
+        // ...and --remove must be able to delete that entry again.
+        const removed = JSON.parse(updateJsonConfig(JSON.stringify(updated), "json-mcp", "npx", ["-y", "superpowers-mcp"], true));
+        assert.strictEqual(removed.mcpServers.superpowers, undefined, "remove must delete the discovered entry");
+        assert.strictEqual(removed.mcp, undefined, "remove must not invent a new root key");
+    });
+
+    it("should find an existing entry under a non-conventional root key", () => {
+        const existing = JSON.stringify({ servers: { superpowers: { command: "npx", env: { B: "2" } } } }, null, 2);
+        const updated = JSON.parse(updateJsonConfig(existing, "json", "npx", ["-y", "superpowers-mcp"]));
+        assert.strictEqual(updated.mcpServers, undefined, "must not create mcpServers when servers already holds the entry");
+        assert.deepStrictEqual(updated.servers.superpowers.env, { B: "2" }, "servers entry must be merged into");
+    });
+
+    it("should not leave a contradictory enabled flag next to a user's disabled flag", () => {
+        const existing = JSON.stringify({ mcp: { superpowers: { type: "local", command: ["npx"], disabled: true } } }, null, 2);
+        const updated = JSON.parse(updateJsonConfig(existing, "json-mcp", "npx", ["-y", "superpowers-mcp"]));
+        const entry = updated.mcp.superpowers;
+        assert.strictEqual(entry.disabled, true, "user's disabled flag must survive");
+        assert.strictEqual(entry.enabled, undefined, "must not force enabled:true next to disabled:true");
+        assert.strictEqual(entry.args, undefined, "json-mcp folds args into command; stale args must be dropped");
+        assert.deepStrictEqual(entry.command, ["npx", "-y", "superpowers-mcp"]);
+    });
+
+    it("should detect the correct indent when the first YAML child key is not a plain identifier", () => {
+        const existing = `mcp_servers:
+    my.key: v
+    superpowers:
+        command: npx
+        env:
+            X: 1
+`;
+        const updated = updateYamlConfig(existing, "npx", ["-y", "superpowers-mcp"]);
+
+        assert.strictEqual((updated.match(/^\s*superpowers:/gm) || []).length, 1, "must not create a duplicate superpowers key");
+        assert.strictEqual((updated.match(/^    superpowers:/gm) || []).length, 1, "must reuse the file's 4-space indent");
+        assert.ok(updated.includes("        env:"), "user-managed env block must be preserved");
+        assert.ok(updated.includes("        command: \"npx\""), "managed command must be updated");
+
+        // Removing must leave the sibling key and drop the whole block
+        const removed = updateYamlConfig(updated, "npx", ["-y", "superpowers-mcp"], true);
+        assert.ok(removed.includes("my.key: v"));
+        assert.ok(!removed.includes("superpowers:"));
+    });
+
+    it("should exit non-zero for malformed CLI invocations instead of failing silently", () => {
+        const { spawnSync } = require("child_process");
+        const entry = path.join(__dirname, "..", "out", "server.js");
+        if (!fs.existsSync(entry)) {
+            console.log("  ⏭️  SKIP: out/server.js not built");
+            passed++;
+            return;
+        }
+
+        const noTarget = spawnSync("node", [entry, "setup"], { encoding: "utf8" });
+        assert.strictEqual(noTarget.status, 1, "missing --target must exit non-zero");
+
+        const extraArg = spawnSync("node", [entry, "setup", "copilot", "cursor"], { encoding: "utf8" });
+        assert.strictEqual(extraArg.status, 1, "unexpected positional argument must exit non-zero");
+        assert.match(extraArg.stderr, /Unexpected argument "cursor"/);
+    });
+
     console.log("==================================================");
     console.log(`Results: ${passed} passed, ${failed} failed`);
     console.log("==================================================");

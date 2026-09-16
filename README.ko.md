@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.3.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -177,7 +177,24 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.3.9 (최신)
+### v6.3.10 (최신)
+
+- **유니버설 글로벌 설정 엔진 키 충돌 해소 및 사용자 설정 무손실 보존**:
+  - 기존의 `servers`, `mcp`, `mcpServers`를 자동 감지하여 서로 다른 AI Client 환경에서 중복되거나 모순되는 설정 블록이 생성되는 것을 방지.
+  - 재설치 시에도 사용자가 직접 구성한 `env`, `cwd`, `disabled`, `alwaysAllow` 등의 필드를 안전하게 병합하고 무손실 보존.
+  - `disabled: true`와 `enabled: true`가 동시에 공존하는 모순 상태를 원천 차단.
+  - 명령행 인수를 엄격하게 검증하여 예기치 않은 위치 인수를 거부(종료 코드 1). 프로세스 종료를 `process.exitCode`로 표준화하여 Unix 파이프라인에서 비동기 I/O 잘림 방지.
+- **핵심 스킬 엔진 단일 Stat 스냅샷 검증 및 세대 격리**:
+  - 단일 `fs.stat` 스냅샷 비교(`dev`, `ino`, `size`, `mtimeMs`)를 도입하여 심볼릭 링크나 파일이 교체된 경우 전체 디렉터리 재탐색 없이 즉시 캐시를 무효화.
+  - `clearCache()`에서 단조 증가하는 `scanEpoch`를 전진시키고 `loadingEpoch`를 리셋하여 지연된 비동기 스캔이 캐시 리셋 후 최신 상태를 오염시키는 것을 방지.
+  - 열려 있는 디스크립터의 Inode 검증(`readFileNoFollow`)을 통해 TOCTOU 디스크립터 교체 경쟁 조건 제거.
+- **MCP Prompt 템플릿 견고성 및 중복 인수 추가 방어**:
+  - 템플릿 파일이 비어 있거나 누락된 경우 구조화된 `stderr` 진단을 출력하고 표준 `McpError(ErrorCode.InternalError)`를 발생시킴.
+  - `appliedInterpolations`를 통해 치환된 템플릿 플레이스홀더를 추적하여 불필요한 레거시 인수 중복 추가 방지.
+- **포괄적인 보안 감사 및 자동화 회귀 테스트 기준선**:
+  - 전체 스위트 **292개 자동 어서션**(Node.js: 163, Bash: 35, PowerShell: 94) 100% 통과, 취약점 0건, 기밀 유출 0건 확인.
+
+### v6.3.9
 
 - **영구적인 ReDoS 방어 (CodeQL Alert #4 해결)**:
   - YAML 파싱(`updateYamlConfig`)의 다항식 역추적 정규식을 모호하지 않은 접두사 일치와 네이티브 `String.prototype.trim()`으로 대체.
@@ -218,47 +235,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - `sdd-workspace.ps1`: BOM 없는 UTF-8(`[System.Text.UTF8Encoding]::new($false)`)로 플랜 마커를 저장하여 Unicode 경로 정합성 유지.
 - **전체 자동 회귀 테스트 기준선**:
   - 테스트 스위트를 **274개 자동 어서션**(Node.js: 145, Bash: 35, PowerShell: 94)으로 확장하고 100% 통과율 유지.
-
-### v6.3.7
-
-- **업스트림 동기화 — 배치 1~3 (obra/superpowers)**:
-  - **스킬 자동 라우팅**: `systematic-debugging`과 `test-driven-development` 설명에 트리거 문구(`"tdd"`, `"systematic debug"` 등)와 상호 크로스 라우트를 추가하여 MCP 클라이언트의 스킬 선택 정확도를 향상.
-  - **테스트 명령이 없을 때의 증거 규율**: `verification-before-completion`에 "When There Is No Test Command" 섹션 추가. 보고서, 연구, 감사, 서신 작업은 산출물을 다시 열어 증명 가능한 것을 증명하고 미완료 항목을 명시해야 하며, "완전함"만 주장할 수 있고 "정확함"은 주장할 수 없음.
-  - **브레인스토밍 의도 게이트**: "Establish Shared Understanding"(의도 탐색 → 이해 되쓰기 → 설계 반영) 신설 및 HARD-GATE를 경로별 전제 조건 목록으로 재작성. 한 번의 승인을 나머지 단계 생략 허가로 해석하는 것을 금지.
-  - **플래닝 핸드오프 리뷰**: brainstorming의 스펙 셀프 리뷰를 0.0–9.9 평가 + burden ledger + 단일 유계 개선 패스 + 읽기 전용 재평가로 승격. 실패 시 초안을 복원하는 안전 규칙 포함.
-  - **저장된 계획 검토 및 상황별 핸드오프**: `writing-plans`는 실행 전에 사람이 저장된 계획을 검토하도록 요구하며, 실행 방식이 지정되지 않은 경우 고정 기본값 대신 이 계획에 맞는 추천을 제시.
-  - **계획 체크박스 기록**: `executing-plans`와 `subagent-driven-development`가 완료 메시지와 동시에 계획 파일의 단계를 체크.
-  - **원격 안전 경계**: `using-git-worktrees`는 공유 ref에서 분기할 때 `--no-track`을 필수로 요구하고 `git branch -vv` 추적 점검(첫 커밋 전 `--unset-upstream`)을 수행한다. `executing-plans`는 커밋을 로컬로 유지하고 공유 브랜치 재작성을 금지하며, implementer는 작업 중 push 요구를 BLOCKED로 컨트롤러에 보고한다.
-  - **Discoveries 원장**: SDD 진행 원장에 `## Discoveries` 섹션을 추가하여 태스크 간 발견이 compaction을 넘어 다음 디스패치의 인터페이스 조항으로 이어진다.
-  - **보류 발견 내보내기**: 플랜 워크스페이스 삭제 전에 `Ruling:`／`minor (deferred)`／`parked` 줄을 PR의 "Deferred items" 체크리스트 또는 커밋된 `docs/superpowers/follow-ups/<plan>.md`로 내보낸다.
-  - **Greenfield SDD 스크립트**: 리포지토리가 아직 없으면 `sdd-workspace`가 현재 디렉터리로 폴백하고(`.ps1` 동일), `review-package`는 비리포지토리 환경에서 실행 가능한 오류를 반환한다.
-  - **TDD 특성화 가드**: 동작 보존 리팩터링을 위한 5단계 절차(변이 → 실패 확인 → VCS 복원 → 그린 유지)를 추가하고 경계·변이 점검 섹션에서 상호 참조한다.
-- **업스트림 콘텐츠 동기화 — 배치 4**: brainstorm 시작 스크립트가 `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST`에서 호스트 기본값을 가져오고(`--host`/`--url-host` 우선), `writing-skills`에 콘텐츠 이동 시 링크 재해석 절차를 추가했으며, SDD 리뷰어가 전체 보고서를 `…/task-N-review.md`에 쓰고 15줄 미만 요약만 반환합니다 — MCP에 `review_file` 인자(요청 경로가 정규화 후 보고서나 brief 파일과 일치하면 파생된 `-review.md`로 대체)와 `[FIX_BASE_SHA]`를 실제로 치환하는 `fix_base_sha` 별칭을 추가.
-- **업스트림 드리프트 리포트**: `npm run drift`가 커밋된 베이스라인과 `obra/superpowers`를 비교해 채택된 파일 변경, 로컬에 없는 가져오기, 포크 전용 추가를 나열합니다. `npm run drift:record -- --ignore <skill>`로 검토된 동기화 후 갱신하며, 쓰기 전에 잘린 API tree를 거부합니다.
-- **MCP 표면 커버리지 테스트**: 디스크의 모든 스킬은 자신의 콘텐츠를 제공하는 MCP 리소스로 노출되어야 하며, 프롬프트 목록은 4개 README와 정확히 일치해야 합니다.
-- **MCP 설명 정합성**: 업스트림의 이스케이프 따옴표 형식을 인용 없는 YAML plain scalar로 적응하여 `SkillsManager`가 MCP로 리터럴 백슬래시를 내보내지 않도록 함.
-- **회귀 가드**: `tests/upstream_sync_test.js`를 배치 1~4를 포괄하는 22개 라벨 체크로 확장. 전체 스위트 통과(npm 8개 스위트 139개 체크, PowerShell 90개 어서션, SDD 16 + 호스트 기본 11 + render-graph 8개 bash 어서션).
-- **릴리스 준비 강화**: Bash와 PowerShell brainstorm host 테스트가 background 모드를 명시적으로 강제하여 전체 264개 검증이 `CODEX_CI=1`에서도 완료됩니다. `package-lock.json`을 v6.3.7 및 Node `>=18`과 동기화하고 npm repository와 CLI `bin` 메타데이터를 정규화했으며, `npm publish --dry-run`과 패키지 설치 smoke test로 검증했습니다.
-
-### v6.3.6
-
-- **극한의 성능 최적화 (2배~8.1배 가속)**:
-  - **스킬 병렬 인덱싱 및 사전 캐싱**: `SkillsManager.listSkills`를 비동기 병렬 디렉토리 탐색(`Promise.all`)과 루트 경로 사전 확인 캐싱으로 업그레이드하여 콜드 스타트 인덱싱 지연 시간을 4.79ms에서 2.35ms로 단축(**2.04배 속도 향상**).
-  - **초고속 인메모리 Canonical 캐시**: `readSkillContent`에 물리 실제 경로 기반 Canonical 캐시 및 별칭 매핑을 도입하여 동일 스킬의 반복 읽기 시간을 0.013ms에서 1.6µs로 단축(**8.1배 속도 향상**).
-  - **Frontmatter 슬라이싱 및 ReDoS 방어**: `parseFrontmatter`에서 전체 파일 정규식 스캔을 64 KB 접두사 버퍼 슬라이싱으로 대체하여 대용량 파일에서의 GC 일시 중단 및 2차 ReDoS 위험을 원천 차단.
-  - **JSON 파싱 초고속 직통 경로**: `stripJsonComments` (`src/setup-runner.ts`)에 네이티브 JSON 파싱 시도를 도입하여 주석 없는 설정 파일 읽기 속도를 0.55µs로 단축(**5.1배 속도 향상**).
-  - **멀티 타깃 병렬 번들러**: `esbuild.js`에서 4개 독립 결과물을 `Promise.all`로 병렬 빌드하여 빌드 시간을 ~50ms로 단축(**~42% 속도 향상**).
-- **듀얼 Subagent 심층 코드 리뷰 및 결함 전면 보강 (FIX ALL)**:
-  - **Partial-Read 버퍼 잘림 방어**: `SkillsManager.readFileNoFollow`에 누적 읽기 루프(`while (totalRead < fileSize)`)를 구현하여 높은 디스크 I/O 또는 가상 파일 시스템 환경에서의 무음 Markdown 잘림 방지.
-  - **Scan Epoch 동시성 경쟁 쉴드**: `listSkills`에 단조 증가 `scanEpoch` 카운터를 도입하여 비동기 백그라운드 스캔이 최신 캐시 상태를 덮어쓰는 경쟁 조건 제거.
-  - **Canonical 캐시 정합성 보장**: 물리 실제 경로(`realFilePath`)를 마스터 키로 사용하고 `canonicalPathMap`으로 별칭을 추적하여 강제 리로드 시 심볼릭 링크 캐시 드리프트(Cache Drift) 완벽 해결.
-  - **시스템 디렉토리 블랙리스트 확장**: `getSafeSkillsPath`에 macOS 고유의 `/private/etc` 및 `/private/var`를 추가하여 특권 디렉토리 경로 탈출 공격 방지.
-  - **설정 파일 쓰기 시 심볼릭 링크 대상 검증**: `safeWriteConfig`에서 `fs.lstat` 및 실제 경로 해석을 수행하여 민감한 시스템 영역을 가리키는 심볼릭 링크 쓰기 차단.
-  - **엄격한 TypeScript 및 Rule 7 무결점 준수**: 미사용 사장 코드(`exists`)를 완전히 제거하여 `--noUnusedLocals --noUnusedParameters` 통과, 모든 타입 미지정/빈 catch 블록 제거.
-- **자동화 회귀 테스트 스위트 확장 및 검증**:
-  - 85개 핵심 단위/통합 테스트 및 174개 회귀 어서션 100% 통과(`setup_test.js` 33개 테스트 전체 통과). [`SECURITY.md`](SECURITY.md), [`tests/code_review_report.md`](tests/code_review_report.md), 그리고 [`tests/performance_optimization_report.md`](tests/performance_optimization_report.md) 정비.
-- **다국어 문서 동기화**:
-  - 모든 언어의 README([`README.md`](README.md), [`README.zh-TW.md`](README.zh-TW.md), [`README.ja.md`](README.ja.md), [`README.ko.md`](README.ko.md))에서 지원 환경 목록, 성능 지표, 원클릭 명령 표 동기화.
 
 👉 *이전 버전의 전체 릴리스 내역은 [CHANGELOG.md](CHANGELOG.md)를 참조하세요.*
 

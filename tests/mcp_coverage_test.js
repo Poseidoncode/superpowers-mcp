@@ -118,7 +118,7 @@ async function main() {
 
     const watchdog = setTimeout(() => {
         console.error("❌ MCP coverage test timed out after 20 seconds");
-        server.kill();
+        process.exit(1);
         process.exit(1);
     }, 20000);
     watchdog.unref();
@@ -228,6 +228,64 @@ async function main() {
         assert.deepStrictEqual(stale, [], `composition guide mentions unknown surfaces: ${stale.join(", ")}`);
         assert.ok(kebabTokens.size >= skills.length, `expected to scan the whole guide, only found ${kebabTokens.size} backticked surfaces`);
     });
+
+    check("9 (unsafe SKILLS_PATH is rejected, user temp dirs are honored)", () => {
+        const os = require("os");
+        const { spawnSync } = require("child_process");
+
+        // Start a throwaway server with the given SKILLS_PATH and list what it exposes.
+        const probe = (skillsPath) => {
+            const child = spawnSync("node", [path.join(ROOT, "out", "server.js")], {
+                env: { ...process.env, SKILLS_PATH: skillsPath },
+                input:
+                    JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_skills", arguments: {} } }) +
+                    "\n",
+                encoding: "utf8",
+                timeout: 15000,
+            });
+            const line = (child.stdout || "").split("\n").find((l) => l.trim().startsWith("{") && l.includes('"id":1'));
+            let text = "";
+            if (line) {
+                try {
+                    text = JSON.parse(line).result?.content?.[0]?.text || "";
+                } catch {
+                    text = "";
+                }
+            }
+            return { text, stderr: child.stderr || "" };
+        };
+
+        // A user-owned temp directory must be usable as SKILLS_PATH. On macOS the
+        // standard temp dir lives under /private/var, which used to trip the
+        // system-path guard and silently fall back to the bundled skills.
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "spmcp-coverage-"));
+        try {
+            const skillDir = path.join(tempDir, "probe-skill");
+            fs.mkdirSync(skillDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(skillDir, "SKILL.md"),
+                '---\nname: probe-skill\ndescription: "probe"\n---\n\nbody\n',
+                "utf-8"
+            );
+            const honored = probe(tempDir);
+            assert.ok(
+                honored.text.includes("probe-skill"),
+                `SKILLS_PATH in the OS temp dir must be honored (got: ${honored.text.slice(0, 80)})`
+            );
+        } finally {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+
+        // ...while genuine system paths keep failing closed onto the bundled skills.
+        for (const unsafe of ["/etc", "/usr/bin", "/private/var/db"]) {
+            const rejected = probe(unsafe);
+            assert.ok(
+                rejected.text.includes("brainstorming"),
+                `SKILLS_PATH=${unsafe} must fall back to the bundled skills (got: ${rejected.text.slice(0, 80)})`
+            );
+        }
+    });
+
 
     server.kill();
     if (failures.length > 0) {

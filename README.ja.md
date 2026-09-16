@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.3.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.3.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -179,7 +179,24 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.3.9（最新）
+### v6.3.10（最新）
+
+- **ユニバーサルセットアップエンジンのキー名衝突解消とユーザー設定の無損失保持**：
+  - 既存の `servers`、`mcp`、`mcpServers` を自動探索し、異なる AI Client 間で競合する重複設定ブロックが作成されるのを防止。
+  - 再インストール時にもユーザー独自の `env`、`cwd`、`disabled`、`alwaysAllow` 等のフィールドを安全にマージし無損失で保持。
+  - `disabled: true` と `enabled: true` が矛盾して併存する不正状態を確実に排除。
+  - コマンドライン引数を厳格に検証し、未定義の位置引数を拒絶（終了コード 1）。唐突なプロセス終了を `process.exitCode` に統一し、パイプラインでの非同期 I/O 切り捨てを防止。
+- **コアスキルエンジンの単一 Stat スナップショット検証と世代シールド**：
+  - キャッシュ検証に単一 `fs.stat` スナップショット比較（`dev`, `ino`, `size`, `mtimeMs`）を採用。シンボリックリンクやファイルが差し替えられた場合は即座にキャッシュを無効化（全ディレクトリ走査不要）。
+  - `clearCache()` で単調増加の `scanEpoch` を進め `loadingEpoch` をリセットすることで、非同期遅延スキャンによるキャッシュリセット後の上書き汚染を防止。
+  - オープン済み記述子の Inode 検証（`readFileNoFollow`）により TOCTOU 記述子差し替えを排除。
+- **MCP Prompt テンプレートの堅牢性と重複展開排除**：
+  - テンプレートファイルが空または存在しない場合、構造化 `stderr` 診断を出力し標準 `McpError(ErrorCode.InternalError)` をスロー。
+  - `appliedInterpolations` により置換済みプレースホルダーを追跡し、多重の引数末尾追加を防止。
+- **包括的セキュリティ監査と回帰テスト基盤**：
+  - 全テストスイート **292 件の自動化アサーション**（Node.js: 163、Bash: 35、PowerShell: 94）が 100% 合格、脆弱性ゼロ・機密漏洩ゼロを確認。
+
+### v6.3.9
 
 - **完全な ReDoS 防御（CodeQL Alert #4 の解決）**：
   - YAML 解析（`updateYamlConfig`）の多項式バックトラック正規表現を明確なプレフィックス一致とネイティブ `String.prototype.trim()` に置換。
@@ -220,47 +237,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - `sdd-workspace.ps1`：BOM なし UTF-8 (`[System.Text.UTF8Encoding]::new($false)`) でプランマーカーを保存し、Unicode パスの完全性を保護。
 - **全自動回帰テストの基盤**：
   - テストスイートを **274 の全自動アサーション**（Node.js: 145、Bash: 35、PowerShell: 94）に拡張し、100% の合格率を維持。
-
-### v6.3.7
-
-- **上流同期 — バッチ 1〜3（obra/superpowers）**：
-  - **スキルの自動ルーティング**：`systematic-debugging` と `test-driven-development` の description にトリガーフレーズ（`"tdd"`、`"systematic debug"` など）と相互クロスルートを追加し、MCP クライアントでのスキル選択精度を向上。
-  - **テストコマンドがない場合のエビデンス律**：`verification-before-completion` に「When There Is No Test Command」を追加。レポート、調査、監査、書簡では成果物を再度開き、証明できる事項を証明し、未完了項目を明示。主張できるのは「完全」であり「正しい」ではない。
-  - **ブレインストーミングの意図ゲート**：「Establish Shared Understanding」（意図の探索 → 理解の書き戻し → 設計への引き継ぎ）を新設し、HARD-GATE をパスごとの前提条件を列挙する形に書き直し。一度の承認を残り工程の省略許可と見なすことを禁止。
-  - **プランニング・ハンドオフ・レビュー**：brainstorming の仕様セルフレビューを 0.0–9.9 の評価 + burden ledger + 単一の有界改善パス + 読み取り専用の再評価に昇格。失敗時は初稿へ復元する安全則付き。
-  - **保存済みプランのレビューと文脈的ハンドオフ**：`writing-plans` は実行前に人間が保存プランをレビューすることを必須化。実行方法が未指定の場合は、固定の既定値ではなくこのプラン固有の推奨を提示。
-  - **プランのチェックボックス簿記**：`executing-plans` と `subagent-driven-development` が完了メッセージと同時にプランファイルの手順をチェック。
-  - **リモート安全境界**：`using-git-worktrees` は共有 ref から分岐する際に `--no-track` を必須化し、`git branch -vv` による追跡確認（初回 commit 前に `--unset-upstream`）を求める。`executing-plans` は commit をローカルに留め、共有ブランチの書き換えを禁止。implementer はタスク中の push 要求を BLOCKED として controller に報告する。
-  - **Discoveries 台帳**：SDD の進捗台帳に `## Discoveries` セクションを追加し、タスク横断の知見が compaction を越えて次のディスパッチのインターフェース条項に引き継がれる。
-  - **保留所見のエクスポート**：プランワークスペース削除前に、`Ruling:`／`minor (deferred)`／`parked` 行を PR の「Deferred items」チェックリスト、またはコミット済み `docs/superpowers/follow-ups/<plan>.md` へ退避する。
-  - **Greenfield SDD スクリプト**：リポジトリ未作成時は `sdd-workspace` がカレントディレクトリへフォールバック（`.ps1` も同様）。`review-package` は非リポジトリ環境で実行可能なエラーを返す。
-  - **TDD 特性化ガード**：振る舞いを保つリファクタリング向けの 5 ステップ手順（変異→失敗確認→VCS 復元→グリーン維持）。境界とミューテーション検査の各節から参照。
-- **上流コンテンツ同期 — バッチ 4**：brainstorm の起動スクリプトは `BRAINSTORM_HOST`/`BRAINSTORM_URL_HOST` からホスト既定値を取得（`--host`/`--url-host` が優先）。`writing-skills` にコンテンツ移動時のリンク再解決手順を追加し、SDD レビュアは完全なレポートを `…/task-N-review.md` に書いて 15 行未満の要約のみを返すようになり、MCP 側に `review_file` 引数（指定パスが正規化後にレポート／brief ファイルと一致する場合は導出した `-review.md` に置換）と、`[FIX_BASE_SHA]` を実際に展開する `fix_base_sha` 別名を追加。
-- **上流ドリフトレポート**：`npm run drift` がコミット済みベースラインと `obra/superpowers` を比較し、採用済みファイルの変更・ローカルに無い取り込み・fork 独自追加を一覧表示。`npm run drift:record -- --ignore <skill>` でレビュー済み同期後に更新し、書き込み前に途中で切れた API tree を拒否。
-- **MCP サーフェス網羅テスト**：ディスク上の各スキルは自身のコンテンツを返す MCP リソースとして公開され、プロンプト一覧は 4 つの README と完全一致すること。
-- **MCP 説明文の忠実性**：上流のエスケープ引用形式を非引用の YAML plain scalar に適応し、`SkillsManager` が MCP 経由で余分なバックスラッシュを出力しないようにした。
-- **回帰ガード**：`tests/upstream_sync_test.js` をバッチ 1〜4 を覆う 22 個のラベル付きチェックに拡張。全スイート合格（npm 8 スイート 139 チェック、PowerShell 90 アサーション、SDD 16 + ホスト既定 11 + render-graph 8 の bash アサーション）。
-- **リリース準備の強化**：Bash／PowerShell の brainstorm host テストは background モードを明示的に強制し、264 アサーションの全マトリクスが `CODEX_CI=1` でも完了。`package-lock.json` を v6.3.7 と Node `>=18` に同期し、npm repository と CLI `bin` メタデータを正規化。`npm publish --dry-run` とパッケージのインストール smoke test で検証済み。
-
-### v6.3.6
-
-- **極限のパフォーマンス最適化（2倍〜8.1倍の高速化）**：
-  - **スキルの並行インデックスと事前キャッシュ**：`SkillsManager.listSkills` を非同期並行ディレクトリ走査（`Promise.all`）とルートパス事前解決キャッシュにアップグレードし、コールドスタート時のインデックス遅延を 4.79ms から 2.35ms に短縮（**2.04倍の高速化**）。
-  - **超高速インメモリ Canonical キャッシュ**：`readSkillContent` において物理実パスをキーとする Canonical キャッシュとエイリアスマッピングを導入し、同一スキルの再読み込み時間を 0.013ms から 1.6µs に短縮（**8.1倍の高速化**）。
-  - **Frontmatter スライシングと ReDoS 防御**：`parseFrontmatter` においてファイル全体の一括正規表現走査を 64 KB のプレフィックスバッファ切り出しに置き換え、大規模ファイルでの GC 停止と二次関数的 ReDoS リスクを根絶。
-  - **JSON パース高速パス**：`stripJsonComments` (`src/setup-runner.ts`) にネイティブ JSON 試行を導入し、コメントのない設定ファイルの読み込み時間を 0.55µs に短縮（**5.1倍の高速化**）。
-  - **マルチターゲット並行ビルド**：`esbuild.js` で 4 つの独立アーティファクトを `Promise.all` で並行コンパイルし、ビルド時間を ~50ms に短縮（**~42% 高速化**）。
-- **デュアル Subagent 深度コードレビューと包括的欠陥修正 (FIX ALL)**：
-  - **Partial-Read バッファ切り捨て防御**：`SkillsManager.readFileNoFollow` に累積読み込みループ（`while (totalRead < fileSize)`）を実装し、高負荷 I/O や仮想ファイルシステムでの暗黙の Markdown 切り捨てを防止。
-  - **Scan Epoch 並行競合シールド**：`listSkills` に単調増加の `scanEpoch` カウンタを導入し、非同期の古いスキャンが最新のキャッシュ状態を上書きするレースコンディションを解消。
-  - **Canonical キャッシュ整合性の保証**：実物理パス（`realFilePath`）をマスターキーとし、`canonicalPathMap` でエイリアスを追跡することで、強制リロード時のシンボリックリンクキャッシュ乖離（Cache Drift）を根絶。
-  - **システムディレクトリブラックリストの拡張**：`getSafeSkillsPath` に macOS 固有の `/private/etc` および `/private/var` を追加し、特権ディレクトリへのパスエスケープを防止。
-  - **設定書き込み時のシンボリックリンク先検証**：`safeWriteConfig` で `fs.lstat` と実パス解決を実施し、機密システム領域へのシンボリックリンク書き込みを拒絕。
-  - **厳格な TypeScript と Rule 7 ゼロ欠陥準拠**：未使用のデッドコード（`exists`）を完全削除し、`--noUnusedLocals --noUnusedParameters` に合格。型なし・空の catch ブロックをすべて排除。
-- **自動化テストスイートの拡張と回帰検証**：
-  - 85 件のコアユニット/結合テストと 174 件の回帰アサーションが 100% 合格（`setup_test.js` は 33 件すべて合格）。[`SECURITY.md`](SECURITY.md)、[`tests/code_review_report.md`](tests/code_review_report.md)、[`tests/performance_optimization_report.md`](tests/performance_optimization_report.md) を整備。
-- **多言語ドキュメントの同期**：
-  - 4 言語すべての README（[`README.md`](README.md)、[`README.zh-TW.md`](README.zh-TW.md)、[`README.ja.md`](README.ja.md)、[`README.ko.md`](README.ko.md)）でサポート環境一覧、パフォーマンス指標、ワンクリックコマンド表を同期。
 
 👉 *これまでの詳細なリリース履歴については、完全な [CHANGELOG.md](CHANGELOG.md) を参照してください。*
 

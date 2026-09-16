@@ -5,6 +5,10 @@ const fs = require("fs");
 const isProduction = process.argv.includes("--production");
 const isWatch = process.argv.includes("--watch");
 
+// Inject the package version at build time so the runtime banner can never drift
+// from package.json (previously it was hardcoded in src/server.ts).
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "package.json"), "utf8"));
+
 const baseConfig = {
     bundle: true,
     minify: isProduction,
@@ -12,6 +16,9 @@ const baseConfig = {
     platform: "node",
     target: "node20",
     logLevel: "info",
+    define: {
+        __SUPERPOWERS_MCP_VERSION__: JSON.stringify(String(pkg.version)),
+    },
 };
 
 

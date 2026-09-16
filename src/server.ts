@@ -1,5 +1,6 @@
 import * as path from "path";
 import * as fs from "fs";
+import * as os from "os";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -47,15 +48,30 @@ function getSafeSkillsPath(): string {
             "c:\\windows", "c:\\program files", "c:\\program files (x86)"
         ];
 
+        // macOS 的標準暫存目錄位於 /private/var/folders（也就是被封鎖的 /var 子樹）。
+        // 該目錄是每位使用者專屬、權限 0700 的拋棄式空間，把它計入 SKILLS_PATH 的
+        // 合理位置；否則 `SKILLS_PATH=$(mktemp -d)` 會靜默退回預設技能目錄。
+        // /var 底下的其他路徑（以及整個 /private/var）仍然維持封鎖。
+        const tempRoot = (() => {
+            try {
+                return foldCase(path.normalize(fs.realpathSync(os.tmpdir())));
+            } catch {
+                return null;
+            }
+        })();
+        const isUnderTempRoot =
+            tempRoot !== null && (normalized === tempRoot || normalized.startsWith(tempRoot + path.sep));
+
         const isUnsafe =
-            !canonicalized ||
-            normalized === root ||
-            unsafePrefixes.some(
-                (p) => {
-                    const prefix = foldCase(path.normalize(p));
-                    return normalized === prefix || normalized.startsWith(prefix + path.sep);
-                }
-            );
+            !isUnderTempRoot &&
+            (!canonicalized ||
+                normalized === root ||
+                unsafePrefixes.some(
+                    (p) => {
+                        const prefix = foldCase(path.normalize(p));
+                        return normalized === prefix || normalized.startsWith(prefix + path.sep);
+                    }
+                ));
 
         if (isUnsafe) {
             process.stderr.write(`Warning: Potentially unsafe SKILLS_PATH: "${envPath}". Fallback to default.\n`);
@@ -81,10 +97,18 @@ function normalizeSkillName(value: string): string {
 // Server setup
 // ---------------------------------------------------------------------------
 
+// Replaced at bundle time by esbuild (see esbuild.js) with the version from
+// package.json. The typeof guard keeps un-bundled execution (ts-node, direct src
+// imports in tests) working instead of throwing a ReferenceError.
+declare const __SUPERPOWERS_MCP_VERSION__: string;
+
+const SERVER_VERSION =
+    typeof __SUPERPOWERS_MCP_VERSION__ === "string" ? __SUPERPOWERS_MCP_VERSION__ : "0.0.0-unbundled";
+
 const server = new Server(
     {
         name: "superpowers-mcp",
-        version: "6.3.9",
+        version: SERVER_VERSION,
     },
     {
         capabilities: {
@@ -128,8 +152,13 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
             return {
                 contents: [{ uri, mimeType: "text/markdown", text }],
             };
-        } catch (_guideErr: unknown) {
-            throw new McpError(ErrorCode.InternalError, "Failed to read the skill compositions guide.");
+        } catch (guideErr: unknown) {
+            const detail = guideErr instanceof Error ? guideErr.message : String(guideErr);
+            process.stderr.write(`[superpowers-mcp] Failed to read compositions guide: ${detail}\n`);
+            throw new McpError(
+                ErrorCode.InternalError,
+                `Failed to read the skill compositions guide: ${detail}`
+            );
         }
     }
 
@@ -164,8 +193,13 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
                 },
             ],
         };
-    } catch (_readErr: unknown) {
-        throw new McpError(ErrorCode.InternalError, `Failed to read skill content safely.`);
+    } catch (readErr: unknown) {
+        const detail = readErr instanceof Error ? readErr.message : String(readErr);
+        process.stderr.write(`[superpowers-mcp] Failed to read resource "${uri}": ${detail}\n`);
+        throw new McpError(
+            ErrorCode.InternalError,
+            `Failed to read skill content for "${skillName}": ${detail}`
+        );
     }
 });
 
@@ -229,6 +263,25 @@ function deriveReviewFile(requested: string, reportFile: string, briefFile: stri
 // Prompts
 // ---------------------------------------------------------------------------
 
+// Placeholder alternation patterns are derived from a tiny, fixed set of keys, so
+// the compiled RegExp can be memoised instead of rebuilt on every prompt request.
+const placeholderRegexCache = new Map<string, RegExp>();
+
+function compilePlaceholderRegex(pattern: string): RegExp {
+    const cached = placeholderRegexCache.get(pattern);
+    if (cached) {
+        return cached;
+    }
+    const regex = new RegExp(pattern, "g");
+    // Bounded cache: the key set is fixed by the caller, so eviction is only a
+    // safety net against unbounded growth if that ever changes.
+    if (placeholderRegexCache.size >= 64) {
+        placeholderRegexCache.clear();
+    }
+    placeholderRegexCache.set(pattern, regex);
+    return regex;
+}
+
 function interpolateTemplate(template: string, replacements: Record<string, string | undefined>): string {
     const validKeys = Object.keys(replacements).filter((key) => {
         const val = replacements[key];
@@ -242,11 +295,33 @@ function interpolateTemplate(template: string, replacements: Record<string, stri
         .sort((a, b) => b.length - a.length)
         .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
         .join("|");
-    const regex = new RegExp(pattern, "g");
+    const regex = compilePlaceholderRegex(pattern);
+    regex.lastIndex = 0;
     return template.replace(regex, (matched) => {
         const val = replacements[matched];
         return val !== undefined && val !== "" ? String(val) : matched;
     });
+}
+
+/**
+ * Collects the replacement values that the template actually consumed through a
+ * placeholder.
+ *
+ * Legacy "extra context" sections used a `rendered.includes(value)` substring test
+ * to decide whether a value had already been interpolated. That test produced false
+ * positives for short values (any coincidental appearance anywhere in the template
+ * silently dropped the section). Checking whether the value maps to a placeholder
+ * that exists in the template is exact, and preserves the intended behaviour of
+ * skipping a section only when that very value was substituted.
+ */
+function appliedInterpolations(template: string, replacements: Record<string, string | undefined>): Set<string> {
+    const applied = new Set<string>();
+    for (const [placeholder, value] of Object.entries(replacements)) {
+        if (value !== undefined && value !== "" && template.includes(placeholder)) {
+            applied.add(String(value));
+        }
+    }
+    return applied;
 }
 
 server.setRequestHandler(ListPromptsRequestSchema, async () => {
@@ -503,9 +578,20 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     const readPromptFileSafe = async (relPath: string): Promise<string> => {
         const fullPath = path.join(SKILLS_PATH, relPath);
         try {
-            return await skillsManager.readSkillContent(fullPath);
-        } catch (_fileErr: unknown) {
-            return "";
+            const content = await skillsManager.readSkillContent(fullPath);
+            if (content.trim() === "") {
+                // Returning an empty template would silently hand the user a blank
+                // prompt with no indication that the installation is broken.
+                throw new Error("prompt template is empty");
+            }
+            return content;
+        } catch (fileErr: unknown) {
+            const detail = fileErr instanceof Error ? fileErr.message : String(fileErr);
+            process.stderr.write(`[superpowers-mcp] Failed to load prompt template "${relPath}": ${detail}\n`);
+            throw new McpError(
+                ErrorCode.InternalError,
+                `Failed to load prompt template "${relPath}": ${detail}. The Superpowers skills directory may be missing or incomplete.`
+            );
         }
     };
 
@@ -551,17 +637,19 @@ ${skillContent}
         const taskDesc = getStringArg("task_description");
         const planFile = getStringArg("plan_file");
 
-        const rendered = interpolateTemplate(template, {
+        const replacements = {
             "[BRIEF_FILE]": briefFile,
             "[task name]": taskName,
             "[REPORT_FILE]": reportFile,
             "[directory]": workDir,
             "[MODEL]": model,
-        });
+        };
+        const rendered = interpolateTemplate(template, replacements);
+        const alreadyApplied = appliedInterpolations(template, replacements);
 
         const legacyAppends = [
-            taskDesc && !rendered.includes(taskDesc) ? `\n\n### Target Task:\n${taskDesc}` : "",
-            planFile && !rendered.includes(planFile) ? `\n\n### Plan / Brief File:\n${planFile}` : "",
+            taskDesc && !alreadyApplied.has(taskDesc) ? `\n\n### Target Task:\n${taskDesc}` : "",
+            planFile && !alreadyApplied.has(planFile) ? `\n\n### Plan / Brief File:\n${planFile}` : "",
         ].join("");
 
         return {
@@ -591,7 +679,7 @@ ${skillContent}
         const taskDesc = getStringArg("task_description");
         const reviewTarget = getStringArg("review_target");
 
-        const rendered = interpolateTemplate(template, {
+        const replacements = {
             "[BRIEF_FILE]": briefFile,
             "[REPORT_FILE]": reportFile,
             "[DIFF_FILE]": diffFile,
@@ -600,11 +688,13 @@ ${skillContent}
             "[GLOBAL_CONSTRAINTS]": globalConstraints,
             "[REVIEW_FILE]": reviewFile,
             "[MODEL]": model,
-        });
+        };
+        const rendered = interpolateTemplate(template, replacements);
+        const alreadyApplied = appliedInterpolations(template, replacements);
 
         const legacyAppends = [
-            taskDesc && !rendered.includes(taskDesc) ? `\n\n### Reviewed Task:\n${taskDesc}` : "",
-            reviewTarget && !rendered.includes(reviewTarget) ? `\n\n### Review Target:\n${reviewTarget}` : "",
+            taskDesc && !alreadyApplied.has(taskDesc) ? `\n\n### Reviewed Task:\n${taskDesc}` : "",
+            reviewTarget && !alreadyApplied.has(reviewTarget) ? `\n\n### Review Target:\n${reviewTarget}` : "",
         ].join("");
 
         return {
@@ -634,7 +724,7 @@ ${skillContent}
         const model = getStringArg("model");
         const fixSummary = getStringArg("fix_summary");
 
-        const rendered = interpolateTemplate(template, {
+        const replacements = {
             "[BRIEF_FILE]": briefFile,
             "[REPORT_FILE]": reportFile,
             "[DIFF_FILE]": diffFile,
@@ -644,10 +734,12 @@ ${skillContent}
             "[FIX_BASE_SHA]": baseSha,
             "[HEAD_SHA]": headSha,
             "[MODEL]": model,
-        });
+        };
+        const rendered = interpolateTemplate(template, replacements);
+        const alreadyApplied = appliedInterpolations(template, replacements);
 
         const legacyAppends = [
-            findings && !rendered.includes(findings) ? `\n\n### Previous Findings:\n${findings}` : "",
+            findings && !alreadyApplied.has(findings) ? `\n\n### Previous Findings:\n${findings}` : "",
             fixSummary ? `\n\n### Fix Summary:\n${fixSummary}` : "",
         ].join("");
 
@@ -668,10 +760,10 @@ ${skillContent}
     if (promptName === "spec-reviewer") {
         const template = await readPromptFileSafe("brainstorming/spec-document-reviewer-prompt.md");
         const specFile = getStringArg("spec_file");
-        const rendered = interpolateTemplate(template, {
-            "[SPEC_FILE_PATH]": specFile,
-        });
-        const legacyAppend = specFile && !rendered.includes(specFile) ? `\n\n### Target Specification:\n${specFile}` : "";
+        const replacements = { "[SPEC_FILE_PATH]": specFile };
+        const rendered = interpolateTemplate(template, replacements);
+        const alreadyApplied = appliedInterpolations(template, replacements);
+        const legacyAppend = specFile && !alreadyApplied.has(specFile) ? `\n\n### Target Specification:\n${specFile}` : "";
 
         return {
             description: "Brainstorming Spec Document Reviewer Prompt",
@@ -691,12 +783,14 @@ ${skillContent}
         const template = await readPromptFileSafe("writing-plans/plan-document-reviewer-prompt.md");
         const planFile = getStringArg("plan_file");
         const specFile = getStringArg("spec_file");
-        const rendered = interpolateTemplate(template, {
+        const replacements = {
             "[PLAN_FILE_PATH]": planFile,
             "[SPEC_FILE_PATH]": specFile,
-        });
-        const legacyAppend = planFile && !rendered.includes(planFile) ? `\n\n### Target Implementation Plan:\n${planFile}` : "";
-        const legacySpecAppend = specFile && !rendered.includes(specFile) ? `\n\n### Reference Specification:\n${specFile}` : "";
+        };
+        const rendered = interpolateTemplate(template, replacements);
+        const alreadyApplied = appliedInterpolations(template, replacements);
+        const legacyAppend = planFile && !alreadyApplied.has(planFile) ? `\n\n### Target Implementation Plan:\n${planFile}` : "";
+        const legacySpecAppend = specFile && !alreadyApplied.has(specFile) ? `\n\n### Reference Specification:\n${specFile}` : "";
 
         return {
             description: "Writing-Plans Plan Document Reviewer Prompt",
@@ -894,8 +988,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     },
                 ],
             };
-        } catch (_toolErr: unknown) {
-            throw new McpError(ErrorCode.InternalError, `Failed to read skill "${skillName}" due to an internal error.`);
+        } catch (toolErr: unknown) {
+            const detail = toolErr instanceof Error ? toolErr.message : String(toolErr);
+            process.stderr.write(`[superpowers-mcp] read_skill("${skillName}") failed: ${detail}\n`);
+            throw new McpError(
+                ErrorCode.InternalError,
+                `Failed to read skill "${skillName}": ${detail}`
+            );
         }
     }
 
@@ -914,11 +1013,12 @@ async function main() {
     if (firstArg === "setup" || firstArg === "--setup") {
         try {
             await runSetupCli(args);
-            process.exit(process.exitCode || 0);
         } catch (err) {
             console.error("Setup failed:", err);
-            process.exit(1);
+            process.exitCode = 1;
         }
+        // 不啟動 MCP transport，讓事件迴圈自然結束。以 process.exit() 強制結束會
+        // 截斷尚未送出的 stdout/stderr（透過管道或 npx 呼叫時特別明顯）。
         return;
     }
 
@@ -940,5 +1040,5 @@ async function main() {
 
 main().catch((err) => {
     process.stderr.write(`MCP Server fatal error: ${String(err)}\n`);
-    process.exit(1);
+    process.exitCode = 1;
 });
