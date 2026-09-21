@@ -23,6 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `task-start.ps1` / `task-done.ps1` ports with sh/ps1 symmetry suites (`tests/executing-plans/`, `tests/powershell/`); the ps1 port documents and handles PowerShell consuming an unquoted `--` separator.
 - **Docs & baseline**:
   - READMEs and composition guides updated to 15 skills with a Session Forensics section; drift baseline re-recorded at upstream `main@5bf4e78` with zero remaining drift.
+- **Deferred-findings export integrity**:
+  - Finish grep in `executing-plans` and `subagent-driven-development` now matches `Ruling:|^(Task [0-9]+: |Final: )?(minor \(deferred\)|parked)`, so `Final: minor (deferred): …` is exported while completion-line parked counts (`Task 5: complete (…, 2 parked)`) stay excluded. Locked by `tests/upstream_sync_test.js` check `12b`.
+- **Helper invocation & empty-output tests**:
+  - `task-start` / `task-done` invoke `sdd-workspace` via `"${BASH:-bash}"` (and the `.ps1` twin) so marketplace extractors that strip `+x` cannot skip workspace isolation (upstream #2040).
+  - Bash and PowerShell blank-output tests now assert `Task N: complete` plus `→ (no output)` on that line.
+  - Wired `tests/executing-plans/test-task-start.sh` and `test-task-done.sh` into `npm test`.
+- **Security audit & documentation (2026-09-21)**:
+  - Full-repo scan: 0 npm advisories, 0 hardcoded secrets, 0 world-writable files. Regression floor **365 assertions** (Node.js 170, Bash 67, PowerShell 128).
+  - [`SECURITY.md`](SECURITY.md) records argv `task-done` execution, export-gated `diagnosing-superpowers`, deferred-export grep, remote-safety, and `.devin/` gitignore.
+  - All four READMEs badge **v6.4.1** and document the same audit floor.
 
 ## [6.3.10] - 2026-09-17
 
