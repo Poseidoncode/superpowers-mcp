@@ -85,6 +85,12 @@ Do task two.
         $ledgerText4 = Get-Content -LiteralPath $ledger -Raw
         Assert-True ($ledgerText4 -match "Task 3: complete") "empty-output run recorded"
         Assert-True ($ledgerText4 -match "→ \(no output\)") "empty output recorded as (no output)"
+
+        # 8. blank-lines-only output is also empty after filtering
+        & $scriptPath $plan 4 $base -- $pwshBin -NoProfile -Command "Write-Output ''; Write-Output ''" > $null
+        Assert-ExitCode $LASTEXITCODE 0 "blank-output command exits 0"
+        $ledgerText5 = Get-Content -LiteralPath $ledger -Raw
+        Assert-True ($ledgerText5 -match "→ \(no output\)") "blank output recorded as (no output)"
     }
     finally {
         Pop-Location

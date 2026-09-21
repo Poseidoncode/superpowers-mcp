@@ -306,7 +306,7 @@ in the rulings list. There is no second fix pass.
 Before you delete anything, collect every ledger line containing
 `Ruling:` into your final message under "Rulings I made", in the order you
 made them, each with what it costs if wrong, and every `minor (deferred)`
-line under "Deferred minors". Both lists are exhaustive.
+or `parked` line under "Deferred minors". Both lists are exhaustive.
 
 Rulings are not the only content that dies with the workspace. Findings
 you chose not to fix are the record of what was *not* done — git history
@@ -314,7 +314,7 @@ cannot carry them, because git records what was done. So export them
 before anything is deleted: grep the progress ledger for its finding tags
 
 ```bash
-grep -E 'Ruling:|minor \(deferred\)' <workspace>/progress.md
+grep -E 'Ruling:|^(Task [0-9]+: )?(minor \(deferred\)|parked)' <workspace>/progress.md
 ```
 
 and carry every matching line, verbatim, into a durable,
@@ -377,28 +377,28 @@ You: I'm using the executing-plans skill to implement this plan inline.
 
 Task 1: Hook installation script
 
-[task-start plan 1 → brief read; BASE a1b2c3d]
+[bash scripts/task-start plan 1 → brief read; BASE a1b2c3d]
 [Step 1: write failing test — written]
 [Step 2: run it — FAIL: install_hook not defined. Matches Expected.]
 [Step 3: implement — written]
 [Step 4: run it — PASS 1/1. Matches Expected.]
 [Step 5: commit — d4e5f6a]
 [Contract: tests ran, output read, no deviations]
-[task-done plan 1 a1b2c3d -- npm test -- hooks → ledger: Task 1: complete (commits a1b2c3d..d4e5f6a, tests: npm test -- hooks → 1/1 pass)]
+[bash scripts/task-done plan 1 a1b2c3d -- npm test -- hooks → ledger: Task 1: complete (commits a1b2c3d..d4e5f6a, tests: npm test -- hooks → 1/1 pass)]
 
 Task 2: Recovery modes
 
-[task-start plan 2 → brief read; BASE d4e5f6a]
+[bash scripts/task-start plan 2 → brief read; BASE d4e5f6a]
 [Step 2: run failing test — FAIL, but on an import error: Task 1 exported
  installHook, brief consumes install_hook]
 [Ruling: brief's consumer name is a typo against Task 1's Produces block;
  use installHook — Ledger: Task 2: Ruling: install_hook → installHook — matches Task 1 Produces — cost if wrong: one rename]
 [Steps 2-5 as planned; commit b7c8d9e]
-[task-done plan 2 d4e5f6a -- npm test -- recovery → ledger: Task 2: complete (commits d4e5f6a..b7c8d9e, tests: npm test -- recovery → 8/8 pass)]
+[bash scripts/task-done plan 2 d4e5f6a -- npm test -- recovery → ledger: Task 2: complete (commits d4e5f6a..b7c8d9e, tests: npm test -- recovery → 8/8 pass)]
 
 ...
 
-[After all tasks: review-package plan MERGE_BASE HEAD; dispatch code-reviewer, most capable model]
+[After all tasks: bash ../subagent-driven-development/scripts/review-package plan MERGE_BASE HEAD; dispatch code-reviewer, most capable model]
 Reviewer: One Important finding — progress reporting interval hardcoded. Two Minor.
 [Re-grade: Important stands; minors → ledger as deferred]
 [Fix pass: test_progress_interval_configurable RED → extract PROGRESS_INTERVAL → GREEN; suite 12/12; commit]
@@ -412,6 +412,6 @@ Deferred minors:
 - recovery.js could split verify/repair into two files
 
 [Use superpowers:finishing-a-development-branch — Option 2: push and create PR]
-[Export deferred findings (Ruling:, minor (deferred) lines) to the PR description as a "Deferred items" checklist]
+[Export deferred findings (Ruling:, minor (deferred), parked lines) to the PR description as a "Deferred items" checklist]
 [Delete this plan's workspace — the export, not git, is the deferred findings' record]
 ```
