@@ -24,7 +24,7 @@ function expectContains(file, needle) {
 }
 
 async function runUpstreamSyncTests() {
-    console.log("🧪 Starting Upstream Sync Regression Tests (Batches 1–4)...\n");
+    console.log("🧪 Starting Upstream Sync Regression Tests (Batches 1–4, v6.4.1)...\n");
 
     // Batch 1 guards the skill content adopted from obra/superpowers PRs
     // #2229, #2263, #2265, #2270 and #2237; Batch 2 the dev intent gates
@@ -36,6 +36,10 @@ async function runUpstreamSyncTests() {
     // Batch 4 (content sync only, no harness work) adds the brainstorm host
     // env defaults (#2262), writing-skills link re-resolution (#2259) and the
     // SDD review-file contract (#1966).
+    //
+    // The v6.4.1 sync (upstream main@5bf4e78, PR #2338) adopts native inline
+    // plan execution, the review-behavior alignment, the new tool refs, the
+    // interpreter-invocation guidance, and diagnosing-superpowers.
 
     // Test 1: PR #2229 — typed trigger phrases and sibling cross-routes
     const debugging = readSkill("systematic-debugging");
@@ -112,6 +116,7 @@ async function runUpstreamSyncTests() {
                     "verification-before-completion",
                     "no test command (reports, research, recipes, correspondence, audits)",
                 ],
+                ["diagnosing-superpowers", '"it took too long"'],
             ];
             for (const [name, needle] of expected) {
                 const description = byName.get(name);
@@ -297,6 +302,58 @@ async function runUpstreamSyncTests() {
         const reReview = readSkillFile("subagent-driven-development", "re-review-prompt.md");
         expectContains(reReview, "Append this round's verdicts to [REVIEW_FILE]");
         expectContains(reReview, "appended to `[REVIEW_FILE]`, with a short final message");
+    });
+
+    // Test 18: v6.4.1 (upstream #2338) — native plan execution, review
+    // behavior, tool refs, interpreter invocation, diagnosing-superpowers.
+    check("18a (v6.4.1: native executing-plans)", () => {
+        const executing = readSkill("executing-plans");
+        expectContains(executing, "Rulings, not stalls");
+        expectContains(executing, "Do not pause to check in with your human partner");
+        expectContains(executing, "scripts/task-start PLAN_FILE N");
+        expectContains(executing, "scripts/task-done PLAN_FILE N BASE");
+    });
+
+    check("18b (v6.4.1: task-start / task-done ship)", () => {
+        const start = readSkillFile("executing-plans", "scripts/task-start");
+        expectContains(start, "task-start PLAN_FILE TASK_NUMBER");
+        expectContains(start, "base: $(git rev-parse HEAD)");
+        const done = readSkillFile("executing-plans", "scripts/task-done");
+        expectContains(done, "task-done PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND");
+        expectContains(done, "Task $n: complete");
+    });
+
+    check("18c (v6.4.1: review behavior)", () => {
+        const reviewer = readSkillFile("requesting-code-review", "code-reviewer.md");
+        expectContains(reviewer, "## Declined to judge");
+        expectContains(reviewer, "judge by what a reasonable person using this");
+        expectContains(readSkill("requesting-code-review"), "git merge-base origin/main HEAD");
+    });
+
+    check("18d (v6.4.1: plan Review Focus)", () => {
+        const plans = readSkill("writing-plans");
+        expectContains(plans, "## Review Focus");
+        expectContains(plans, "**4. Review Focus:**");
+        expectContains(plans, "For this plan I recommend <one of the two>");
+    });
+
+    check("18e (v6.4.1: interpreter invocation + tool refs)", () => {
+        const sdd = readSkill("subagent-driven-development");
+        expectContains(sdd, "bash scripts/sdd-workspace PLAN_FILE");
+        expectContains(sdd, "bash scripts/review-package PLAN_FILE BASE HEAD");
+        const using = readSkill("using-superpowers");
+        expectContains(using, "references/claude-code-tools.md");
+        expectContains(using, "references/muse-tools.md");
+        expectContains(readSkill("writing-skills"), "Invoke bundled scripts through their interpreter");
+        expectContains(readSkillFile("brainstorming", "visual-companion.md"), "bash scripts/start-server.sh");
+        expectContains(readSkillFile("systematic-debugging", "root-cause-tracing.md"), "bash ./find-polluter.sh");
+    });
+
+    check("18f (v6.4.1: diagnosing-superpowers)", () => {
+        const diagnosing = readSkill("diagnosing-superpowers");
+        expectContains(diagnosing, "Every finding cites `path:line`");
+        expectContains(diagnosing, "prompts/analyst-common.md");
+        expectContains(diagnosing, "## Hard rules");
     });
 
     if (failures.length > 0) {

@@ -23,7 +23,7 @@ This document summarizes the information and usage instructions for packaging th
 | :--- | :--- | :--- |
 | **Tools** | `list_skills`, `read_skill` | Discover, search, and load full skill instructions and checklists on demand. |
 | **Prompts** | 9 Native Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
-| **Resources** | 14 Skill URIs + 1 Guide | `skill://superpowers/<skill-name>` plus `guide://superpowers/skill-compositions` |
+| **Resources** | 15 Skill URIs + 1 Guide | `skill://superpowers/<skill-name>` plus `guide://superpowers/skill-compositions` |
 
 ### Chatting with the AI Agent (Basic Usage)
 
@@ -155,15 +155,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
-## 📋 Supported Skills Overview (14 Core Skills & Scenarios)
+## 📋 Supported Skills Overview (15 Core Skills & Scenarios)
 
-To help you choose the right skill, we have structured all 14 skills across the Software Development Lifecycle (SDLC), merging core capabilities and community-recommended scenarios:
+To help you choose the right skill, we have structured all 15 skills across the Software Development Lifecycle (SDLC), merging core capabilities and community-recommended scenarios:
 
 | # | SDLC Phase | Skill Name | What It Does (Purpose & Core Value) | Recommended Scenario |
 | :-: | :--- | :--- | :--- | :--- |
 | 1 | **🚀 Planning & Design** | **`brainstorming`** | **Requirements & Architecture Design**: Explores options and constraints before coding; outputs Design Specs; includes Visual Companion browser UI review. | Before starting any new feature or major change; prevents jumping straight into code. |
 | 2 | **🚀 Planning & Design** | **`writing-plans`** | **Implementation Planning**: Decomposes specs into bite-sized, testable tasks annotated with Recommended Skills and file contracts. | Before multi-file refactoring, complex migrations, or major implementations. |
-| 3 | **💻 Implementation** | **`executing-plans`** | **In-Session Plan Execution**: Executes planned tasks step-by-step with checkpoint reviews in the current session. | Batch execution of plans within the same session without spawning subagents. |
+| 3 | **💻 Implementation** | **`executing-plans`** | **In-Session Plan Execution**: Executes every planned task step-by-step in the current session, then one whole-branch review at the end. | Batch execution of plans within the same session without spawning subagents. |
 | 4 | **💻 Implementation** | **`subagent-driven-development`** | **Subagent-Driven Development (SDD)**: Dispatches fresh, context-isolated subagents per task with dual-layer adversarial reviews. | Recommended execution model for complex plans to eliminate context pollution. |
 | 5 | **💻 Implementation** | **`test-driven-development`** | **Test-Driven Development (TDD)**: Enforces strict Red ➔ Green ➔ Refactor cycles ensuring robust test coverage. | When implementing logically challenging features or critical algorithms. |
 | 6 | **🔍 Debugging** | **`systematic-debugging`** | **Systematic Root Cause Debugging**: Deconstructs complex errors into testable hypotheses with validation experiments. | When encountering any unexpected error, test failure, or intermittent bug. |
@@ -175,10 +175,24 @@ To help you choose the right skill, we have structured all 14 skills across the 
 | 12 | **🤖 Advanced Agents** | **`dispatching-parallel-agents`** | **Parallel Agent Orchestration**: Dispatches concurrent subagents in isolated workspaces to investigate multiple hypotheses simultaneously. | When facing multiple failing tests or investigating independent theories in parallel. |
 | 13 | **🤖 Advanced Agents** | **`using-superpowers`** | **Superpowers Foundation & Discipline**: Establishes mandatory skill discovery, loading discipline, and priority rules. | Automatically loaded at session start to enforce software engineering standards. |
 | 14 | **🤖 Advanced Agents** | **`writing-skills`** | **Skill Authoring & Maintenance**: Guides the creation, testing, and packaging of new Superpowers skills. | When creating custom skills or enhancing existing skill instructions. |
+| 15 | **🤖 Advanced Agents** | **`diagnosing-superpowers`** | **Session Forensics & Maintainer Reports**: Reconstructs what went wrong in a session from on-disk transcripts with cited evidence; drafts scrubbed bundles and GitHub issues. | When a session went sideways and you need evidence of why, or a bug report for the Superpowers maintainers. |
 
 ## 🆕 Recent Updates
 
-### v6.3.10 (Latest)
+### v6.4.1 (Latest)
+
+- **Upstream Sync to obra/superpowers v6.4.1**:
+  - **Native inline plan execution**: rewritten `executing-plans` runs the whole plan via new `task-start` / `task-done` helpers, then one whole-branch review — no mid-plan check-ins.
+  - **New skill: `diagnosing-superpowers`**: session forensics from on-disk transcripts with cited evidence, plus scrubbed bundles and GitHub issue drafts (15 skills total).
+  - **Review behavior**: grade unspecified behavior by reasonable-user expectation, `Declined to judge` list, `BASE_SHA` via `git merge-base origin/main HEAD`.
+  - **Plan Review Focus**: new template section and self-review item pinning spec-implied edge cases to owning tasks.
+  - **New harness refs**: Muse and Claude Code tool mappings; Devin/OpenCode refs retained.
+  - Scripts invoked through their interpreter (`bash` / `node`) so marketplace packaging can't break them.
+- **Windows Parity & Regression Floor**:
+  - New `task-start.ps1` / `task-done.ps1` ports with sh/ps1 symmetry test suites.
+  - All adopted-PR durability content retained (Discoveries ledger, review-file contract, greenfield scripts, remote-safety); drift baseline re-recorded with zero drift.
+
+### v6.3.10
 
 - **Universal Setup Key Conflict Resolution & Lossless Field Preservation**:
   - Automatically discovers existing declarations across recognized server keys (`servers`, `mcp`, `mcpServers`), preventing duplicate conflicting configurations.
@@ -209,33 +223,6 @@ To help you choose the right skill, we have structured all 14 skills across the 
   - Hardened `src/server.ts` setup delegation to preserve `process.exitCode` from CLI commands.
 - **Desktop Setup Guide**:
   - Added comprehensive [`docs/desktop-setup.md`](docs/desktop-setup.md) covering LM Studio, Roo Code, ChatWise, and Cherry Studio setup.
-
-### v6.3.8
-
-- **Actionable Interactive Workflow Launchers**:
-  - `feature-pipeline` and `structured-debug` now emit explicit stage-by-stage `read_skill` calls, preserve required user approval gates, and clearly state that execution happens through the client agent rather than inside the MCP server.
-  - Hosts with multi-agent support can use subagent execution; other hosts fall back to inline or sequential execution without claiming unavailable capabilities.
-  - `read_skill` accepts both bare skill names and the documented `superpowers:` prefix.
-  - The composition guide is included in the npm package and available through `guide://superpowers/skill-compositions`.
-- **Universal Global Setup Concurrency & Symlink Breakout Defense**:
-  - **Allowed Roots Boundary Containment**: Enforces destination restriction to explicit allowed user roots (`homeDir`, `appData`, `localAppData`), blocking parent-directory symlink breakout attacks.
-  - **Optimistic Concurrency Conflict Defense**: Compares file content against `expectedContent` immediately prior to atomic `fs.renameSync`, preventing race conditions from silently overwriting newer configurations.
-  - **Directory Inode & Device TOCTOU Verification**: Re-checks parent directory canonical path, device ID (`dev`), and inode (`ino`) before and after temporary file creation, blocking directory swap attacks.
-  - **Fail-Closed Validation**: Rejects non-object JSON roots or server fields and duplicate YAML keys.
-- **Skills Core Engine Collision Defense & Dynamic Cache Revalidation**:
-  - **Deterministic Directory Cataloging**: Catalogs directories in deterministic alphabetical order and detects alias/name collisions in `newSkillMap`, emitting diagnostic warnings and skipping duplicates.
-  - **Automatic Cache Revalidation (`CACHE_REVALIDATE_MS = 1000`)**: Detects disk modifications within 1 second without requiring MCP server restarts.
-  - **Canonical Path Blacklisting**: Platform case-folding and `fs.realpathSync` validation to prevent symlink bypass of system directories (`/private/etc`, `/private/var`, `C:\Windows`).
-- **RFC 6455 WebSocket Protocol & Resilient Stream Hardening**:
-  - Support for fragmented text messages (`CONTINUATION` opcode `0x00`) with payload size tracking and RFC 6455 control frame constraints (`opcode >= 0x8 && !fin` rejected).
-  - Resilient tail event log compaction: Preserves recent newline-delimited event records when approaching the 1 MB file cap rather than dropping all historical events.
-  - Event log append mode hardened with `O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW`.
-- **Shell & PowerShell Script Hardening**:
-  - `find-polluter.sh` & `find-polluter.ps1`: Caller-supplied test command with safe array expansion (`"${TEST_COMMAND[@]}"`, `& $testCommand @testCommandArgs`) and space-safe while loop, preventing shell command injection.
-  - `sdd-workspace`: Sanitizes `CDPATH=''` before all `cd` operations, neutralizing directory redirection attacks.
-  - `sdd-workspace.ps1`: Lossless Unicode plan marker persistence using UTF-8 without BOM (`[System.Text.UTF8Encoding]::new($false)`).
-- **Automated Regression Verification Floor**:
-  - Expanded test suite to **274 automated test assertions** across Node.js (145), Bash (35), and PowerShell (94) with a 100% pass rate.
 
 👉 *For the complete release history, see [CHANGELOG.md](CHANGELOG.md).*
 

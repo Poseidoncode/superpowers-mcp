@@ -29,7 +29,7 @@ The same guide is exposed to MCP clients as `guide://superpowers/skill-compositi
 
 ## 2. Why Skill Compositions Matter
 
-The 14 core skills in `superpowers-mcp` span the entire software development lifecycle (SDLC): from requirements discovery, architecture planning, isolated workspace setup, test-driven development (TDD), and systematic debugging, to full verification, code review, and branch integration.
+The 15 core skills in `superpowers-mcp` span the entire software development lifecycle (SDLC): from requirements discovery, architecture planning, isolated workspace setup, test-driven development (TDD), and systematic debugging, to full verification, code review, and branch integration.
 
 While each atomic skill acts as a precision engineering tool, production-grade development requires **workflow orchestration**. Skill compositions transform ad-hoc AI interactions into disciplined, reproducible, and safety-guarded engineering pipelines.
 
@@ -135,6 +135,10 @@ flowchart LR
 3. **`test-driven-development`**: Author golden-master and regression tests against existing behaviors using the TDD characterization guard (mutate, verify failure, restore via VCS, stay green).
 4. **`systematic-debugging`**: Root-cause hidden defects surfaced while establishing test baselines.
 5. **`verification-before-completion`**: Solidify automated CI test barriers.
+
+### Meta Skill: Session Forensics
+
+Outside the four pipelines, **`diagnosing-superpowers`** reconstructs what went wrong in a past session from its on-disk transcripts: intake interview, session discovery, parallel analyst reports with cited evidence, then an optional scrubbed bundle or GitHub issue draft. Reach for it when a session ignored the plan, repeated work, or produced a result nobody can explain — and when the finding belongs upstream, it drafts the maintainer report too. The MCP server only serves the skill content; the agent reads the host's transcript files with its own tools, so no transcript ever crosses the server boundary.
 
 ---
 

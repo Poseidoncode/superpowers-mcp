@@ -23,7 +23,7 @@
 | :--- | :--- | :--- |
 | **Tools** | `list_skills`, `read_skill` | 14 種類の Superpowers スキルをオンデマンドで検索・読み込み。 |
 | **Prompts** | 9 個のネイティブ Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
-| **Resources** | 14 個の Skill URI + 1 ガイド | `skill://superpowers/<skill-name>` と `guide://superpowers/skill-compositions` |
+| **Resources** | 15 個の Skill URI + 1 ガイド | `skill://superpowers/<skill-name>` と `guide://superpowers/skill-compositions` |
 
 ### AI エージェントとの対話（基本操作）
 
@@ -154,15 +154,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
-## 📋 サポートされているスキル総覧 (14 のコアスキルと推奨シナリオ)
+## 📋 サポートされているスキル総覧 (15 のコアスキルと推奨シナリオ)
 
-適切なスキルを迅速に選択できるように、14 のスキルをソフトウェア開発ライフサイクル (SDLC) に沿って分類し、主要な役割と推奨シナリオを統合しました：
+適切なスキルを迅速に選択できるように、15 のスキルをソフトウェア開発ライフサイクル (SDLC) に沿って分類し、主要な役割と推奨シナリオを統合しました：
 
 | # | 開発フェーズ (Phase) | スキル名 (Skill Name) | 役割とコアバリュー (Purpose & Core Value) | 推奨利用シナリオ (Recommended Scenario) |
 | :-: | :--- | :--- | :--- | :--- |
 | 1 | **🚀 計画と設計** | **`brainstorming`** | **要件定義と設計探索**：コードを書く前に設計案や制約を明確化し仕様書を作成。Visual Companion による画面レビューも提供。 | 新機能や大幅な改修の開始前。AI がいきなりコードを書き始めるのを防止。 |
 | 2 | **🚀 計画と設計** | **`writing-plans`** | **実装計画の作成**：仕様書を独立検証可能なタスク一覧に分解し、Recommended Skill と変更対象を明記。 | 複数ファイルのリファクタリングや複雑な移行作業の前に実行計画を確立。 |
-| 3 | **💻 実装と開発** | **`executing-plans`** | **計画の順次実行**：現在のセッションでタスクをステップバイステップで実行し、チェックポイントで検証。 | サブエージェントを起動せず、同一セッション内で計画を順次実行したい時。 |
+| 3 | **💻 実装と開発** | **`executing-plans`** | **計画の順次実行**：現在のセッションで全タスクをステップバイステップで実行し、最後にブランチ全体を一度レビュー。 | サブエージェントを起動せず、同一セッション内で計画を順次実行したい時。 |
 | 4 | **💻 実装と開発** | **`subagent-driven-development`** | **サブエージェント駆動開発 (SDD)**：タスクごとにクリーンなコンテキストのサブエージェントを起動し、2 段階の対抗的レビューを実施。 | 複雑な計画を実行する際の推奨方式。コンテキスト汚染を防ぎ精度を向上。 |
 | 5 | **💻 実装と開発** | **`test-driven-development`** | **テスト駆動開発 (TDD)**：Red ➔ Green ➔ Refactor サイクルを厳格に適用し、テストを伴う高品質なコードを実装。 | ロジックの複雑な機能やコアアルゴリズムの実装時。 |
 | 6 | **🔍 デバッグと調査** | **`systematic-debugging`** | **体系的根本原因デバッグ**：エラーを検証可能な仮説に分解し、推測を排して体系的にバグを特定・修正。 | エラー、予期しない動作、再現困難なバグが発生した時。 |
@@ -174,12 +174,26 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 | 12 | **🤖 高度なエージェント制御** | **`dispatching-parallel-agents`** | **並行エージェントディスパッチ**：隔離環境で複数のサブエージェントを並行稼働させ、複数の仮説を同時に検証。 | 複数のテストが同時に失敗し、並行調査で原因特定を加速したい時。 |
 | 13 | **🤖 高度なエージェント制御** | **`using-superpowers`** | **基本規律とスキル導入**：適切なスキルを必ず検索・適用するための Superpowers の基本規律を確立。 | セッション開始時に自動読み込みされ、AI の行動規範を規定。 |
 | 14 | **🤖 高度なエージェント制御** | **`writing-skills`** | **スキルの作成と管理**：新しい Superpowers スキルの作成、テスト、パッケージ化の標準手順。 | チーム独自の新しいスキルを作成または拡張したい時。 |
+| 15 | **🤖 高度なエージェント制御** | **`diagnosing-superpowers`** | **セッションのフォレンジックとバグ報告**：ディスク上のトランスクリプトから問題の経緯を証拠付きで再構成し、スクラブ済みバンドルや GitHub issue 草案を作成。 | セッションが迷走した原因を証拠で解明したい時や、Superpowers メンテナへバグ報告する時。 |
 
 ---
 
 ## 🆕 最近の更新
 
-### v6.3.10（最新）
+### v6.4.1（最新）
+
+- **上流 obra/superpowers v6.4.1 への同期**：
+  - **ネイティブなインライン実行**：書き直された `executing-plans` は新しい `task-start` / `task-done` で計画全体を実行し、最後にブランチ全体を一度レビュー（途中チェックインなし）。
+  - **新スキル `diagnosing-superpowers`**：ディスク上の記録から証拠付きでセッションを鑑識し、スクラブ済みバンドルや GitHub issue 草案を作成（全 15 スキル）。
+  - **レビュー動作**：未定義動作は合理的な利用者の期待で評価、`Declined to judge` リスト、`BASE_SHA` は `git merge-base origin/main HEAD`。
+  - **計画の Review Focus**：仕様が示唆するエッジケースを担当タスクに紐付ける新規テンプレート節とセルフレビュー項目。
+  - **新規ハーネス参照**：Muse と Claude Code のツール対応表；Devin / OpenCode 参照は維持。
+  - スクリプトはインタプリタ（`bash` / `node`）経由で呼び出し、マーケットプレイス packaging による実行ビット剥落に耐性化。
+- **Windows 対応と回帰フロア**：
+  - 新規 `task-start.ps1` / `task-done.ps1` と sh/ps1 対称テストスイート。
+  - 採用済み PR の耐久コンテンツを全て維持（Discoveries 台帳、レビューファイル契約、greenfield スクリプト、リモート安全境界）；drift ベースラインを再記録し差分ゼロ。
+
+### v6.3.10
 
 - **ユニバーサルセットアップエンジンのキー名衝突解消とユーザー設定の無損失保持**：
   - 既存の `servers`、`mcp`、`mcpServers` を自動探索し、異なる AI Client 間で競合する重複設定ブロックが作成されるのを防止。
@@ -210,33 +224,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - `src/server.ts` の setup 委任において `process.exitCode` を保持し、非ゼロ終了コードの握りつぶしを防止。
 - **デスクトップセットアップガイド**：
   - LM Studio、Roo Code、ChatWise、Cherry Studio の設定手順を解説した [`docs/desktop-setup.md`](docs/desktop-setup.md) を追加。
-
-### v6.3.8
-
-- **実行可能な対話型ワークフローランチャー**：
-  - `feature-pipeline` と `structured-debug` は、ステージごとに明示的な `read_skill` 呼び出しを示し、必要なユーザー承認ゲートを保持し、実行が MCP サーバー内ではなくクライアント Agent 側で行われることを明記します。
-  - マルチ Agent 対応 Host では Subagent を使い、非対応 Host では利用できない機能を称することなくインラインまたは逐次実行にフォールバックします。
-  - `read_skill` はスキル名単体と、文書化された `superpowers:` プレフィックスの両方を受け付けます。
-  - Skill Compositions ガイドを npm パッケージに含め、`guide://superpowers/skill-compositions` からも参照できます。
-- **ユニバーサルセットアップエンジンの並行安全性・Inode 防御・シンボリックリンク脱出防止**：
-  - **Allowed Roots 境界隔離**：設定の書き込み先を明示的な許可ルート（`homeDir`、`appData`、`localAppData`）内に限定し、親ディレクトリシンボリックリンク経由の脱出攻撃を遮断。
-  - **楽観的並行競合検知**：アトミックな `fs.renameSync` の直前にディスク内容と `expectedContent` を照合し、マルチプロセス競合による新しい設定の上書きを防止。
-  - **ディレクトリ Inode & Dev TOCTOU 防御**：一時ファイル書き込み前後でディレクトリのデバイス ID と inode を検証し、ディレクトリ差し替え攻撃を無効化。
-  - **Fail-Closed 厳格構文検証**：JSON のルートまたはサーバー項目が Plain Object でない場合は即座に拒絶し、プロトタイプ汚染を防止。
-- **コアスキルエンジンの確定性ソートと動的キャッシュ再検証**：
-  - **確定性ディレクトリ走査と衝突防止**：ディレクトリをアルファベット順に確定ソートし、競合キーを即座に検知して重複を安全にスキップ。
-  - **自動キャッシュ再検証 (`CACHE_REVALIDATE_MS = 1000`)**：ディスクの変更を 1 秒以内に自動検知・同期し、サーバー再起動なしで編集を反映。
-  - **大文字小文字フォールディングと正規パス防御**：`src/server.ts` が darwin/win32 で大文字小文字フォールディングと `fs.realpathSync` を実行し、システム保護ディレクトリを確実に遮断。
-- **RFC 6455 WebSocket プロトコル強化と弾力性ログ圧縮**：
-  - `CONTINUATION` (0x00) 分割メッセージの再構築を完全サポートし、制御フレームの分割禁止（`opcode >= 0x8 && !fin`）と非標準 RSV 拡張の排除を徹底。
-  - 末尾弾力性ログ圧縮：イベントログが 1 MB 上限に達した際、改行区切りの直近レコードを保持したままローテーションし、履歴の全損を回避。
-  - 秘密ファイル記述子を `O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW` で安全にオープン。
-- **Shell および PowerShell スクリプトのコマンドインジェクション防御**：
-  - `find-polluter.sh` および `find-polluter.ps1`：配列展開引数受け渡し (`"${TEST_COMMAND[@]}"`、`& $testCommand @testCommandArgs`) と空白セーフな読み込みループにより、シェルインジェクションを根絶。
-  - `sdd-workspace`：`cd` 実行前に `CDPATH=''` をリセットし、環境変数によるディレクトリハイジャックを防止。
-  - `sdd-workspace.ps1`：BOM なし UTF-8 (`[System.Text.UTF8Encoding]::new($false)`) でプランマーカーを保存し、Unicode パスの完全性を保護。
-- **全自動回帰テストの基盤**：
-  - テストスイートを **274 の全自動アサーション**（Node.js: 145、Bash: 35、PowerShell: 94）に拡張し、100% の合格率を維持。
 
 👉 *これまでの詳細なリリース履歴については、完全な [CHANGELOG.md](CHANGELOG.md) を参照してください。*
 

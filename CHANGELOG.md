@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.4.1] - 2026-09-21
+
+### Upstream Sync to obra/superpowers v6.4.1, Native Plan Execution & Session Forensics
+
+- **Upstream content sync (obra/superpowers `main@5bf4e78`, PR #2338)**:
+  - **Native inline plan execution**: Adopted the rewritten `executing-plans` skill — the whole plan runs in-session via new `scripts/task-start` / `scripts/task-done` helpers (shared SDD workspace + ledger), followed by one whole-branch review instead of mid-plan check-ins.
+  - **New skill: `diagnosing-superpowers` (20 files)**: Session forensics from on-disk transcripts with `path:line` evidence, optional scrubbed bundles and GitHub issue drafts; exposed via `list_skills` / `read_skill` / `skill://` resource (15 skills total).
+  - **Review behavior alignment**: Reasonable-user-expectation grading for unspecified behavior, `Declined to judge` list in `code-reviewer.md`, `BASE_SHA` via `git merge-base origin/main HEAD`.
+  - **Plan Review Focus**: New `writing-plans` template section plus self-review checklist item pinning spec-implied edge cases to their owning tasks; execution handoff rewritten around Subagent-driven / Native options.
+  - **New harness references**: `muse-tools.md` and `claude-code-tools.md`; fork-only `devin-tools.md` / `opencode-tools.md` retained.
+  - **Interpreter invocation guidance**: Bundled scripts invoked through `bash` / `node` in prose and cross-script calls (marketplace packagers strip exec bits, upstream #2040).
+- **Fork content preserved (manual three-way merges, no blind checkouts)**:
+  - Retained all adopted-PR durability content the v6.4.1 mainline lacks: Discoveries ledger, deferred-findings export, SDD review-file contract, greenfield scripts, remote-safety boundary, characterization guard, intent gates, and planning-handoff review.
+  - Ported the plan-file tick-box bookkeeping and remote-safety rules into the rewritten `executing-plans` flow.
+- **Windows parity for the new helpers**:
+  - Added `task-start.ps1` / `task-done.ps1` ports with sh/ps1 symmetry suites (`tests/executing-plans/`, `tests/powershell/`); the ps1 port documents and handles PowerShell consuming an unquoted `--` separator.
+- **Docs & baseline**:
+  - READMEs and composition guides updated to 15 skills with a Session Forensics section; drift baseline re-recorded at upstream `main@5bf4e78` with zero remaining drift.
+
 ## [6.3.10] - 2026-09-17
 
 ### Universal Setup Key Conflict Resolution, Content Cache Stat Integrity & Exit Code Safety

@@ -38,6 +38,8 @@ if ($LASTEXITCODE -ne 0) {
     exit 2
 }
 
+# Range guards (exit 3): a wrong-branch HEAD yields a range that is empty or
+# not rooted at BASE; either would silently produce a bogus review package.
 & git merge-base --is-ancestor $base $head *> $null
 if ($LASTEXITCODE -ne 0) {
     [Console]::Error.WriteLine("HEAD ($head) is not a descendant of BASE ($base)")

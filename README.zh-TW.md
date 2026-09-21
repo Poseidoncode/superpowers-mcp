@@ -23,7 +23,7 @@
 | :--- | :--- | :--- |
 | **Tools (工具)** | `list_skills`, `read_skill` | 依需求隨時探索、搜尋並載入技能完整內容與操作規範。 |
 | **Prompts (提示詞)** | 9 個原生 Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
-| **Resources (資源)** | 14 項技能 URI + 1 項指南 | `skill://superpowers/<skill-name>`，以及 `guide://superpowers/skill-compositions` |
+| **Resources (資源)** | 15 項技能 URI + 1 項指南 | `skill://superpowers/<skill-name>`，以及 `guide://superpowers/skill-compositions` |
 
 ### 與 AI Agent 對話（基礎操作）
 
@@ -154,15 +154,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
-## 📋 支援技能總覽 (14 項核心技能與適用情境)
+## 📋 支援技能總覽 (15 項核心技能與適用情境)
 
-為了讓您能快速選用合適的技能，我們將 14 個技能依照軟體開發生命週期 (SDLC) 進行分類，並整合其核心用途與社群推薦使用情境：
+為了讓您能快速選用合適的技能，我們將 15 個技能依照軟體開發生命週期 (SDLC) 進行分類，並整合其核心用途與社群推薦使用情境：
 
 | # | 開發階段 (Phase) | 技能名稱 (Skill Name) | 它是幹嘛用的？ (Purpose & Core Value) | 推薦使用情境 (Recommended Scenario) |
 | :-: | :--- | :--- | :--- | :--- |
 | 1 | **🚀 規劃與設計** | **`brainstorming`** | **需求澄清與設計探索**：在寫代碼前探索架構方案、釐清邊界，產出 Spec。內建 Visual Companion 瀏覽器即時設計審查。 | 啟動任何新功能或大改版前，防止 AI 直接衝進去寫 code。 |
 | 2 | **🚀 規劃與設計** | **`writing-plans`** | **實作計畫拆解**：將設計規格分解為獨立可測試的原子任務清單，標註檔案契約與 Recommended Skill。 | 進行多檔案重構、複雜遷移或大型開發前，建立清晰藍圖。 |
-| 3 | **💻 開發與實作** | **`executing-plans`** | **會話內計畫執行**：在當前會話中依據計畫逐步批次執行任務，並於關鍵節點進行檢查點審查。 | 不需要開多個 Subagent 時的連續計畫執行。 |
+| 3 | **💻 開發與實作** | **`executing-plans`** | **會話內計畫執行**：在當前會話中依據計畫逐步執行全部任務，完成後再做一次全分支審查。 | 不需要開多個 Subagent 時的連續計畫執行。 |
 | 4 | **💻 開發與實作** | **`subagent-driven-development`** | **子代理驅動開發 (SDD)**：為各任務派發乾淨上下文的獨立 Subagent 實作，並在任務間發起雙層對抗式代碼審查。 | 推薦的複雜計畫執行方式，防止上下文污染並提高精確度。 |
 | 5 | **💻 開發與實作** | **`test-driven-development`** | **測試驅動開發 (TDD)**：嚴格執行「紅燈（寫失敗測試）➔ 綠燈（最小實作）➔ 重構」循環。 | 實作邏輯複雜功能時，確保代碼隨附測試且具備回歸防護。 |
 | 6 | **🔍 除錯與排查** | **`systematic-debugging`** | **系統性除錯與根因分析**：將問題拆解為可測試的假說並設計驗證實驗，徹底杜絕盲猜式亂改。 | 遇到任何報錯、異常行為或難以重現的 Bug 時。 |
@@ -174,10 +174,24 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 | 12 | **🤖 進階調度** | **`dispatching-parallel-agents`** | **並行代理調度**：在隔離環境中同時派發多個 Subagent 平行驗證獨立假說或處理多個子任務。 | 多個測試同時失敗，需要加速並行排查根因時。 |
 | 13 | **🤖 進階調度** | **`using-superpowers`** | **Superpowers 基礎紀律**：MCP 入口技能，引導 Agent 在任何任務前主動搜尋並載入對應技能規範。 | 開啟對話時自動載入，規範 AI 的行為準則。 |
 | 14 | **🤖 進階調度** | **`writing-skills`** | **技能撰寫與維護**：規範如何為團隊建立、測試與封裝新的 Superpowers 技能。 | 需要擴充專屬新技能或更新既有技能時。 |
+| 15 | **🤖 進階調度** | **`diagnosing-superpowers`** | **會話鑑識與錯誤回報**：依據磁碟上的對話紀錄重建出錯原因並附引證；可產出脫敏 bundle 與 GitHub issue 草稿。 | 會話走偏需要證據釐清原因，或要向 Superpowers 維護者回報問題時。 |
 
 ## 🆕 最近更新
 
-### v6.3.10 (最新版)
+### v6.4.1 (最新版)
+
+- **上游同步至 obra/superpowers v6.4.1**：
+  - **原生會話內執行**：重寫的 `executing-plans` 以新版 `task-start` / `task-done` 跑完全部計畫，最後再做一次全分支審查，不再中途停下來確認。
+  - **新技能 `diagnosing-superpowers`**：依據磁碟紀錄做會話鑑識並附引證，可產出脫敏 bundle 與 GitHub issue 草稿（共 15 個技能）。
+  - **審查行為**：以合理使用者期望評斷未載明行為、`Declined to judge` 清單、`BASE_SHA` 改用 `git merge-base origin/main HEAD`。
+  - **計畫 Review Focus**：新增模板章節與自查項，將規格隱含的邊界案例釘到負責的任務。
+  - **新平台參照**：Muse 與 Claude Code 工具對照；Devin / OpenCode 參照保留。
+  - 腳本一律透過直譯器（`bash` / `node`）呼叫，避免市集打包剝除執行位元導致失效。
+- **Windows 對等與迴歸防線**：
+  - 新增 `task-start.ps1` / `task-done.ps1` 與 sh/ps1 對稱測試。
+  - 既有 PR 採用內容全數保留（Discoveries 帳本、審查檔契約、greenfield 腳本、遠端安全邊界）；drift 基準重錄，零殘留差異。
+
+### v6.3.10
 
 - **全域安裝引擎鍵名衝突化解與使用者設定無損保留**：
   - 自動探索既有的 `servers`、`mcp`、`mcpServers`，防止在不同 AI Client 環境中重複建立互相矛盾的設定區塊。
@@ -208,33 +222,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - 修正 `src/server.ts` setup 命令轉發機制，完整繼承 CLI 返回之 `process.exitCode`。
 - **桌面整合指南**：
   - 新增完整文件 [`docs/desktop-setup.md`](docs/desktop-setup.md)，涵蓋 LM Studio、Roo Code、ChatWise 與 Cherry Studio 步驟指引。
-
-### v6.3.8
-
-- **可執行的互動式工作流啟動器**：
-  - `feature-pipeline` 與 `structured-debug` 會逐階段給出明確的 `read_skill` 呼叫，保留必要的使用者核准關卡，並清楚說明流程由客戶端 Agent 執行，不是 MCP 伺服器內部自動執行。
-  - 支援多 Agent 的 Host 可使用 Subagent；其他 Host 會退回會話內或序列執行，不會聲稱使用不存在的能力。
-  - `read_skill` 同時接受純技能名稱與文件所載的 `superpowers:` 前綴。
-  - Skill Compositions 指南已納入 npm 套件，並可透過 `guide://superpowers/skill-compositions` 讀取。
-- **全域安裝引擎並行安全、Inode 防禦與符號連結跳脫隔離**：
-  - **Allowed Roots 邊界隔離**：強制限制目的地路徑必須在使用者允許目錄（`homeDir`、`appData`、`localAppData`），杜絕父層符號連結跳脫攻擊。
-  - **樂觀並行衝突檢測**：在原子 `fs.renameSync` 前比對磁碟檔案與 `expectedContent`，防止多行程競態覆寫較新的設定檔。
-  - **目錄 Inode & Dev TOCTOU 防禦**：比對暫存檔案目錄之真實裝置與 inode 識別碼，防止目錄置換攻擊。
-  - **Fail-Closed 嚴格解析防護**：JSON 根目錄或伺服器欄位非 Plain Object 時即刻拒絕，阻斷原型污染與畸形設定。
-- **核心技能引擎確定性排序與動態快取驗證**：
-  - **目錄確定性排序與別名衝突防禦**：目錄按字母確定性排序並即時阻擋衝突鍵名，杜絕隨機覆寫與快取錯位。
-  - **自動快取驗證 (`CACHE_REVALIDATE_MS = 1000`)**：磁碟變更在 1 秒內自動同步，無需重啟 MCP 伺服器即可反映檔案編輯。
-  - **大小寫折疊與真實路徑防禦**：`src/server.ts` 在 darwin/win32 進行大小寫折疊與 `fs.realpathSync` 驗證，徹底攔截系統保護目錄（`/private/etc`、`/private/var`、`C:\Windows`）。
-- **RFC 6455 WebSocket 協議加固與日誌彈性壓縮**：
-  - 完整支援 `CONTINUATION` (0x00) 分段訊息重組，並嚴格驗證控制幀不得分段 (`opcode >= 0x8 && !fin`)，阻絕非標準 RSV 擴展。
-  - 尾部彈性日誌壓縮：日誌達 1 MB 上限時保留最新換行對齊記錄，避免整檔抹除遺失事件上下文。
-  - 私有檔案描述元以 `O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW` 安全開啟。
-- **Shell 與 PowerShell 腳本指令注入防禦**：
-  - `find-polluter.sh` 與 `find-polluter.ps1`：指令參數陣列化展開 (`"${TEST_COMMAND[@]}"`、`& $testCommand @testCommandArgs`) 搭配含空白檔名安全讀取迴圈，杜絕 Shell 注入。
-  - `sdd-workspace`：執行 `cd` 前重設 `CDPATH=''`，阻絕環境變數目錄劫持。
-  - `sdd-workspace.ps1`：以 UTF-8 without BOM (`[System.Text.UTF8Encoding]::new($false)`) 寫入計畫標記，確保無損 Unicode 路徑往返。
-- **全自動化回歸測試底線**：
-  - 擴展測試套件至 **274 項自動化斷言全數通過**（Node.js: 145 項、Bash: 35 項、PowerShell: 94 項），維持 100% 通過率。
 
 👉 *更多歷史版本更新紀錄，請參閱完整的 [CHANGELOG.md](CHANGELOG.md)。*
 

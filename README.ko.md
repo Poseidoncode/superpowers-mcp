@@ -23,7 +23,7 @@
 | :--- | :--- | :--- |
 | **Tools** | `list_skills`, `read_skill` | 14개의 Superpowers 스킬을 온디맨드로 검색, 로드 및 확인합니다. |
 | **Prompts** | 9개의 네이티브 Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
-| **Resources** | 14개 Skill URI + 1개 가이드 | `skill://superpowers/<skill-name>` 및 `guide://superpowers/skill-compositions` |
+| **Resources** | 15개 Skill URI + 1개 가이드 | `skill://superpowers/<skill-name>` 및 `guide://superpowers/skill-compositions` |
 
 ### AI 에이전트와 대화하기 (기본 사용법)
 
@@ -154,15 +154,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ---
 
-## 📋 지원되는 스킬 총람 (14대 핵심 스킬 및 추천 시나리오)
+## 📋 지원되는 스킬 총람 (15대 핵심 스킬 및 추천 시나리오)
 
-상황에 맞는 스킬을 신속하게 선택할 수 있도록, 14개의 스킬을 소프트웨어 개발 라이프사이클(SDLC)에 맞추어 분류하고 주요 역할과 커뮤니티 권장 시나리오를 하나로 통합했습니다:
+상황에 맞는 스킬을 신속하게 선택할 수 있도록, 15개의 스킬을 소프트웨어 개발 라이프사이클(SDLC)에 맞추어 분류하고 주요 역할과 커뮤니티 권장 시나리오를 하나로 통합했습니다:
 
 | # | 개발 단계 (Phase) | 스킬 이름 (Skill Name) | 역할 및 핵심 가치 (Purpose & Core Value) | 추천 사용 시나리오 (Recommended Scenario) |
 | :-: | :--- | :--- | :--- | :--- |
 | 1 | **🚀 계획 및 설계** | **`brainstorming`** | **요구사항 명확화 및 설계 탐색**：코드 작성 전 아키텍처 방안과 제약을 명확히 하고 스펙을 산출. Visual Companion 브라우저 UI 검토 지원. | 새 기능이나 대규모 변경을 시작하기 전, AI가 바로 코딩하는 것을 방지. |
 | 2 | **🚀 계획 및 설계** | **`writing-plans`** | **구현 계획 분해**：스펙을 독립 검증 가능한 작업 목록으로 분해하고 Recommended Skill 및 파일 계약 명시. | 여러 파일 리팩토링이나 복잡한 마이그레이션 전 명확한 청사진 수립. |
-| 3 | **💻 구현 및 개발** | **`executing-plans`** | **세션 내 계획 순차 실행**：현재 세션에서 계획에 따라 단계별로 작업을 실행하고 체크포인트 검토 수행. | 서브에이전트를 생성하지 않고 동일 세션 내에서 순차적으로 계획을 실행할 때. |
+| 3 | **💻 구현 및 개발** | **`executing-plans`** | **세션 내 계획 순차 실행**：현재 세션에서 모든 작업을 단계별로 실행한 뒤 마지막에 브랜치 전체를 한 번 검토. | 서브에이전트를 생성하지 않고 동일 세션 내에서 순차적으로 계획을 실행할 때. |
 | 4 | **💻 구현 및 개발** | **`subagent-driven-development`** | **서브에이전트 주도 개발 (SDD)**：작업별로 깨끗한 컨텍스트의 서브에이전트를 디스패치하고 이중 대립 코드 리뷰 수행. | 복잡한 계획 실행 시 컨텍스트 오염을 방지하고 정확도를 높이는 권장 방식. |
 | 5 | **💻 구현 및 개발** | **`test-driven-development`** | **테스트 주도 개발 (TDD)**：Red ➔ Green ➔ Refactor 주기를 엄격히 준수하여 견고한 테스트를 갖춘 코드 구현. | 논리적으로 복잡한 기능이나 핵심 알고리즘을 구현할 때. |
 | 6 | **🔍 디버깅 및 조사** | **`systematic-debugging`** | **체계적 근본 원인 디버깅**：오류를 검증 가능한 가설로 분해하고 체계적으로 원인을 추적하여 임의 수정을 방지. | 오류, 비정상 동작 또는 재현하기 어려운 버그가 발생했을 때. |
@@ -174,10 +174,24 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 | 12 | **🤖 고급 에이전트 제어** | **`dispatching-parallel-agents`** | **병렬 에이전트 조율**：격리된 환경에서 여러 서브에이전트를 병렬 디스패치하여 복수 가설을 동시에 검증. | 여러 테스트가 동시에 실패하여 병렬 조사로 원인 규명을 가속화할 때. |
 | 13 | **🤖 고급 에이전트 제어** | **`using-superpowers`** | **기본 규율 및 스킬 로드**：작업 전 적절한 스킬을 탐색하고 적용하도록 안내하는 Superpowers 기본 규율. | 세션 시작 시 자동으로 로드되어 AI의 행동 규범을 설정. |
 | 14 | **🤖 고급 에이전트 제어** | **`writing-skills`** | **스킬 작성 및 관리**：새로운 Superpowers 스킬을 생성, 테스트 및 패키징하는 표준 가이드. | 팀 전용 새 스킬을 작성하거나 기존 스킬을 확장할 때. |
+| 15 | **🤖 고급 에이전트 제어** | **`diagnosing-superpowers`** | **세션 포렌식 및 버그 리포트**：디스크의 트랜스크립트에서 문제 경위를 증거와 함께 재구성하고, 스크럽된 번들과 GitHub 이슈 초안을 작성. | 세션이 어긋난 원인을 증거로 규명하거나 Superpowers 메인테이너에게 버그를 보고할 때. |
 
 ## 🆕 최근 업데이트
 
-### v6.3.10 (최신)
+### v6.4.1 (최신)
+
+- **상류 obra/superpowers v6.4.1 동기화**:
+  - **네이티브 인라인 실행**: 새로 작성된 `executing-plans`가 신규 `task-start` / `task-done`으로 전체 계획을 실행한 뒤 브랜치 전체를 한 번만 리뷰(중간 체크인 없음).
+  - **신규 스킬 `diagnosing-superpowers`**: 디스크 기록에서 증거와 함께 세션을 감식하고 스크럽된 번들과 GitHub 이슈 초안 작성(총 15개 스킬).
+  - **리뷰 동작**: 미정의 동작은 합리적 사용자 기대로 평가, `Declined to judge` 목록, `BASE_SHA`는 `git merge-base origin/main HEAD` 사용.
+  - **계획 Review Focus**: 스펙이 시사하는 엣지 케이스를 담당 태스크에 연결하는 신규 템플릿 섹션과 셀프 리뷰 항목.
+  - **신규 하네스 참조**: Muse 및 Claude Code 도구 매핑; Devin / OpenCode 참조 유지.
+  - 스크립트는 인터프리터(`bash` / `node`) 경유 호출로 마켓플레이스 패키징의 실행 비트 손상에 내성 확보.
+- **Windows 대응 및 회귀 플로어**:
+  - 신규 `task-start.ps1` / `task-done.ps1`과 sh/ps1 대칭 테스트 스위트.
+  - 채택된 PR 내구성 콘텐츠 전부 유지(Discoveries 원장, 리뷰 파일 계약, greenfield 스크립트, 원격 안전 경계); drift 베이스라인 재기록, 잔여 차이 없음.
+
+### v6.3.10
 
 - **유니버설 글로벌 설정 엔진 키 충돌 해소 및 사용자 설정 무손실 보존**:
   - 기존의 `servers`, `mcp`, `mcpServers`를 자동 감지하여 서로 다른 AI Client 환경에서 중복되거나 모순되는 설정 블록이 생성되는 것을 방지.
@@ -208,33 +222,6 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
   - `src/server.ts`의 setup 위임 처리에서 `process.exitCode`를 보존하여 비정상 종료 코드가 0으로 덮어씌워지지 않도록 수정.
 - **데스크톱 설정 가이드**:
   - LM Studio, Roo Code, ChatWise, Cherry Studio의 상세 설정 지침을 담은 [`docs/desktop-setup.md`](docs/desktop-setup.md) 추가.
-
-### v6.3.8
-
-- **실행 가능한 대화형 워크플로 런처**:
-  - `feature-pipeline`과 `structured-debug`는 단계별 명시적 `read_skill` 호출을 제공하고, 필수 사용자 승인 게이트를 유지하며, MCP 서버 내부가 아닌 클라이언트 Agent가 실행한다는 점을 명확히 밝힙니다.
-  - 멀티 Agent를 지원하는 Host에서는 Subagent를 사용하고, 그 외에는 없는 기능을 사용했다고 표현하지 않고 인라인 또는 순차 실행으로 폴백합니다.
-  - `read_skill`은 스킬 이름 단독 형식과 문서화된 `superpowers:` 접두사 형식을 모두 지원합니다.
-  - Skill Compositions 가이드가 npm 패키지에 포함되며 `guide://superpowers/skill-compositions`에서도 읽을 수 있습니다.
-- **유니버설 글로벌 설정 엔진 동시성 안전, Inode 방어 및 심볼릭 링크 탈출 격리**:
-  - **Allowed Roots 경계 격리**: 설정 파일 대상을 사용자가 명시한 허용 루트(`homeDir`, `appData`, `localAppData`) 내부로 제한하여 상위 디렉터리 심볼릭 링크 탈출 공격 차단.
-  - **낙관적 동시성 충돌 감지**: 원자적 `fs.renameSync` 직전에 디스크 내용과 `expectedContent`를 대조하여 다중 프로세스 경쟁으로 인한 최신 설정 덮어쓰기 방지.
-  - **디렉터리 Inode & Dev TOCTOU 방어**: 임시 파일 작성 전후로 디렉터리의 디바이스 ID와 inode를 검증하여 디렉터리 교체 공격 차단.
-  - **Fail-Closed 엄격 구문 분석**: JSON 루트 또는 서버 필드가 Plain Object가 아닐 경우 즉시 거부하여 프로토타입 오염 방지.
-- **핵심 스킬 엔진 결정론적 정렬 및 동적 캐시 재검증**:
-  - **결정론적 디렉터리 색인 및 충돌 방어**: 디렉터리를 알파벳순으로 정렬하고 충돌 키를 즉시 감지하여 안전하게 중복 건너뛰기.
-  - **자동 캐시 재검증 (`CACHE_REVALIDATE_MS = 1000`)**: 디스크 변경 사항을 1초 내에 자동 감지하여 서버 재시작 없이 편집 내용 반영.
-  - **대소문자 폴딩 및 정규 경로 방어**: `src/server.ts`가 darwin/win32에서 대소문자 폴딩과 `fs.realpathSync`를 수행하여 시스템 보호 디렉터리 접근 원천 차단.
-- **RFC 6455 WebSocket 프로토콜 강화 및 복원력 있는 로그 압축**:
-  - `CONTINUATION` (0x00) 분할 메시지 재조합 완전 지원, 제어 프레임 분할 금지(`opcode >= 0x8 && !fin`) 및 비표준 RSV 확장 엄격 차단.
-  - 후미 탄력적 로그 압축: 이벤트 로그가 1 MB 한도에 도달하면 개행 정렬된 최근 레코드를 보존하여 전체 손실 방지.
-  - 비공개 파일 디스크립터를 `O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW`로 안전하게 열기.
-- **Shell 및 PowerShell 스크립트 명령 주입 방어**:
-  - `find-polluter.sh` 및 `find-polluter.ps1`: 배열 전개 인자 전달 (`"${TEST_COMMAND[@]}"`, `& $testCommand @testCommandArgs`)과 공백 안전 읽기 루프로 셸 주입 원천 차단.
-  - `sdd-workspace`: `cd` 실행 전 `CDPATH=''`를 재설정하여 환경 변수를 통한 디렉터리 탈취 차단.
-  - `sdd-workspace.ps1`: BOM 없는 UTF-8(`[System.Text.UTF8Encoding]::new($false)`)로 플랜 마커를 저장하여 Unicode 경로 정합성 유지.
-- **전체 자동 회귀 테스트 기준선**:
-  - 테스트 스위트를 **274개 자동 어서션**(Node.js: 145, Bash: 35, PowerShell: 94)으로 확장하고 100% 통과율 유지.
 
 👉 *이전 버전의 전체 릴리스 내역은 [CHANGELOG.md](CHANGELOG.md)를 참조하세요.*
 

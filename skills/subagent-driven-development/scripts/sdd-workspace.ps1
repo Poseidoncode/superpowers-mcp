@@ -7,6 +7,16 @@
 # plan in the same working tree can never read or overwrite another plan's
 # artifacts.
 #
+# Basename slugs collide when two plans share a filename (docs/alpha/plan.md
+# vs docs/beta/plan.md), so each workspace records its owning plan's path in
+# a plan-path marker (repo-relative in-repo, absolute outside). A workspace
+# owned by a different plan is skipped and the slug disambiguated with the
+# plan's parent-directory name, then a counter. A workspace with no marker
+# predates the marker scheme and is adopted for the current plan so in-flight
+# workspaces keep resolving — which means the first collision on such a
+# legacy workspace adopts instead of detecting; acceptable, marker-less
+# workspaces age out as plans finish.
+#
 # A greenfield plan's first task is often "create the repo", so there is no
 # repo root to resolve yet: fall back to the current directory rather than
 # failing, since that task is exactly the one needing a brief.

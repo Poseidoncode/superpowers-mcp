@@ -8,7 +8,7 @@
 
 ## 1. 為什麼需要技能組合 (Why Skill Compositions Matter)
 
-`superpowers-mcp` 的 14 個核心技能涵蓋了現代軟體工程生命週期（SDLC）的各個階段：從需求澄清、架構規劃、隔離實作、TDD 開發、系統化除錯，到全套驗證、代碼審查與分支整合。
+`superpowers-mcp` 的 15 個核心技能涵蓋了現代軟體工程生命週期（SDLC）的各個階段：從需求澄清、架構規劃、隔離實作、TDD 開發、系統化除錯，到全套驗證、代碼審查與分支整合。
 
 單一技能如同「高精度的專業工具」，但真實開發需要「工作流編排（Orchestration）」。透過技能組合（Skill Composition），能將鬆散的 AI 操作轉化為嚴謹、可重複驗證、防護嚴密的工程流水線。
 
@@ -117,6 +117,10 @@ flowchart LR
 4. **`systematic-debugging`**：針對補測試過程中發現的潛在隱患進行根因排查。
 5. **`verification-before-completion`**：建立 CI/CD 測試防線。
 
+### Meta 技能：會話鑑識 (Session Forensics)
+
+四條管線之外，**`diagnosing-superpowers`** 可依據磁碟上的對話紀錄重建過去某次會話的出錯經過：需求訪談、會話定位、多路分析師並行產出附引證的報告，之後可選擇性產出脫敏 bundle 或 GitHub issue 草稿。當某次會話無視計畫、重複勞動，或產出無人能解釋的結果時就用它；若發現應回報上游，它也能代擬維護者報告。MCP server 只負責提供技能內容，Agent 以自身工具讀取主機上的紀錄檔，因此對話紀錄不會經過 server。
+
 ---
 
 ## 4. 計畫驅動的技能編排規格 (Plan-Driven Skill Metadata Schema)
@@ -162,7 +166,7 @@ flowchart LR
 
 ## 6. 如何在 IDE 中實際操作與觸發 (How to Use in Practice)
 
-只要安裝了 `superpowers-mcp`，您**完全不需要手動記住 14 個技能名稱**。有以下兩種最簡單的使用方式：
+只要安裝了 `superpowers-mcp`，您**完全不需要手動記住 15 個技能名稱**。有以下兩種最簡單的使用方式：
 
 ### 方式 A：使用客戶端的 MCP Prompts 選單（最推薦）
 在 Cursor, Antigravity, VS Code 或 Devin Desktop 的對話框中：

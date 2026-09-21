@@ -100,6 +100,18 @@ naming and copy rules, platform requirements — one line each, with exact
 values copied verbatim from the spec. Every task's requirements implicitly
 include this section.]
 
+## Review Focus
+
+[The five input classes or failure modes the spec implies but no task's
+tests exercise that are most likely to bite a person using this software
+— one line each, naming the input or condition and the behavior a
+reasonable person would expect, most likely first. The spec is a vision
+document: it says what the software must do, not everything it will
+meet, and its silence on an input is not permission for that input to
+break the program. Write the list here, once, with the spec in front of
+you. Then, for each line, add the test that pins it to the task that
+owns the code, in that task's own step style.]
+
 ---
 ```
 
@@ -175,6 +187,8 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 
 **3. Type consistency:** Do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks? A function called `clearLayers()` in Task 3 but `clearFullLayers()` in Task 7 is a bug.
 
+**4. Review Focus:** For each input class or failure mode the spec implies, is there a task whose tests exercise it? The five uncovered ones most likely to bite a person go in the Review Focus section, and each line there gets its test added to the owning task. An empty section means you checked and found none, not that you skipped the check.
+
 If you find issues, fix them inline. No need to re-review — just fix and move on. If you find a spec requirement with no task, add the task.
 
 ## Execution Handoff
@@ -187,15 +201,14 @@ them to review the plan and choose an execution method before implementation.
 
 **When no execution method has already been supplied:**
 
-**"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Please review the plan. Two execution options:**
+**"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Please review the plan. Two execution options: which execution approach would you prefer?**
 
-**1. Subagent-Driven** - fresh subagent per task, review between tasks, fast iteration
+- **Subagent-driven** - A fresh subagent implements each task and a fresh reviewer checks it before the next one starts, then a whole-branch review at the end. Most thorough; costs a fresh context per task and per review.
+- **Native** - I implement every task myself in this session, the way this harness runs work, then one fresh reviewer on the most capable model checks the whole branch. Cheapest and fastest; no independent review until the end. Runs well with a mid-tier session model, since the plan carries the design.
 
-**2. Inline Execution** - tasks in a session via executing-plans, batched with checkpoints
+**For this plan I recommend <one of the two>, because <one sentence from the plan: how much the tasks depend on each other's interfaces, how many there are, what a shipped mistake would cost>. Does the plan capture what you want, and which approach should we use?"**
 
-**Recommended for this plan: [pick one] — [one-line why].** Then: **Does the plan capture what you want, and which approach should we use?"**
-
-Pick the recommendation from the plan in front of you:
+**Recommended for this plan: [pick one]** — Subagent-driven or Native (Inline), picked from the plan in front of you:
 - **Subagent-driven** when tasks are largely independent, the plan is short-to-medium, and a cold executor could pick up each task from its own task block alone.
 - **Inline** when tasks share interfaces/state, build heavily on each other, the plan is long, or you (the parent) already hold the spec/architecture context that a cold subagent would spend a spawn re-deriving each time.
 Say which and why. Never default to one without looking.
@@ -204,10 +217,8 @@ Say which and why. Never default to one without looking.
 
 **"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Please review the plan. Does it capture what you want?"**
 
-**If Subagent-Driven chosen:**
+**If Subagent-driven chosen:**
 - **REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development
-- Fresh subagent per task + two-stage review
 
-**If Inline Execution chosen:**
+**If Native chosen:**
 - **REQUIRED SUB-SKILL:** Use superpowers:executing-plans
-- Batch execution with checkpoints for review
