@@ -77,6 +77,14 @@ Do task two.
         Assert-ExitCode $LASTEXITCODE 0 "quoting run exits 0"
         $ledgerText3 = Get-Content -LiteralPath $ledger -Raw
         Assert-True ($ledgerText3 -match [regex]::Escape("'--pretty=format:%H %s'")) "spaced arg single-quoted in ledger"
+
+        # 7. empty-output passing command: exit 0, placeholder in the ledger line
+        $pwshBin = (Get-Process -Id $PID).Path
+        & $scriptPath $plan 3 $base -- $pwshBin -NoProfile -Command "exit 0" > $null
+        Assert-ExitCode $LASTEXITCODE 0 "empty-output command exits 0"
+        $ledgerText4 = Get-Content -LiteralPath $ledger -Raw
+        Assert-True ($ledgerText4 -match "Task 3: complete") "empty-output run recorded"
+        Assert-True ($ledgerText4 -match "→ \(no output\)") "empty output recorded as (no output)"
     }
     finally {
         Pop-Location

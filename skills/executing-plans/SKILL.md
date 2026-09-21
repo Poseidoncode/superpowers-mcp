@@ -123,7 +123,9 @@ The workspace and ledger are shared with superpowers:subagent-driven-development
 and the new one resumes from the same ledger.
 
 - Each plan owns a workspace: at skill start, run
-  `../subagent-driven-development/scripts/sdd-workspace PLAN_FILE` — it
+  `bash ../subagent-driven-development/scripts/sdd-workspace PLAN_FILE`
+  (or `../subagent-driven-development/scripts/sdd-workspace.ps1 PLAN_FILE`
+  on Windows PowerShell) — it
   prints the plan's git-ignored directory
   (`<repo-root>/.superpowers/sdd/<plan-basename>/`), home to every
   artifact for THIS plan: ledger, briefs, review packages. Another plan's
@@ -169,8 +171,10 @@ in the workspace and read its tail; read a brief, not the whole plan.
 
 ### 1. Take the task
 
-- Run this skill's `scripts/task-start PLAN_FILE N`. It prints the brief
-  path and BASE (the commit the task's range is cut from) in one call.
+- Run this skill's `bash scripts/task-start PLAN_FILE N` (or
+  `scripts/task-start.ps1 PLAN_FILE N` on Windows PowerShell). It prints
+  the brief path and BASE (the commit the task's range is cut from) in
+  one call.
   Read the brief for every task, including ones you remember from setup:
   what you remember is a summary, the brief has the exact values,
   signatures, and test cases.
@@ -223,8 +227,9 @@ the claim. If any item is missing, the task is not complete: finish it.
 
 ### 4. Complete the task
 
-Run this skill's `scripts/task-done PLAN_FILE N BASE -- <test command>`
-with the test command the brief names for the whole task. It runs the
+Run this skill's `bash scripts/task-done PLAN_FILE N BASE -- <test command>`
+(or `scripts/task-done.ps1 PLAN_FILE N BASE -- <test command>` on Windows
+PowerShell) with the test command the brief names for the whole task. It runs the
 tests, keeps the full output in the workspace, prints the tail, and — only
 if they pass — appends the completion line to the ledger:
 
@@ -239,8 +244,9 @@ deliverable does not exist yet; never tick one you skipped.
 
 ## Final Review
 
-Run `../subagent-driven-development/scripts/review-package PLAN_FILE MERGE_BASE HEAD`
-(MERGE_BASE = the commit the branch started from, e.g.
+Run `bash ../subagent-driven-development/scripts/review-package PLAN_FILE MERGE_BASE HEAD`
+(or `../subagent-driven-development/scripts/review-package.ps1 PLAN_FILE MERGE_BASE HEAD`
+on Windows PowerShell; MERGE_BASE = the commit the branch started from, e.g.
 `git merge-base main HEAD`) and review from the file it prints.
 
 **With a subagent tool:** dispatch the reviewer on the most capable
@@ -248,8 +254,9 @@ available model — the whole-branch review is a judgment task — using
 superpowers:requesting-code-review's
 [code-reviewer.md](../requesting-code-review/code-reviewer.md), with the
 package path, the plan and spec paths, the plan's Review Focus section
-verbatim if it has one (the input classes and failure modes the plan's
-tests do not exercise — the reviewer checks each deliberately), and a
+verbatim if it has one (the five input classes and failure modes most
+likely to bite — each has its test pinned in the owning task; the
+reviewer checks each deliberately), and a
 pointer to the ledger's `Ruling:` lines so it can weigh the calls you
 made. Specify the model
 explicitly; an omitted model inherits the session's, which may not be the
@@ -299,15 +306,46 @@ in the rulings list. There is no second fix pass.
 Before you delete anything, collect every ledger line containing
 `Ruling:` into your final message under "Rulings I made", in the order you
 made them, each with what it costs if wrong, and every `minor (deferred)`
-line under "Deferred minors". Both lists are exhaustive. Your final
-message is the only place the decisions you took on your human partner's
-behalf — and the findings you chose not to act on — reach them.
+line under "Deferred minors". Both lists are exhaustive.
 
-When the final review is clean and its fixes are committed, delete this
-plan's workspace directory — the git history is the record now. Sibling
-directories belong to other plans; leave them alone.
+Rulings are not the only content that dies with the workspace. Findings
+you chose not to fix are the record of what was *not* done — git history
+cannot carry them, because git records what was done. So export them
+before anything is deleted: grep the progress ledger for its finding tags
+
+```bash
+grep -E 'Ruling:|minor \(deferred\)' <workspace>/progress.md
+```
+
+and carry every matching line, verbatim, into a durable,
+human-reachable artifact. The chat roll-up does not satisfy this —
+scrollback, compaction, and session end all eat it. Where the artifact
+lives depends on how finishing-a-development-branch resolves (it carries
+the same obligation from its side):
+
+- **Option 2 (push and create PR):** append the lines to the PR description
+  under a "Deferred items" checklist. That is where your human partner
+  reviews, and checkboxes survive the merge.
+- **Option 1 (merge locally):** write them to
+  `docs/superpowers/follow-ups/<plan-basename>.md` — append under a dated
+  heading if a re-run under the same basename already created the file — and
+  commit the file to the branch before the merge so it survives the branch
+  deletion.
+- **Option 3 (keep as-is):** the workspace stays, so there is nothing to
+  export.
+- **Explicit discard:** your human partner asked to throw the work away, so
+  no export is required.
 
 Use superpowers:finishing-a-development-branch.
+
+When the finish path has resolved and its export exists — the checklist in
+the PR description, or the committed follow-ups file — delete this plan's
+workspace directory, provided the final review was clean and its fixes are
+committed. The export, not git history, is the record of the deferred
+findings. Sibling directories belong to other plans; leave them alone. On
+an explicit discard there is no export, but the workspace is deleted
+together with the branch — a ledger describing thrown-away work is a
+false record.
 
 ## Common Rationalizations
 
@@ -333,8 +371,8 @@ You: I'm using the executing-plans skill to implement this plan inline.
 
 [Setup: worktree verified]
 [Read plan once: docs/superpowers/plans/feature-plan.md; spec read]
-[Resolve workspace: sdd-workspace docs/superpowers/plans/feature-plan.md — no ledger inside, fresh start]
-[Pre-flight scan: 2 shared-interface rows, 4 self-consistency rows, clean; written to ledger]
+[Resolve workspace: bash ../subagent-driven-development/scripts/sdd-workspace docs/superpowers/plans/feature-plan.md — no ledger inside, fresh start]
+[Pre-flight scan: 2 shared-interface rows, clean; written to ledger]
 [Create todos for all tasks]
 
 Task 1: Hook installation script
@@ -373,7 +411,7 @@ Deferred minors:
 - README lacks a usage example
 - recovery.js could split verify/repair into two files
 
-[Delete this plan's workspace — the record now lives in git]
-
-Using superpowers:finishing-a-development-branch.
+[Use superpowers:finishing-a-development-branch — Option 2: push and create PR]
+[Export deferred findings (Ruling:, minor (deferred) lines) to the PR description as a "Deferred items" checklist]
+[Delete this plan's workspace — the export, not git, is the deferred findings' record]
 ```

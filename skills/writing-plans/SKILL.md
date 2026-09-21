@@ -209,8 +209,8 @@ them to review the plan and choose an execution method before implementation.
 **For this plan I recommend <one of the two>, because <one sentence from the plan: how much the tasks depend on each other's interfaces, how many there are, what a shipped mistake would cost>. Does the plan capture what you want, and which approach should we use?"**
 
 **Recommended for this plan: [pick one]** — Subagent-driven or Native (Inline), picked from the plan in front of you:
-- **Subagent-driven** when tasks are largely independent, the plan is short-to-medium, and a cold executor could pick up each task from its own task block alone.
-- **Inline** when tasks share interfaces/state, build heavily on each other, the plan is long, or you (the parent) already hold the spec/architecture context that a cold subagent would spend a spawn re-deriving each time.
+- **Subagent-driven** when your partner wants a review gate on every task, when the plan is long enough that its later tasks would run on a compacted context inline, or when tasks need a fresh pair of eyes per task.
+- **Native (Inline)** when the plan is short-to-medium, tasks are mostly independent — the same precondition as Subagent-driven — and cheapest-and-fastest single-context execution is preferred. It shines when you already hold the spec/architecture context that a cold subagent would spend a spawn re-deriving each time.
 Say which and why. Never default to one without looking.
 
 **When an execution method has already been supplied:**

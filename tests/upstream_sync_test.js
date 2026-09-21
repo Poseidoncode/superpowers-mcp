@@ -84,8 +84,8 @@ async function runUpstreamSyncTests() {
     check("4 (PR #2265: contextual execution handoff)", () => {
         const plans = readSkill("writing-plans");
         expectContains(plans, "Recommended for this plan: [pick one]");
-        expectContains(plans, "**Subagent-driven** when tasks are largely independent");
-        expectContains(plans, "**Inline** when tasks share interfaces/state");
+        expectContains(plans, "**Subagent-driven** when your partner wants a review gate on every task");
+        expectContains(plans, "**Native (Inline)** when the plan is short-to-medium");
         expectContains(plans, "Never default to one without looking");
     });
 

@@ -101,6 +101,23 @@ set -e
 if [[ $rc -eq 0 ]]; then pass "quoting run exits 0"; else fail "quoting run exits 0 (got $rc)"; fi
 if grep -qF "'--pretty=format:%H %s'" "$WS/progress.md"; then pass "spaced arg single-quoted in ledger"; else fail "spaced arg single-quoted in ledger"; fi
 
+# 7. empty-output passing command: exit 0, placeholder in the ledger line
+set +e
+"$TASK_DONE" "$PLAN" 3 "$BASE" -- true >/dev/null 2>&1
+rc=$?
+set -e
+if [[ $rc -eq 0 ]]; then pass "empty-output command exits 0"; else fail "empty-output command exits 0 (got $rc)"; fi
+if grep -qF "Task 3: complete" "$WS/progress.md"; then pass "empty-output run recorded"; else fail "empty-output run recorded"; fi
+if grep -qF 'tests: true → (no output)' "$WS/progress.md"; then pass "empty output recorded as (no output)"; else fail "empty output recorded as (no output)"; fi
+
+# 8. blank-lines-only output is also empty after filtering
+set +e
+"$TASK_DONE" "$PLAN" 4 "$BASE" -- printf '\n\n' >/dev/null 2>&1
+rc=$?
+set -e
+if [[ $rc -eq 0 ]]; then pass "blank-output command exits 0"; else fail "blank-output command exits 0 (got $rc)"; fi
+if grep -qF '→ (no output)' "$WS/progress.md"; then pass "blank output recorded as (no output)"; else fail "blank output recorded as (no output)"; fi
+
 echo ""
 echo "task-done: $FAILURES failure(s)"
 exit "$FAILURES"

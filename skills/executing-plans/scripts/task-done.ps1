@@ -44,7 +44,7 @@ $ledger = Join-Path $dir "progress.md"
 
 # Render the command the way a person would type it, for the ledger line.
 $parts = foreach ($a in [string[]]$cmdArgs) {
-    if ($a -match '[\s"\\;|&]') { "'$a'" } else { $a }
+    if ($a -match '[\s";|&]') { "'$a'" } else { $a }
 }
 $cmd = $parts -join ' '
 
@@ -57,20 +57,27 @@ try {
     $rc = $LASTEXITCODE
 } catch {
     $rc = 127
+    if (-not (Test-Path -LiteralPath $log -PathType Leaf)) {
+        [System.IO.File]::WriteAllText($log, ($_.Exception.Message + [Environment]::NewLine), [System.Text.UTF8Encoding]::new($false))
+    }
 }
 
-Get-Content -LiteralPath $log -Tail 5
+if (Test-Path -LiteralPath $log -PathType Leaf) {
+    Get-Content -LiteralPath $log -Tail 5
+}
 if ($rc -ne 0) {
     [Console]::Error.WriteLine("task-done: test command exited $rc; Task $n NOT recorded (full output: $log)")
     exit $rc
 }
 
 $last = Get-Content -LiteralPath $log | Where-Object { $_ -match '\S' } | Select-Object -Last 1
+if ([string]::IsNullOrWhiteSpace($last)) { $last = "(no output)" }
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 if (-not (Test-Path -LiteralPath $ledger -PathType Leaf)) {
-    Set-Content -LiteralPath $ledger -Value "# SDD ledger — plan: $plan" -Encoding utf8
+    [System.IO.File]::WriteAllText($ledger, "# SDD ledger — plan: $plan" + [Environment]::NewLine, $utf8NoBom)
 }
 $base7 = (& git rev-parse --short=7 $base).Trim()
 $head7 = (& git rev-parse --short=7 HEAD).Trim()
 $line = "Task ${n}: complete (commits $base7..$head7, tests: $cmd → $last)"
-Add-Content -LiteralPath $ledger -Value $line -Encoding utf8
+[System.IO.File]::AppendAllText($ledger, $line + [Environment]::NewLine, $utf8NoBom)
 Write-Output "ledger: $line"

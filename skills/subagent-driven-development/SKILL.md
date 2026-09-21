@@ -562,7 +562,12 @@ on the most capable available model (see Model Selection), using
 superpowers:requesting-code-review's
 [code-reviewer.md](../requesting-code-review/code-reviewer.md). Point it at
 the ledger's deferred-minor and parked lines so it can triage which must be
-fixed before merge.
+fixed before merge. Rule on its "Declined to judge" list before the fix
+dispatch: every line there is a ruling you make and ledger —
+`Final: Ruling: <behavior the reviewer set aside> — <what a reasonable
+person using this software gets, and why that stands or why it is now a
+finding> — <cost if wrong>`. Nothing the reviewer set aside is dropped
+silently.
 
 If the final whole-branch review returns findings, dispatch ONE fix subagent
 with the complete findings list — not one fixer per finding.
