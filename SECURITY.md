@@ -6,6 +6,7 @@ The following versions of Superpowers MCP are currently supported with security 
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 6.4.x   | :white_check_mark: |
 | 6.3.x   | :white_check_mark: |
 | 6.2.x   | :white_check_mark: |
 | 6.0.x   | :white_check_mark: |
@@ -31,6 +32,26 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Acknowledgment**: Within 48 hours
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
+
+## v6.4.1 Native Plan Execution, Session Forensics & Deferred-Export Integrity Notes
+
+- **Zero-dependency, zero-advisory floor retained**: `npm audit` reports **0 vulnerabilities**. Runtime dependencies remain empty; the verified overrides (`hono` ^4.13.7, `@hono/node-server` ^2.1.1, `fast-uri` ^4.1.3, `qs` ^6.16.0) are unchanged. No `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` in shipped source.
+- **Inline plan helpers execute test commands as argv, not a shell** (`skills/executing-plans/scripts/task-done`, `task-done.ps1`):
+  - Bash runs `"$@"` after a required `--` separator; PowerShell runs `& $exe @rest` with `-LiteralPath` I/O and UTF-8-without-BOM ledger writes.
+  - The command line recorded in the ledger is a display rendering only. The executed argv is never re-parsed through `bash -c`, `Invoke-Expression`, or `shell: true`.
+  - PowerShell consumes an unquoted `--` as its own end-of-parameters marker; the `.ps1` port documents that limitation and still rejects a quoted `"--"` with no command. This is a host parsing constraint, not command injection.
+  - `task-start` / `task-done` invoke `sdd-workspace` via `"${BASH:-bash}"` (and the `.ps1` twin) so marketplace extractors that strip `+x` cannot silently skip workspace isolation (upstream #2040).
+  - Workspace resolution inherits `sdd-workspace`'s `CDPATH=''` sanitization, plan-scoped directory isolation, and canonical path markers.
+- **Session forensics skill is local-read, export-gated** (`skills/diagnosing-superpowers/`):
+  - Analysts read on-disk transcripts at verified absolute paths (`references/session-discovery.md`); they do not diagnose superpowers and do not open a network listener.
+  - Bundles are never built unprompted. GitHub issues are created only after partner approval. `references/redaction-policy.md` requires placeholders for emails, people, org ids, secrets, hosts, home paths, private repos, and proprietary terms.
+  - Scrubbing is best-effort: the skill tells the partner to review every file before sharing. That residual disclosure risk is accepted and documented, not claimed as a cryptographic guarantee.
+- **Deferred-findings export grep no longer drops inline minors**: both `executing-plans` and `subagent-driven-development` now grep
+  `Ruling:|^(Task [0-9]+: |Final: )?(minor \(deferred\)|parked)`
+  so `Final: minor (deferred): …` is exported, while completion lines such as `Task 5: complete (…, 2 parked)` stay excluded. Locked by `tests/upstream_sync_test.js` check `12b`.
+- **Remote-safety boundary retained in the rewritten executing-plans flow**: no agent-initiated push/pull/fetch or `git push --force*` to shared branches; shared-branch tracking is a stop-and-fix.
+- **Local Devin config is gitignored**: `.devin/` (including `config.local.json`, mode `0600` when present) is untracked. The 2026-09-21 scan found a local permissions-only file and closed the accidental-add path.
+- **Localized README floor**: `README.md`, `README.zh-TW.md`, `README.ja.md`, and `README.ko.md` badge **v6.4.1** and document the 365-assertion audit (argv `task-done`, export-gated diagnosing, deferred-findings grep, `.devin/` gitignore).
 
 ## v6.3.10 Security Hardening, Key Conflict Resolution & Cache Stat Integrity Notes
 
@@ -175,7 +196,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.3.10 - Verified: 2026-09-17)
+## Current Security Status (v6.4.1 - Verified: 2026-09-21)
 
 | Check | Status |
 | ----- | ------ |
@@ -212,7 +233,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | MCP Prompts Cascading Injection Defense | :white_check_mark: Secured — single-pass regex replacement (`interpolateTemplate`) eliminates multi-pass expansion; 32 KB length clamp & `hasOwnProperty` check neutralize prototype pollution and ReDoS |
 | Prompt Template Non-Empty & Structured Stderr Defense | :white_check_mark: Secured — `readPromptFileSafe` strictly halts on empty template, outputs structured diagnostic, and raises `McpError(ErrorCode.InternalError)` |
 | Applied Interpolation Tracking & Clean Prompt Output | :white_check_mark: Secured — template substitutions tracked via `appliedInterpolations`, preventing redundant argument appending |
-| Hardcoded secrets in tracked files | :zero: Zero — `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*`, `task.md` |
+| Hardcoded secrets in tracked files | :zero: Zero — `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*`, `task.md`, `.devin/` |
 | World-writable files | :zero: Zero |
 | MCP Tools/Prompts Path Traversal | :white_check_mark: Secured — dynamic prompt templating inherits `SkillsManager` double physical containment, `O_NOFOLLOW` / fd identity match, and safe argument sanitization |
 | Symlink / Path Traversal Defense | :white_check_mark: Secured — bounded `O_NOFOLLOW`/fd reads, `realpath` containment, private state files, canonical temp-deletion guard in v6.2.3, and hardened token-file read (`readPrivateFile`) rejecting symlinked/multi-link `.last-token` in v6.2.4; **unchanged in v6.3.0** (upstream's removal of these controls was deliberately not adopted) |
@@ -226,11 +247,14 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Shell Command Injection (`BRAINSTORM_OPEN_CMD`) | :white_check_mark: Patched — `cp.execFile` with argv array in v6.0.3 |
 | Shell Script Security (`install.sh`, `install.ps1`) | :white_check_mark: Secured — `set -euo pipefail` and quoted expansions in Bash; `$ErrorActionPreference = "Stop"` and array argument splatting in PowerShell |
 | CORS / Lambda / Set-Cookie (`hono`) | :white_check_mark: Patched — exact `hono` override (GHSA-8j4g-w8fx-2239) |
-| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-17) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 292/292 automated test assertions passed |
+| Inline plan `task-done` command execution | :white_check_mark: Secured — argv-array execution (`"$@"` / `& $exe @rest`); ledger rendering is display-only; bash requires `--`; PowerShell `-LiteralPath` + UTF-8-without-BOM |
+| Diagnosing-superpowers transcript export | :white_check_mark: Gated — local reads only; no unprompted bundle; redaction policy; partner review required before sharing |
+| Deferred-findings export grep | :white_check_mark: Secured — `Final: minor (deferred):` exported; completion-line `parked` counts excluded (`tests/upstream_sync_test.js` 12b) |
+| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-21) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 365/365 automated test assertions passed |
 
-## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-17)
+## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-21)
 
-A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, secret hygiene, and automated regression testing.
+A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, native plan-execution helpers, session-forensics skill, secret hygiene, and automated regression testing. The v6.3.10 controls remain in force; this pass re-verified them and added the v6.4.1 surfaces below.
 
 ### 1. Dependencies & Supply Chain
 - **Vulnerability Audit**: `npm audit` returned **0 vulnerabilities**.
@@ -324,11 +348,17 @@ A full repository security audit was conducted covering dependencies, core MCP s
   - `find-polluter.sh` & `find-polluter.ps1`: caller-supplied test command with array splatting (`"${TEST_COMMAND[@]}"`, `& $testCommand @testCommandArgs`), safe while loop reading spaced filenames, preventing shell command injection.
   - `sdd-workspace`: sanitized `CDPATH=''` to prevent cd redirection attacks.
   - `sdd-workspace.ps1`: UTF-8 without BOM encoding (`[System.Text.UTF8Encoding]::new($false)`) for plan marker paths, ensuring lossless Unicode path round-tripping.
+  - `task-done` / `task-done.ps1`: operator-supplied test commands execute as argv (`"$@"` / `& $exe @rest`); failing runs write the log and do not append a ledger line; empty/blank stdout is recorded as `(no output)`.
+
+### 4b. Native Plan Execution & Session Forensics (v6.4.1)
+- **`task-start` / `task-done`**: share the SDD workspace so an inline executor and an SDD controller can resume from the same ledger. Helpers are invoked through `bash` / `pwsh` rather than relying on execute bits.
+- **Trust model**: these scripts run commands the operator (or the in-session agent acting for them) already chose as the task's verification command — the same model as `find-polluter`. They do not introduce a remote execution surface.
+- **`diagnosing-superpowers`**: reads local transcripts; export and GitHub-issue steps are partner-gated; `references/redaction-policy.md` is mandatory before a bundle leaves the machine.
 
 ### 5. Secrets & Git Hygiene
-- **Secret Scanning**: No hardcoded API keys, private keys, or tokens detected in tracked files.
-- **Git Ignore**: Comprehensive rules in `.gitignore` cover `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*`, `task.md`, and ephemeral worktrees.
-- **Working Tree & File Modes**: Clean git status without untracked artifacts. Zero world-writable files.
+- **Secret Scanning**: No hardcoded API keys, private keys, or tokens detected in tracked files. Pattern scan covered `SKILLS_PATH` sources, scripts, tests, and skill docs (189 files): `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` = 0 in shipped code.
+- **Git Ignore**: Comprehensive rules in `.gitignore` cover `.env*`, `*.pem`, `*.key`, `*.token`, `credentials*`, `task.md`, `.devin/`, and ephemeral worktrees. A local `.devin/config.local.json` (mode `0600`, permissions-only, untracked) was present during the 2026-09-21 scan; `.devin/` is now ignored so it cannot be added accidentally.
+- **Working Tree & File Modes**: Zero world-writable files in the repository tree (excluding `.git` / `node_modules`).
 
 ### 6. Automated Security & Edge-Case Verification
 - **Edge Cases & Security Suite** (`tests/edge_cases_test.js`): Passed **11/11 tests** (BOM handling, traversal blocking, concurrency locks, dot-named skills, transient failure cache preservation, automatic cache revalidation, duplicate skill-name collision handling, single-stat cache validation, and epoch invalidation).
@@ -338,12 +368,13 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **Global Setup Engine Suite** (`tests/setup_test.js`): Passed **47/47 tests** (Full coverage across 17 AI agent harnesses: Antigravity, Pi Desktop, Cursor, Copilot, Copilot Insiders, Hermes, Kimi, Claude, Devin, QwenPaw, Cline, Kilo Code, Qoder, Kiro, Trae, LM Studio, Roo Code; JSONC comment tolerance, YAML comment preservation, YAML linear ReDoS guard with 60,000 whitespace padding, `--print-config` clean JSON emission, `json-mcp` local format, YAML injection defense, plain object validation, anti-bulk target consent, cross-platform path resolution, atomic write sandbox & symlink preservation, idempotent removal, double invocation defense, parent-directory symlink breakout defense, concurrent config change detection, fail-closed shape parsing, user-managed JSON fields preservation, multi-root keys reuse, disabled flag consistency, non-identifier YAML indentation, and malformed CLI invocation exit codes).
 - **SDD Workspace Bash Suite** (`tests/sdd/test-sdd-workspace.sh`): Passed **16/16 tests** (Workspace isolation, path normalization, collision counters, commit range validation, permission-stripped execution).
 - **Writing Skills Render Graphs Suite** (`tests/writing-skills/test-render-graphs.sh`): Passed **8/8 tests** (Direct binary execution, SVG rendering, output verification, error capture).
-- **PowerShell Script Hardening Suite** (`tests/powershell/`): Passed **94/94 assertions** across 5 test scripts (`test-brainstorming-server.ps1`: 29, `test-find-polluter.ps1`: 12, `test-review-package.ps1`: 20, `test-sdd-workspace.ps1`: 20, `test-task-brief.ps1`: 13).
-- **Upstream Sync Regression Suite** (`tests/upstream_sync_test.js`): Passed **22/22 checks** pinning the imported upstream content (Batches 1-4: skill routing, evidence law, intent gates, remote-safety, SDD review-file contract, brainstorm host defaults).
-- **MCP Surface Coverage Suite** (`tests/mcp_coverage_test.js`): Passed **17/17 checks** (one resource per skill on disk, each resource serves that skill's own content, prompt inventory matches all four READMEs exactly, composition guide references only real surfaces, composition guides included in npm package, and unsafe SKILLS_PATH rejection).
+- **PowerShell Script Hardening Suite** (`tests/powershell/`): Passed **128/128 assertions** across 7 test scripts (`test-brainstorming-server.ps1`: 29, `test-find-polluter.ps1`: 12, `test-review-package.ps1`: 20, `test-sdd-workspace.ps1`: 20, `test-task-brief.ps1`: 13, `test-task-start.ps1`: 8, `test-task-done.ps1`: 26).
+- **Upstream Sync Regression Suite** (`tests/upstream_sync_test.js`): Passed **29/29 checks** pinning the imported upstream content (Batches 1-4 plus v6.4.1 native execution, diagnosing-superpowers, interpreter invocation, and export-grep `12b` for `Final: minor (deferred):`).
+- **MCP Surface Coverage Suite** (`tests/mcp_coverage_test.js`): Passed **17/17 checks** (one resource per skill on disk, each resource serves that skill's own content, prompt inventory matches all four READMEs exactly, composition guides included in npm package, and unsafe SKILLS_PATH rejection).
 - **Upstream Drift Suite** (`tests/drift_test.js`): Passed **10/10 checks** (the offline CLI run is one of them); the committed baseline (`tests/upstream-sync-baseline.json`) records the upstream blob SHAs of every adopted skill file, so a deleted import, a lost upstream lineage or a stale ignore entry fails here. Network mode (`npm run drift`) compares the baseline against upstream without writing anything.
 - **Brainstorm Host Defaults Bash Suite** (`tests/brainstorming/test-start-server-env-hosts.sh`): Passed **11/11 tests** (env-supplied bind/url hosts, flag precedence, empty values, and the non-loopback refusal).
-- **Total Automated Regression Floor**: **292 automated test assertions across Node.js (163), Bash (35), and PowerShell (94), 100% pass rate, 0 regressions**.
+- **Executing-Plans Helper Suites** (`tests/executing-plans/`, wired into `npm test`): Passed **32/32 tests** (`test-task-start.sh`: 7, `test-task-done.sh`: 25) covering argv quoting, empty/blank output as `(no output)`, failing runs writing no ledger, and Task 4 blank-output isolation.
+- **Total Automated Regression Floor**: **365 automated test assertions across Node.js (170), Bash (67), and PowerShell (128), 100% pass rate, 0 regressions**.
 
 
 ---
@@ -357,3 +388,5 @@ When using Superpowers MCP:
 - Report any suspicious behavior immediately
 - The brainstorming Visual Companion starts a local HTTP+WebSocket server bound to `127.0.0.1` on an ephemeral port. Access is gated by a 256-bit key (transmitted only in the initial URL, then held in an `HttpOnly`/`SameSite=Strict` cookie and compared in constant time) plus a WebSocket Origin check. With `--project-dir` the key is persisted to an owner-only `.last-token` and reused across restarts (delete the file with the server stopped to rotate); ephemeral sessions get a fresh key per invocation. Do not set `BRAINSTORM_HOST` or `BRAINSTORM_URL_HOST` to a non-loopback value; use an authenticated SSH tunnel or TLS reverse proxy for remote browser access, and never share the companion URL with others.
 - Server-generated files (`server-info`, session state, and launcher logs) are written with owner-only permissions (`0o600` / `umask 077` / ACL-restricted on Windows)
+- `task-done` / `find-polluter` run the verification command you (or the in-session agent) already chose, as argv, in the local workspace. Do not point them at untrusted binaries.
+- A `diagnosing-superpowers` bundle is a scrubbed copy of local transcripts. Review every file before sharing; redaction can miss things.

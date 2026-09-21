@@ -217,6 +217,42 @@ async function runUpstreamSyncTests() {
         expectContains(finishing, 'a "Deferred items" checklist carrying every ledger line tagged');
     });
 
+    check("12b (PR #2255: export grep catches Final: minor (deferred))", () => {
+        const extract = (text, label) => {
+            const match = text.match(/grep -E '([^']+)'/);
+            assert.ok(match, `${label} must ship an export grep -E pattern`);
+            return match[1];
+        };
+        const executingPat = extract(readSkill("executing-plans"), "executing-plans");
+        const sddPat = extract(readSkill("subagent-driven-development"), "subagent-driven-development");
+        assert.strictEqual(
+            executingPat,
+            sddPat,
+            "executing-plans and SDD must share one export grep"
+        );
+        expectContains(executingPat, "Final: ");
+
+        const re = new RegExp(executingPat);
+        const mustMatch = [
+            "Final: minor (deferred): polish the error message",
+            "Task 3: minor (deferred): unused helper",
+            "Final: Ruling: declined to judge X",
+            "Task 4: parked — flaky timeout — Ruling: code stands",
+            "Task 2: Ruling: install_hook → installHook",
+        ];
+        const mustMiss = [
+            "Task 1: complete (commits a1b2c3d..d4e5f6a, tests: npm test → 1/1 pass)",
+            "Task 5: complete (commits a1b2c3d..d4e5f6a, 2 parked)",
+            "Final: fixed missing null check — test_null RED→GREEN, suite 8/8",
+        ];
+        for (const line of mustMatch) {
+            assert.ok(re.test(line), `export grep must match: ${line}`);
+        }
+        for (const line of mustMiss) {
+            assert.ok(!re.test(line), `export grep must not match: ${line}`);
+        }
+    });
+
     // Test 13: PR #2276 — SDD scripts survive a greenfield (no repo yet) plan
     check("13 (PR #2276: greenfield SDD scripts)", () => {
         const workspace = readSkillFile("subagent-driven-development", "scripts/sdd-workspace");
@@ -310,17 +346,19 @@ async function runUpstreamSyncTests() {
         const executing = readSkill("executing-plans");
         expectContains(executing, "Rulings, not stalls");
         expectContains(executing, "Do not pause to check in with your human partner");
-        expectContains(executing, "scripts/task-start PLAN_FILE N");
-        expectContains(executing, "scripts/task-done PLAN_FILE N BASE");
+        expectContains(executing, "bash scripts/task-start PLAN_FILE N");
+        expectContains(executing, "bash scripts/task-done PLAN_FILE N BASE");
     });
 
     check("18b (v6.4.1: task-start / task-done ship)", () => {
         const start = readSkillFile("executing-plans", "scripts/task-start");
         expectContains(start, "task-start PLAN_FILE TASK_NUMBER");
         expectContains(start, "base: $(git rev-parse HEAD)");
+        expectContains(start, '"${BASH:-bash}"');
         const done = readSkillFile("executing-plans", "scripts/task-done");
         expectContains(done, "task-done PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND");
         expectContains(done, "Task $n: complete");
+        expectContains(done, '"${BASH:-bash}"');
     });
 
     check("18c (v6.4.1: review behavior)", () => {

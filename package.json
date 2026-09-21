@@ -47,7 +47,7 @@
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "pretest": "npm run build",
-    "test": "node tests/edge_cases_test.js && node tests/run_test.js && node tests/brainstorm_server_test.js && node tests/prompts_compositions_test.js && node tests/upstream_sync_test.js && node tests/mcp_coverage_test.js && node tests/drift_test.js && node tests/setup_test.js",
+    "test": "node tests/edge_cases_test.js && node tests/run_test.js && node tests/brainstorm_server_test.js && node tests/prompts_compositions_test.js && node tests/upstream_sync_test.js && node tests/mcp_coverage_test.js && node tests/drift_test.js && node tests/setup_test.js && bash tests/executing-plans/test-task-start.sh && bash tests/executing-plans/test-task-done.sh",
     "drift": "node scripts/upstream-drift.js --fetch",
     "drift:record": "node scripts/upstream-drift.js --record",
     "prepublishOnly": "npm run build"

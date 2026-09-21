@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.3.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -190,6 +190,12 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 - **Windows 대응 및 회귀 플로어**:
   - 신규 `task-start.ps1` / `task-done.ps1`과 sh/ps1 대칭 테스트 스위트.
   - 채택된 PR 내구성 콘텐츠 전부 유지(Discoveries 원장, 리뷰 파일 계약, greenfield 스크립트, 원격 안전 경계); drift 베이스라인 재기록, 잔여 차이 없음.
+- **포괄적인 보안 감사 및 자동화 회귀 테스트 기준선** ([`SECURITY.md`](SECURITY.md)):
+  - 전체 스위트 **365개 자동 어서션**(Node.js: 170, Bash: 67, PowerShell: 128) 100% 통과, 취약점 0건, 기밀 유출 0건 확인.
+  - 인라인 `task-done`은 운영자가 지정한 테스트를 argv로 실행(`"$@"` / `& $exe @rest`)하며 셸로 재해석하지 않음. 원장 기록은 표시 전용.
+  - `diagnosing-superpowers`는 로컬 읽기만 수행하고 내보내기는 상대 승인 후. 스크럽은 최선을 다하는 수준이므로 공유 전 반드시 검토.
+  - 지연 findings 내보내기는 `Final: minor (deferred):`를 포함하며 완료 줄의 parked 건수에는 일치하지 않음.
+  - 로컬 Devin 설정(`.devin/`)은 gitignore됨.
 
 ### v6.3.10
 

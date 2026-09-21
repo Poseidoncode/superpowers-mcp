@@ -28,3 +28,4 @@ target-learn/
 *.token
 credentials*
 task.md
+.devin/

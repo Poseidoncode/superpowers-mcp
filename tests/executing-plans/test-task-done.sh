@@ -116,7 +116,8 @@ set +e
 rc=$?
 set -e
 if [[ $rc -eq 0 ]]; then pass "blank-output command exits 0"; else fail "blank-output command exits 0 (got $rc)"; fi
-if grep -qF '→ (no output)' "$WS/progress.md"; then pass "blank output recorded as (no output)"; else fail "blank output recorded as (no output)"; fi
+if grep -qF "Task 4: complete" "$WS/progress.md"; then pass "blank-output run recorded"; else fail "blank-output run recorded"; fi
+if grep -qE 'Task 4: complete.*→ \(no output\)' "$WS/progress.md"; then pass "blank output recorded as (no output)"; else fail "blank output recorded as (no output)"; fi
 
 echo ""
 echo "task-done: $FAILURES failure(s)"

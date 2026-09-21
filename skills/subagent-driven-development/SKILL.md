@@ -601,7 +601,7 @@ carry them, because git records what was done. So export them before
 anything is deleted: grep the progress ledger for its three finding tags
 
 ```bash
-grep -E 'Ruling:|^(Task [0-9]+: )?(minor \(deferred\)|parked)' <workspace>/progress.md
+grep -E 'Ruling:|^(Task [0-9]+: |Final: )?(minor \(deferred\)|parked)' <workspace>/progress.md
 ```
 
 and carry every matching line, verbatim, into a durable, human-reachable

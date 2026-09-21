@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.3.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.4.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -190,6 +190,12 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 - **Windows 對等與迴歸防線**：
   - 新增 `task-start.ps1` / `task-done.ps1` 與 sh/ps1 對稱測試。
   - 既有 PR 採用內容全數保留（Discoveries 帳本、審查檔契約、greenfield 腳本、遠端安全邊界）；drift 基準重錄，零殘留差異。
+- **全方位安全審計與回歸測試底線**（[`SECURITY.md`](SECURITY.md)）：
+  - 全套件 **365 項自動化測試斷言**（Node.js: 170、Bash: 67、PowerShell: 128）100% 通過，0 漏洞、0 敏感資訊外洩。
+  - 會話內 `task-done` 以 argv 執行操作者指定的測試（`"$@"` / `& $exe @rest`），不是 shell；帳本內容僅供顯示。
+  - `diagnosing-superpowers` 僅讀本機紀錄、匯出需對方同意；脫敏為盡力而為，分享前仍須人工檢查。
+  - 延後發現匯出已涵蓋 `Final: minor (deferred):`，且不會誤抓完成列的 parked 計數。
+  - 本機 Devin 設定（`.devin/`）已列入 gitignore。
 
 ### v6.3.10
 

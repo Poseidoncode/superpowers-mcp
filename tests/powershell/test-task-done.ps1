@@ -90,7 +90,8 @@ Do task two.
         & $scriptPath $plan 4 $base -- $pwshBin -NoProfile -Command "Write-Output ''; Write-Output ''" > $null
         Assert-ExitCode $LASTEXITCODE 0 "blank-output command exits 0"
         $ledgerText5 = Get-Content -LiteralPath $ledger -Raw
-        Assert-True ($ledgerText5 -match "→ \(no output\)") "blank output recorded as (no output)"
+        Assert-True ($ledgerText5 -match "Task 4: complete") "blank-output run recorded"
+        Assert-True ($ledgerText5 -match "Task 4: complete.*→ \(no output\)") "blank output recorded as (no output)"
     }
     finally {
         Pop-Location
