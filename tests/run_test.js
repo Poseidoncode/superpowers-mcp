@@ -15,7 +15,8 @@ const watchdog = setTimeout(() => {
     server.kill();
     process.exit(1);
 }, 10000);
-watchdog.unref();
+
+let finished = false;
 
 server.stdout.on("data", (data) => {
     buffer += data.toString();
@@ -103,8 +104,22 @@ server.stdout.on("data", (data) => {
                     process.exit(1);
                 }
             } else if (response.id === 5) {
-                if (response.result && Array.isArray(response.result.prompts) && response.result.prompts.length >= 6) {
-                    console.log(`✅ prompts/list OK (${response.result.prompts.length} prompts found)`);
+                const got = (response.result && Array.isArray(response.result.prompts))
+                    ? response.result.prompts.map((p) => p.name).sort()
+                    : null;
+                const expected = [
+                    "feature-pipeline",
+                    "plan-reviewer",
+                    "sdd-implementer",
+                    "sdd-re-review",
+                    "sdd-task-reviewer",
+                    "session-start",
+                    "skill-composition",
+                    "spec-reviewer",
+                    "structured-debug",
+                ];
+                if (got !== null && JSON.stringify(got) === JSON.stringify(expected)) {
+                    console.log(`✅ prompts/list OK (${got.length} prompts found)`);
                     // Test prompts/get for sdd-implementer
                     sendRequest({
                         jsonrpc: "2.0",
@@ -153,6 +168,7 @@ server.stdout.on("data", (data) => {
                     const text = response.result.messages[0].content.text;
                     if (text.includes("docs/plans/2026-09-05-auth.md") && text.includes("docs/specs/2026-09-05-auth-spec.md")) {
                         console.log("✅ prompts/get plan-reviewer OK (spec_file & plan_file interpolation verified)");
+                        finished = true;
                         server.kill();
                         console.log("\n🎉 ALL TESTS PASSED SUCCESSFULLY!");
                         process.exit(0);
@@ -175,9 +191,9 @@ server.stderr.on("data", (data) => {
     console.error(`[Server Stderr] ${data.toString()}`);
 });
 
-server.on("close", (code) => {
-    if (code !== 0 && code !== null) {
-        console.error(`Server process exited with code ${code}`);
+server.on("close", () => {
+    if (!finished) {
+        console.error("❌ Server exited before all tests completed");
         process.exit(1);
     }
 });

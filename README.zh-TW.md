@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![版本](https://img.shields.io/badge/version-6.4.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -178,7 +178,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.4.1 (最新版)
+### v6.4.2 (最新版)
+
+- **v6.4.2 安全審計與程式碼審計（2026-09-24）**：補上 MCP 伺服器、安裝腳本、建置管線與測試工具的審計缺口（詳見 [SECURITY.md](SECURITY.md)）。
+  - **路徑穿越與錯誤訊息修正**：技能名稱先解碼再通過白名單驗證，double-encoding 的 `..%2f` / `%2e%2e` 載荷會以 `InvalidParams` 拒絕；未知工具與 Prompt 改回傳具體可操作的 `InvalidParams`，不再誤報 `MethodNotFound`。
+  - **TOCTOU 與破壞性路徑防護**：符號連結檢查後重新驗證 canonical path、快取清理須通過 copy manifest 閘門（fork 自有技能絕不會被誤刪）、drift/coverage 記錄改以暫存檔 + rename 原子寫入。
+  - **無競態建置與軟失敗同步**：`out/setup.js` 建置加上獨佔鎖與 mtime 新鮮度重查、watch 模式輸出補上 chmod 執行權限、上游來源缺漏時優雅結束而不是誤報 drift。
+  - **誠實的測試工具**：watchdog 加 ref、server `exit`/`close` 處理器杜絕靜默掛死、drift 測試加上網路封鎖、特權降級的 skip 不再計為通過 — 回歸基準維持 **365/365** 斷言。
+
+### v6.4.1
 
 - **上游同步至 obra/superpowers v6.4.1**：
   - **原生會話內執行**：重寫的 `executing-plans` 以新版 `task-start` / `task-done` 跑完全部計畫，最後再做一次全分支審查，不再中途停下來確認。

@@ -10,8 +10,10 @@ server.on("error", (err) => {
     process.exit(1);
 });
 
+let finished = false;
+
 server.on("exit", (code, signal) => {
-    if (code !== 0 && code !== null) {
+    if (!finished) {
         console.error(`❌ Server exited prematurely with code ${code}, signal ${signal}`);
         process.exit(1);
     }
@@ -28,7 +30,6 @@ const watchdog = setTimeout(() => {
     server.kill();
     process.exit(1);
 }, 10000);
-watchdog.unref();
 
 server.stdout.on("data", (data) => {
     buffer += data.toString();
@@ -419,6 +420,7 @@ server.stdout.on("data", (data) => {
                 if (text.includes("# Skill: brainstorming")) {
                     console.log("✅ read_skill accepts the documented superpowers: prefix");
                     console.log("🎉 ALL ADVANCED COMPOSITIONS & SECURITY PROMPT TESTS PASSED 100%!");
+                    finished = true;
                     server.kill();
                     process.exit(0);
                 }

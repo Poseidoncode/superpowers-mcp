@@ -10,7 +10,7 @@ export interface SkillMeta {
 
 const MAX_SKILL_FILE_BYTES = 10 * 1024 * 1024;
 // 熱路徑：此區間內的連續呼叫直接回傳記憶體快取，完全不觸碰磁碟
-const CACHE_REVALIDATE_MS = 1000;
+export const CACHE_REVALIDATE_MS = 1000;
 
 interface FileStatSnapshot {
     dev: number;
@@ -112,16 +112,24 @@ export class SkillsManager {
             if (cacheIsFresh) {
                 return this.cachedSkills;
             }
+        }
 
-            if (
-                this.skillSignature !== null &&
-                (await this.computeSkillSignature()) === this.skillSignature
-            ) {
-                // 內容完全未變：只需一次 readdir 與每檔 lstat 即可確認，
-                // 不需要重新讀取任何技能檔案內容。
-                this.lastSuccessfulScanAt = Date.now();
-                return this.cachedSkills;
-            }
+        // Cold path: take the directory signature exactly once and reuse it for both
+        // the "unchanged" short-circuit below and the scan, so a rescan no longer
+        // stats the whole skills directory twice (previously computeSkillSignature ran
+        // here and again at the start of internalListSkills).
+        const currentSignature = await this.computeSkillSignature();
+
+        if (
+            !forceReload &&
+            this.cachedSkills &&
+            this.skillSignature !== null &&
+            currentSignature === this.skillSignature
+        ) {
+            // 內容完全未變：只需一次 readdir 與每檔 lstat 即可確認，
+            // 不需要重新讀取任何技能檔案內容。
+            this.lastSuccessfulScanAt = Date.now();
+            return this.cachedSkills;
         }
 
         if (forceReload) {
@@ -129,7 +137,9 @@ export class SkillsManager {
         }
 
         const inFlight = this.loadingPromise;
-        if (inFlight && this.loadingEpoch === this.scanEpoch) {
+        // A forced reload must start its own scan; joining an in-flight one that began
+        // before this reload dropped the content caches could return stale content.
+        if (!forceReload && inFlight && this.loadingEpoch === this.scanEpoch) {
             // 單飛（single-flight）：尚未失效的進行中掃描直接共用，它正在讀取的就是
             // 最新磁碟狀態。舊行為讓每個強制重載各自啟動一趟完整掃描，並行的
             // subagent 會把磁碟 I/O 放大為好幾倍。
@@ -137,7 +147,7 @@ export class SkillsManager {
         }
 
         const epoch = ++this.scanEpoch;
-        const currentPromise = this.internalListSkills(epoch);
+        const currentPromise = this.internalListSkills(epoch, currentSignature);
         this.loadingPromise = currentPromise;
         this.loadingEpoch = epoch;
         try {
@@ -182,17 +192,23 @@ export class SkillsManager {
 
         try {
             const entries = await fs.readdir(this.skillsPath, { withFileTypes: true });
-            const parts: string[] = [];
-            for (const entry of entries) {
-                const skillDir = path.join(this.skillsPath, entry.name);
-                const kind = entry.isDirectory() ? "d" : entry.isSymbolicLink() ? "l" : "f";
-                // 只需 SKILL.md 的 mode/ino/size/mtime：ino 已足以識別目錄或檔案被
-                // 替換，因此每個技能僅需一次 lstat。符號連結額外比對連結本身的
-                // inode，以便偵測「連結被重新指向」。
-                const linkInfo = kind === "l" ? await describe(skillDir) : "-";
-                const fileInfo = await describe(path.join(skillDir, "SKILL.md"));
-                parts.push(`${entry.name}\u0000${kind}\u0000${linkInfo}\u0000${fileInfo}`);
-            }
+            // Only directories and symlinks can be skills; skip stray files (e.g.
+            // .DS_Store) so their appearance/disappearance does not invalidate the
+            // signature and force a full rescan. lstat each candidate in parallel —
+            // the previous sequential awaits made the fingerprint cost O(n) round trips.
+            const candidates = entries.filter((entry) => entry.isDirectory() || entry.isSymbolicLink());
+            const parts = await Promise.all(
+                candidates.map(async (entry) => {
+                    const skillDir = path.join(this.skillsPath, entry.name);
+                    const kind = entry.isDirectory() ? "d" : "l";
+                    // 只需 SKILL.md 的 mode/ino/size/mtime：ino 已足以識別目錄或檔案被
+                    // 替換，因此每個技能僅需一次 lstat。符號連結額外比對連結本身的
+                    // inode，以便偵測「連結被重新指向」。
+                    const linkInfo = kind === "l" ? await describe(skillDir) : "-";
+                    const fileInfo = await describe(path.join(skillDir, "SKILL.md"));
+                    return `${entry.name}\u0000${kind}\u0000${linkInfo}\u0000${fileInfo}`;
+                })
+            );
             parts.sort();
             return parts.join("\u0001");
         } catch {
@@ -200,7 +216,7 @@ export class SkillsManager {
         }
     }
 
-    private async internalListSkills(epoch = this.scanEpoch): Promise<SkillMeta[]> {
+    private async internalListSkills(epoch = this.scanEpoch, precomputedSignature?: string | null): Promise<SkillMeta[]> {
         let preResolvedRoot: { realRootPath: string; rootStat: Stats } | undefined;
         try {
             const resolvedRoot = path.resolve(this.skillsPath);
@@ -216,8 +232,9 @@ export class SkillsManager {
 
         // 掃描開始前先取得目錄指紋，供下一次冷路徑呼叫快速比對。
         // 先取指紋再讀檔，可確保「掃描期間才發生的變更」會讓下次比對失敗而觸發
-        // 完整重掃，不會被誤判為未變更。
-        const signature = await this.computeSkillSignature();
+        // 完整重掃，不會被誤判為未變更。listSkills 已算過一次時直接沿用，避免
+        // 重複對整個目錄做 readdir + lstat。
+        const signature = precomputedSignature !== undefined ? precomputedSignature : await this.computeSkillSignature();
 
         const skills: SkillMeta[] = [];
         const newSkillMap = new Map<string, SkillMeta>();
@@ -412,7 +429,17 @@ export class SkillsManager {
             }
 
             const after = await fd.stat();
-            if (after.size > MAX_SKILL_FILE_BYTES || after.dev !== stat.dev || after.ino !== stat.ino) {
+            // Require the file to be byte-for-byte unchanged since the pre-open
+            // snapshot: if it grew (or was rewritten) mid-read we would otherwise cache
+            // truncated content under the post-read stat and serve it until the next
+            // write. size/mtime equality closes that TOCTOU window.
+            if (
+                after.size > MAX_SKILL_FILE_BYTES ||
+                after.dev !== stat.dev ||
+                after.ino !== stat.ino ||
+                after.size !== stat.size ||
+                after.mtimeMs !== stat.mtimeMs
+            ) {
                 throw new Error("File changed while reading");
             }
             return { content: fileBuffer.toString("utf-8"), realFilePath, stat: after };

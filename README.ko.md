@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -178,7 +178,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.4.1 (최신)
+### v6.4.2 (최신)
+
+- **v6.4.2 보안 감사 및 코드 리뷰 (2026-09-24)**: MCP 서버, 설정 스크립트, 빌드 파이프라인, 테스트 하네스의 감사 지적 사항을 수정했습니다(자세한 내용은 [SECURITY.md](SECURITY.md)).
+  - **경로 탐색 및 오류 위생**: 스킬 이름을 허용 목록 검증 *전*에 디코드하여 이중 인코딩된 `..%2f` / `%2e%2e` 페이로드를 `InvalidParams`로 거부합니다. 미지의 도구와 프롬프트도 `MethodNotFound` 대신 실행 가능한 `InvalidParams` 오류를 반환합니다.
+  - **TOCTOU 및 파괴적 경로 방어**: 심볼릭 링크 검사 후 canonical path 재검증, 캐시 정리를 복사 매니페스트로 게이트(포크 전용 스킬은 절대 삭제되지 않음), drift/coverage 기록은 임시 파일 + rename으로 원자적으로 기록.
+  - **경쟁 없는 빌드와 소프트 페일 동기화**: `out/setup.js` 빌드는 배타적 잠금 + mtime 신선도 재확인, watch 모드 출력에 chmod 적용, 업스트림 소스 누락 시 오탐 drift 없이 정상 종료.
+  - **정직한 테스트 하네스**: watchdog에 ref와 서버 `exit`/`close` 핸들러로 조용한 종료 차단, drift 테스트는 네트워크 차단 하에 실행, 권한 제한 skip은 합격으로 집계되지 않음 — 회귀 기준선은 **365/365** 어서션 유지.
+
+### v6.4.1
 
 - **상류 obra/superpowers v6.4.1 동기화**:
   - **네이티브 인라인 실행**: 새로 작성된 `executing-plans`가 신규 `task-start` / `task-done`으로 전체 계획을 실행한 뒤 브랜치 전체를 한 번만 리뷰(중간 체크인 없음).

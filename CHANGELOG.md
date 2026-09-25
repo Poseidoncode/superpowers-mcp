@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.4.2] - 2026-09-25
+
+### Security
+
+- **Input validation order fixed (URI / skill-name traversal)**: skill names are now percent-decoded **before** the `skill` allowlist regex runs, bounded to `[A-Za-z0-9._-]` with a length cap, so double-encoded traversal (`..%2f`, `%2e%2e%2f`), encoded NUL, and oversized names are rejected with `InvalidParams`. Unknown `call_tool` / `get_prompt` names now throw `InvalidParams` instead of `MethodNotFound`.
+- **TOCTOU / canonical-path re-verification**: the symlink walk re-checks the canonical path after resolution and before use (directory-swap window closed); streamed skill imports re-stat after the read and roll back when `size` / `mtimeMs` changed mid-read.
+- **Manifest-gated destructive cleanup**: `copy-skills.js` records every copied file; only manifest-listed upstream skills are eligible for cache cleanup (fork-specific skills can never be deleted), missing upstream sources exit `0` instead of creating false drift, and mtime/size staleness is re-checked before cleanup.
+- **Atomic, race-safe persistence**: drift baselines and coverage records write through a temp file + `rename`; `setup.js` serializes builds with an exclusive (`wx`) lock and re-reads `mtimeMs`/`size` after its own rebuild, so concurrent installs can no longer ship a half-written `out/setup.js`.
+
+### Fixed
+
+- **Backup hygiene**: repeated `setup --backup` runs now prune old timestamped `.bak` files (keeps the 10 newest) instead of accumulating them indefinitely (audit finding: setup/skills).
+- **Fail-soft sync**: truncated or failed upstream trees no longer emit "removed skill" drift; interrupted purge is gated by the copy manifest.
+- **Graceful teardown**: MCP shutdown reuses the process exit code instead of masking failures with `process.exit(0)`.
+- **Build pipeline**: `esbuild.js` applies `chmod 0755` in watch mode too; setup runner keeps devin/mcp_servers writes at user-owned paths and refuses root-level YAML writes for nested (project) config blocks.
+
+### Testing
+
+- **Honest test harness**: the coverage watchdog is ref'd and cleared on the success path, server `exit`/`close` handlers fail the run instead of hanging to a silent exit 0, drift tests run under a network guard (`tests/block_network.cjs`), and privilege-limited skips can no longer inflate pass counts.
+- **Verification**: `npm test` green — **365/365** assertions (Node.js 170, Bash 67, PowerShell 128); `npm run build`, `npm run drift`, and `npm audit` (0 vulnerabilities) clean.
+
+### Documentation
+
+- `SECURITY.md` records the audit scope, remediation details, and re-verification date (2026-09-25).
+- `README.md`, `README.zh-TW.md`, `README.ja.md`, `README.ko.md` badge **v6.4.2** and document the audit remediation in Recent Updates.
+
 ## [6.4.1] - 2026-09-21
 
 ### Upstream Sync to obra/superpowers v6.4.1, Native Plan Execution & Session Forensics

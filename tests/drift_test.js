@@ -184,11 +184,19 @@ check("9 (parseArgs)", () => {
 });
 
 // 10. The CLI's offline mode works end to end without the network.
+// The guard module (#15) makes any fetch/http(s) attempt throw, proving the
+// default path never touches the network instead of merely inheriting it.
 check("10 (CLI offline mode)", () => {
-    const output = execFileSync("node", [path.join(ROOT, "scripts", "upstream-drift.js")], { encoding: "utf-8" });
+    const guard = path.join(__dirname, "block_network.cjs");
+    const run = (args) => execFileSync(
+        "node",
+        ["--require", guard, path.join(ROOT, "scripts", "upstream-drift.js"), ...args],
+        { encoding: "utf-8" }
+    );
+    const output = run([]);
     assert.ok(output.includes("Baseline: obra/superpowers@"), output);
     assert.ok(output.includes("Tracked upstream skill files: "), output);
-    const json = JSON.parse(execFileSync("node", [path.join(ROOT, "scripts", "upstream-drift.js"), "--json"], { encoding: "utf-8" }));
+    const json = JSON.parse(run(["--json"]));
     assert.strictEqual(json.baseline.tracked, Object.keys(readBaseline().files).length);
     assert.deepStrictEqual(json.coverage.missingLocal, []);
 });

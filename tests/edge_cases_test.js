@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const assert = require("assert");
-const { SkillsManager } = require("../out/skills-manager.js");
+const { SkillsManager, CACHE_REVALIDATE_MS } = require("../out/skills-manager.js");
 
 async function runEdgeCaseTests() {
     console.log("🧪 Starting Edge Case & Security Unit Tests...\n");
@@ -176,8 +176,16 @@ async function runEdgeCaseTests() {
             `---\nname: bom-skill\ndescription: Refreshed description\n---\n${refreshedBody}`,
             "utf-8"
         );
-        await new Promise((resolve) => setTimeout(resolve, 1100));
-        const refreshedSkills = await manager.listSkills();
+        // Poll for automatic revalidation (#16) instead of a fixed sleep.
+        const revalidateDeadline = Date.now() + 5000;
+        let refreshedSkills = await manager.listSkills();
+        while (
+            refreshedSkills.find((s) => s.name === "bom-skill").description !== "Refreshed description" &&
+            Date.now() < revalidateDeadline
+        ) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            refreshedSkills = await manager.listSkills();
+        }
         assert.strictEqual(refreshedSkills.find((s) => s.name === "bom-skill").description, "Refreshed description");
         assert.strictEqual(await manager.readSkillContent(bomSkill.skillPath), refreshedBody);
         console.log("  ✅ Test 8 Passed!");
@@ -230,8 +238,9 @@ async function runEdgeCaseTests() {
                 const perfManager = new SkillsManager(tmpSkillsDir);
                 await perfManager.listSkills();
 
-                // Wait past CACHE_REVALIDATE_MS so the old code would force a rescan.
-                await new Promise((resolve) => setTimeout(resolve, 1200));
+                // Wait past cache revalidation so the old code would force a rescan;
+                // tied to the exported TTL (#16) so it cannot silently go stale.
+                await new Promise((resolve) => setTimeout(resolve, CACHE_REVALIDATE_MS + 500));
 
                 opens = 0;
                 readdirs = 0;
@@ -272,9 +281,16 @@ async function runEdgeCaseTests() {
                 "---\nname: sig-skill\ndescription: After\n---\n# Sig\nv2\n",
                 "utf-8"
             );
-            await new Promise((resolve) => setTimeout(resolve, 1200));
-
-            const refreshed = await sigManager.listSkills();
+            // Poll for signature invalidation (#16) instead of a fixed sleep.
+            const invalidateDeadline = Date.now() + 5000;
+            let refreshed = await sigManager.listSkills();
+            while (
+                refreshed.find((s) => s.name === "sig-skill").description !== "After" &&
+                Date.now() < invalidateDeadline
+            ) {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                refreshed = await sigManager.listSkills();
+            }
             assert.strictEqual(
                 refreshed.find((s) => s.name === "sig-skill").description,
                 "After",

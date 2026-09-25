@@ -88,6 +88,8 @@ const SKILLS_PATH = getSafeSkillsPath();
 const skillsManager = new SkillsManager(SKILLS_PATH);
 const COMPOSITIONS_GUIDE_URI = "guide://superpowers/skill-compositions";
 const COMPOSITIONS_GUIDE_PATH = path.join(__dirname, "..", "docs", "skill-compositions.md");
+// Static bundled docs file — read once and reused for every resources/read call.
+let compositionsGuideCache: string | null = null;
 
 function normalizeSkillName(value: string): string {
     return value.trim().replace(/^superpowers:/i, "");
@@ -148,7 +150,10 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 
     if (uri === COMPOSITIONS_GUIDE_URI) {
         try {
-            const text = await fs.promises.readFile(COMPOSITIONS_GUIDE_PATH, "utf8");
+            if (compositionsGuideCache === null) {
+                compositionsGuideCache = await fs.promises.readFile(COMPOSITIONS_GUIDE_PATH, "utf8");
+            }
+            const text = compositionsGuideCache;
             return {
                 contents: [{ uri, mimeType: "text/markdown", text }],
             };
@@ -174,6 +179,11 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     } catch (_decodeErr: unknown) {
         // Malformed percent-encoding (e.g. %zz) — report as a client error
         // instead of letting the URIError surface as an internal error.
+        throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
+    }
+    // Reject traversal / separator payloads after decoding: the URI matcher runs
+    // before percent-decoding, so "%2F"/"%2E%2E" would otherwise slip through.
+    if (!skillName || skillName.includes("/") || skillName.includes("\\") || skillName.includes("..") || skillName.includes("\0")) {
         throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
     }
     const skill = await skillsManager.findSkill(normalizeSkillName(skillName));
@@ -254,7 +264,16 @@ function deriveReviewFile(requested: string, reportFile: string, briefFile: stri
         return derived;
     }
     if (reportFile) {
-        return `${reportFile.replace(/(\.[^./\\]*)?$/, "")}-review.md`;
+        const lastSep = Math.max(reportFile.lastIndexOf("/"), reportFile.lastIndexOf("\\"));
+        const prefix = reportFile.slice(0, lastSep + 1);
+        const base = reportFile.slice(lastSep + 1);
+        const strippedBase = base.replace(/\.[^./\\]*$/, "");
+        // A pure dot-file (e.g. ".review") has no stem before its extension;
+        // stripping would empty the basename and yield "-review.md".
+        if (strippedBase === "") {
+            return `${reportFile}-review.md`;
+        }
+        return `${prefix}${strippedBase}-review.md`;
     }
     return "";
 }
@@ -304,21 +323,21 @@ function interpolateTemplate(template: string, replacements: Record<string, stri
 }
 
 /**
- * Collects the replacement values that the template actually consumed through a
- * placeholder.
+ * Collects the placeholder names whose replacement the template actually consumed.
  *
  * Legacy "extra context" sections used a `rendered.includes(value)` substring test
  * to decide whether a value had already been interpolated. That test produced false
  * positives for short values (any coincidental appearance anywhere in the template
- * silently dropped the section). Checking whether the value maps to a placeholder
- * that exists in the template is exact, and preserves the intended behaviour of
- * skipping a section only when that very value was substituted.
+ * silently dropped the section), and keying the result by value let two different
+ * fields that happened to share a value collide. Returning the consumed placeholder
+ * names is exact: a legacy section is skipped only when its corresponding modern
+ * placeholder was filled.
  */
 function appliedInterpolations(template: string, replacements: Record<string, string | undefined>): Set<string> {
     const applied = new Set<string>();
     for (const [placeholder, value] of Object.entries(replacements)) {
         if (value !== undefined && value !== "" && template.includes(placeholder)) {
-            applied.add(String(value));
+            applied.add(placeholder);
         }
     }
     return applied;
@@ -566,13 +585,20 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
 
     const getStringArg = (key: string, maxLen = MAX_PROMPT_ARG_LENGTH): string => {
         const val = Object.prototype.hasOwnProperty.call(args, key) ? args[key] : undefined;
-        let str = "";
-        if (typeof val === "string") {
-            str = val.trim();
-        } else if (val !== undefined && val !== null) {
-            str = String(val).trim();
+        if (val === undefined || val === null) {
+            return "";
         }
-        return str.length > maxLen ? str.slice(0, maxLen) : str;
+        if (typeof val !== "string") {
+            throw new McpError(ErrorCode.InvalidParams, `Prompt argument "${key}" must be a string`);
+        }
+        const str = val.trim();
+        if (str.length > maxLen) {
+            throw new McpError(
+                ErrorCode.InvalidParams,
+                `Prompt argument "${key}" exceeds the maximum length of ${maxLen} characters`
+            );
+        }
+        return str;
     };
 
     const readPromptFileSafe = async (relPath: string): Promise<string> => {
@@ -602,6 +628,8 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
             const targetPath = skill ? skill.skillPath : path.join(SKILLS_PATH, "using-superpowers", "SKILL.md");
             skillContent = await skillsManager.readSkillContent(targetPath);
         } catch (_skillErr: unknown) {
+            const detail = _skillErr instanceof Error ? _skillErr.message : String(_skillErr);
+            process.stderr.write(`[superpowers-mcp] Failed to load using-superpowers skill, using fallback: ${detail}\n`);
             skillContent = "# Superpowers\n\nYou have superpowers. Use the read_skill and list_skills tools to discover and load skills.";
         }
 
@@ -648,8 +676,8 @@ ${skillContent}
         const alreadyApplied = appliedInterpolations(template, replacements);
 
         const legacyAppends = [
-            taskDesc && !alreadyApplied.has(taskDesc) ? `\n\n### Target Task:\n${taskDesc}` : "",
-            planFile && !alreadyApplied.has(planFile) ? `\n\n### Plan / Brief File:\n${planFile}` : "",
+            taskDesc && !alreadyApplied.has("[task name]") ? `\n\n### Target Task:\n${taskDesc}` : "",
+            planFile && !alreadyApplied.has("[BRIEF_FILE]") ? `\n\n### Plan / Brief File:\n${planFile}` : "",
         ].join("");
 
         return {
@@ -720,6 +748,7 @@ ${skillContent}
         const reviewFile = deriveReviewFile(getStringArg("review_file"), reportFile, briefFile);
         const findings = getStringArg("previous_findings");
         const baseSha = getStringArg("base_sha") || getStringArg("fix_base_sha");
+        const fixBaseSha = getStringArg("fix_base_sha") || baseSha;
         const headSha = getStringArg("head_sha");
         const model = getStringArg("model");
         const fixSummary = getStringArg("fix_summary");
@@ -731,7 +760,7 @@ ${skillContent}
             "[REVIEW_FILE]": reviewFile,
             "[FINDINGS]": findings,
             "[BASE_SHA]": baseSha,
-            "[FIX_BASE_SHA]": baseSha,
+            "[FIX_BASE_SHA]": fixBaseSha,
             "[HEAD_SHA]": headSha,
             "[MODEL]": model,
         };
@@ -739,7 +768,7 @@ ${skillContent}
         const alreadyApplied = appliedInterpolations(template, replacements);
 
         const legacyAppends = [
-            findings && !alreadyApplied.has(findings) ? `\n\n### Previous Findings:\n${findings}` : "",
+            findings && !alreadyApplied.has("[FINDINGS]") ? `\n\n### Previous Findings:\n${findings}` : "",
             fixSummary ? `\n\n### Fix Summary:\n${fixSummary}` : "",
         ].join("");
 
@@ -807,6 +836,14 @@ ${skillContent}
     }
 
     if (promptName === FEATURE_PIPELINE.promptName) {
+        // Schema marks feature_name required (#3): reject a truly absent argument,
+        // but keep the tested fallback for a present-but-blank/whitespace value.
+        if (!Object.prototype.hasOwnProperty.call(args, "feature_name")) {
+            throw new McpError(
+                ErrorCode.InvalidParams,
+                'Prompt argument "feature_name" is required for the feature-pipeline prompt'
+            );
+        }
         const rawFeatureName = getStringArg("feature_name");
         const featureName = rawFeatureName ? rawFeatureName.replace(/[\r\n]+/g, " ") : "(Unspecified feature)";
         const rawRequirements = getStringArg("requirements");
@@ -853,7 +890,7 @@ ${skillContent}
         let scenarioFocus = "";
         if (rawScenario) {
             const lower = rawScenario.toLowerCase();
-            if (lower.includes("debug") || lower.includes("troubleshoot") || lower.includes("bug") || lower.includes("fix")) {
+            if (lower.includes("debug") || lower.includes("troubleshoot") || lower.includes("bug") || /\bfix(ing|ed)?\b/.test(lower)) {
                 scenarioFocus = "\n> **Recommended Pipeline Focus:** Pipeline 2 (Structured Debugging & Troubleshooting)\n";
             } else if (lower.includes("refactor") || lower.includes("migrat") || lower.includes("upgrade")) {
                 scenarioFocus = "\n> **Recommended Pipeline Focus:** Pipeline 3 (Large Refactoring & System Migration)\n";
@@ -900,7 +937,7 @@ Use \`read_skill(skill_name)\` to inspect any skill before starting.`;
         };
     }
 
-    throw new McpError(ErrorCode.InvalidRequest, `Unknown prompt: ${promptName}`);
+    throw new McpError(ErrorCode.InvalidParams, `Unknown prompt: ${promptName}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -970,11 +1007,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const skill = await skillsManager.findSkill(skillName);
         if (!skill) {
-            const availableSkills = await skillsManager.listSkills();
-            const available = availableSkills.map((s) => s.name).join(", ");
             throw new McpError(
-                ErrorCode.InvalidRequest,
-                `Skill "${skillName}" not found. Available skills: ${available}`
+                ErrorCode.InvalidParams,
+                `Skill "${skillName}" not found. Use the list_skills tool to see available skills.`
             );
         }
 
@@ -998,7 +1033,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
     }
 
-    throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+    throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${name}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -1025,13 +1060,20 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
+    let shuttingDown = false;
     const shutdown = async () => {
+        if (shuttingDown) {
+            return;
+        }
+        shuttingDown = true;
         try {
             await server.close();
         } catch (_closeErr) {
             // Ignore close errors during termination
         }
-        process.exit(0);
+        // Let the event loop drain instead of process.exit(), which can truncate
+        // pending stdout writes; the guard makes a second signal a no-op.
+        process.exitCode = 0;
     };
 
     process.on("SIGINT", shutdown);

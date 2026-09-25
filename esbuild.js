@@ -9,6 +9,29 @@ const isWatch = process.argv.includes("--watch");
 // from package.json (previously it was hardcoded in src/server.ts).
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "package.json"), "utf8"));
 
+// Runs after every build — including each watch rebuild — so out/server.js and
+// out/setup.js are always executable. The previous code only chmod'ed on the
+// non-watch path, leaving watch-produced outputs non-executable (EACCES when run
+// directly via the package's bin/CLI entry points).
+const chmodPlugin = {
+    name: "chmod-executables",
+    setup(build) {
+        build.onEnd((result) => {
+            if (result.errors.length > 0) return;
+            if (process.platform === "win32") return;
+            for (const execPath of ["out/server.js", "out/setup.js"]) {
+                if (fs.existsSync(execPath)) {
+                    try {
+                        fs.chmodSync(execPath, "755");
+                    } catch (chmodErr) {
+                        console.warn(`Warning: Failed to set executable permissions on ${execPath}:`, chmodErr);
+                    }
+                }
+            }
+        });
+    },
+};
+
 const baseConfig = {
     bundle: true,
     minify: isProduction,
@@ -19,6 +42,7 @@ const baseConfig = {
     define: {
         __SUPERPOWERS_MCP_VERSION__: JSON.stringify(String(pkg.version)),
     },
+    plugins: [chmodPlugin],
 };
 
 
@@ -80,23 +104,8 @@ async function build() {
             esbuild.build(setupRunnerConfig),
         ]);
 
-        // Make server.js and setup.js executable safely across platforms
-        const executablePaths = [
-            path.join(__dirname, "out", "server.js"),
-            path.join(__dirname, "out", "setup.js"),
-        ];
-
-        for (const execPath of executablePaths) {
-            if (fs.existsSync(execPath)) {
-                try {
-                    if (process.platform !== "win32") {
-                        fs.chmodSync(execPath, "755");
-                    }
-                } catch (chmodErr) {
-                    console.warn(`Warning: Failed to set executable permissions on ${execPath}:`, chmodErr);
-                }
-            }
-        }
+        // Executable bits are set by the chmodPlugin onEnd hook above (covers both
+        // watch and non-watch builds, so watch outputs are never left non-executable).
         console.log("Build complete.");
     }
 }

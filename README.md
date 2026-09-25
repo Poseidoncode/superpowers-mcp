@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -179,7 +179,15 @@ To help you choose the right skill, we have structured all 15 skills across the 
 
 ## 🆕 Recent Updates
 
-### v6.4.1 (Latest)
+### v6.4.2 (Latest)
+
+- **v6.4.2 security audit & code review (2026-09-24)**: closed the audit findings across the MCP server, setup scripts, build pipeline, and test harness (details in [SECURITY.md](SECURITY.md)).
+  - **Traversal & error hygiene**: skill names are decoded *before* allowlist validation, so double-encoded `..%2f` / `%2e%2e` payloads are rejected with `InvalidParams`; unknown tools and prompts now return actionable `InvalidParams` errors instead of `MethodNotFound`.
+  - **TOCTOU & destructive-path defense**: canonical paths are re-verified after symlink checks, cache cleanup is gated by the copy manifest (fork-specific skills can never be deleted), and drift/coverage records are written atomically via temp file + rename.
+  - **Race-free builds & fail-soft sync**: `out/setup.js` builds take an exclusive lock with an mtime staleness re-check, watch-mode output is chmod-ed executable, and missing upstream sources exit cleanly instead of raising false drift.
+  - **Honest test harness**: a ref'd watchdog plus server `exit`/`close` handlers end silent hangs, drift tests run behind a network guard, and privilege-limited skips can no longer count as passes — regression floor holds at **365/365** assertions.
+
+### v6.4.1
 
 - **Upstream Sync to obra/superpowers v6.4.1**:
   - **Native inline plan execution**: rewritten `executing-plans` runs the whole plan via new `task-start` / `task-done` helpers, then one whole-branch review — no mid-plan check-ins.

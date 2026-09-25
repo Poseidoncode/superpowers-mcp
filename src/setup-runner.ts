@@ -142,8 +142,12 @@ export const HARNESS_CONFIGS: Record<string, HarnessConfig> = {
     devin: {
         name: "Devin Desktop (formerly Windsurf)",
         aliases: ["devin", "devin-desktop", "windsurf", "codeium"],
-        getConfigPath: (_platform, homeDir) => {
-            const devinCliPath = path.join(homeDir, ".config", "devin", "mcp_config.json");
+        getConfigPath: (platform, homeDir, appData) => {
+            // The devin CLI keeps its config under the platform's config home; on
+            // Windows that is %APPDATA% (mirroring the other JSON targets) rather than
+            // ~/.config. The Windsurf/Codeium path is home-relative on every platform.
+            const configHome = platform === "win32" && appData ? appData : path.join(homeDir, ".config");
+            const devinCliPath = path.join(configHome, "devin", "mcp_config.json");
             if (fs.existsSync(devinCliPath)) {
                 return devinCliPath;
             }
@@ -489,23 +493,33 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             return { index, indent: match[1], tail: line.slice(match[0].length).trim() };
         })
         .filter((entry) => entry !== null);
-    if (mcpDeclarations.length > 1) {
+
+    // Only root-level (column-0) mcp_servers mappings are the ones this updater
+    // manages. A nested mcp_servers under another key must not count as a duplicate
+    // (it belongs to a different parent) nor be mistaken for the root mapping.
+    const rootDecls = mcpDeclarations.filter((entry) => entry.indent === "");
+
+    if (rootDecls.length > 1) {
         throw new Error("Cannot safely update YAML with duplicate mcp_servers keys");
     }
-    if (mcpDeclarations.length === 1) {
-        const declaration = mcpDeclarations[0];
-        if (declaration.indent !== "" || (declaration.tail !== "" && !declaration.tail.startsWith("#"))) {
+    if (rootDecls.length === 1) {
+        const declaration = rootDecls[0];
+        if (declaration.tail !== "" && !declaration.tail.startsWith("#")) {
             throw new Error("Cannot safely update YAML unless mcp_servers is a root-level block mapping");
         }
+    } else if (mcpDeclarations.length > 0) {
+        // mcp_servers exists but only nested under another key — there is no root
+        // mapping to update, and we must not inject into the nested one.
+        throw new Error("Cannot safely update YAML unless mcp_servers is a root-level block mapping");
     }
 
     let indent = "  ";
-    if (mcpDeclarations.length === 1) {
+    if (rootDecls.length === 1) {
         // 以第一個子層級（非空、非註解）行的縮排為準，而不是只看緊接的下一行，
         // 也不要求該行是 [a-zA-Z0-9_-]+ 形式的 key。舊行為在首個子項 key 含
         // 點號或引號（例如 "my.key:"）時會退回預設兩空格，導致插入第二個
         // superpowers: 造成重複 key。
-        for (let i = mcpDeclarations[0].index + 1; i < lines.length; i++) {
+        for (let i = rootDecls[0].index + 1; i < lines.length; i++) {
             if (lines[i].trim() === "" || lines[i].trimStart().startsWith("#")) continue;
             if (/^[^\s]/.test(lines[i])) break;
             const child = lines[i].match(/^(\s+)\S/);
@@ -572,7 +586,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
         return `mcp_servers:\n${superpowersBlock.join("\n")}\n`;
     }
 
-    const mcpServersIndex = mcpDeclarations.length === 1 ? mcpDeclarations[0].index : -1;
+    const mcpServersIndex = rootDecls.length === 1 ? rootDecls[0].index : -1;
     if (mcpServersIndex === -1) {
         return `${existingContent.trimEnd()}\n\nmcp_servers:\n${superpowersBlock.join("\n")}\n`;
     }
@@ -645,6 +659,7 @@ export function updateJsonConfig(
     customConfig?: Record<string, unknown>
 ): string {
     let json: Record<string, unknown> = {};
+    let hadJsoncSyntax = false;
     if (existingContent && existingContent.trim() !== "") {
         try {
             // First attempt standard native JSON.parse to preserve string literals containing '//'
@@ -658,9 +673,15 @@ export function updateJsonConfig(
                 const parsed = JSON.parse(sanitized);
                 if (!isPlainObject(parsed)) throw new Error("Existing JSON root must be an object");
                 json = parsed;
+                // Native parse failed but the sanitized parse succeeded: the file used
+                // JSONC-only syntax (comments / trailing commas) that the rewrite drops.
+                hadJsoncSyntax = sanitized !== existingContent;
             } catch (e: unknown) {
                 const err = e instanceof Error ? e.message : String(e);
-                throw new Error(`Failed to parse existing JSON: ${err}`);
+                // Prefer the sanitized position for the actionable error but keep the raw
+                // JSON.parse message so the user can locate the problem in their real file.
+                const native = _nativeErr instanceof Error ? _nativeErr.message : String(_nativeErr);
+                throw new Error(`Failed to parse existing JSON: ${err} (raw JSON error: ${native})`);
             }
         }
     }
@@ -738,7 +759,52 @@ export function updateJsonConfig(
         }
     }
 
-    return JSON.stringify(json, null, 2) + "\n";
+    const updated = JSON.stringify(json, null, 2) + "\n";
+    if (hadJsoncSyntax && updated !== existingContent) {
+        process.stderr.write(
+            "[superpowers-mcp] Warning: JSONC comments/trailing commas in the existing config were removed while updating it (the file is rewritten as plain JSON).\n"
+        );
+    }
+    return updated;
+}
+
+/**
+ * Prunes timestamped backups (`<file>.<epoch-ms>.bak`) created by safeWriteConfig,
+ * keeping only the most recent `keep` entries so repeated `--backup` runs cannot
+ * grow the config directory without bound. Cleanup is strictly best-effort: a
+ * listing or unlink failure must never abort the config write that triggered it.
+ */
+function pruneOldBackups(targetFilePath: string, keep = 10): void {
+    try {
+        const dir = path.dirname(targetFilePath);
+        const prefix = `${path.basename(targetFilePath)}.`;
+        const suffix = ".bak";
+        const backups = fs
+            .readdirSync(dir)
+            .filter((name) => {
+                if (!name.startsWith(prefix) || !name.endsWith(suffix)) return false;
+                const middle = name.slice(prefix.length, name.length - suffix.length);
+                return /^\d+$/.test(middle);
+            })
+            .map((name) => {
+                const full = path.join(dir, name);
+                try {
+                    return { full, mtimeMs: fs.statSync(full).mtimeMs };
+                } catch {
+                    return { full, mtimeMs: 0 };
+                }
+            })
+            .sort((a, b) => b.mtimeMs - a.mtimeMs);
+        for (const stale of backups.slice(keep)) {
+            try {
+                fs.unlinkSync(stale.full);
+            } catch {
+                // Best-effort: skip files we cannot remove (permissions, races).
+            }
+        }
+    } catch {
+        // Never fail the surrounding config write because cleanup was impossible.
+    }
 }
 
 /**
@@ -840,6 +906,7 @@ export function safeWriteConfig(
                 const msg = bakErr instanceof Error ? bakErr.message : String(bakErr);
                 throw new Error(`Failed to create safe backup before write: ${msg}`);
             }
+            pruneOldBackups(targetFilePath);
         }
     }
 

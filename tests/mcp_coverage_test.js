@@ -76,12 +76,22 @@ function backtickedTokens(line) {
     return [...line.matchAll(/`([^`]+)`/g)].map((match) => match[1]);
 }
 
+let finished = false;
+
 async function main() {
     const server = spawn("node", [path.join(ROOT, "out", "server.js")]);
     server.stdout.setEncoding("utf8");
     server.on("error", (err) => {
         console.error("❌ Failed to start server child process:", err);
         process.exit(1);
+    });
+    // If the server dies before main() finishes, pending request() promises would
+    // hang forever and the process could exit 0 with checks unrun. Fail loudly instead.
+    server.on("exit", (code, signal) => {
+        if (!finished) {
+            console.error(`❌ Server exited prematurely (code ${code}, signal ${signal}) before coverage checks completed`);
+            process.exit(1);
+        }
     });
 
     const pending = new Map();
@@ -119,9 +129,7 @@ async function main() {
     const watchdog = setTimeout(() => {
         console.error("❌ MCP coverage test timed out after 20 seconds");
         process.exit(1);
-        process.exit(1);
     }, 20000);
-    watchdog.unref();
 
     await request("initialize", {
         protocolVersion: "2024-11-05",
@@ -287,6 +295,8 @@ async function main() {
     });
 
 
+    finished = true;
+    clearTimeout(watchdog); // success path must clear the ref'd timer (finding #1)
     server.kill();
     if (failures.length > 0) {
         throw new Error(`${failures.length} MCP coverage assertion(s) failed:\n- ${failures.join("\n- ")}`);

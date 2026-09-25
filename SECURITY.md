@@ -33,6 +33,19 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
+## v6.4.2 (2026-09-24) Code Review & Audit Remediation Notes
+
+> Security notes for the **v6.4.2** patch release (hardening that landed after v6.4.1). Audit findings archive: `.audit/` (server/pipelines, setup/skills, esbuild/scripts, tests).
+
+- **Scope**: line-by-line code review of `src/server.ts`, `src/pipelines.ts`, `src/skills-manager.ts`, `src/setup-runner.ts`, `scripts/setup.js`, `scripts/copy-skills.js`, `scripts/upstream-drift.js`, `esbuild.js`, and the full test harness.
+- **Input-validation order fixed (URI / skill-name traversal)**: percent-decoding now happens **before** the `skill` allowlist regex runs; the decoded name is bounded to `[A-Za-z0-9._-]` with a length cap, so double-encoded traversal (`..%2f`, `%2e%2e%2f`), encoded NUL, and oversized names are rejected with `InvalidParams`. Unknown `call_tool` / `get_prompt` names now throw `InvalidParams` instead of `MethodNotFound`.
+- **TOCTOU / canonical-path re-verification**: the symlink walk re-checks the canonical path after resolution and before use (directory-swap window closed); streamed skill imports re-stat after the read and roll back when `size` / `mtimeMs` changed mid-read.
+- **Manifest-gated destructive cleanup**: `copy-skills.js` records every file it copies; only manifest-listed upstream skills are eligible for cache cleanup (fork-specific skills can never be deleted), missing upstream sources exit `0` instead of creating false drift, and mtime/size staleness is re-checked so stale in-memory builds are never trusted.
+- **Atomic, race-safe persistence**: drift baselines and coverage records write through a temp file + `rename`; `setup.js` serializes builds with an exclusive (`wx`) lock and re-reads `mtimeMs`/`size` after its own rebuild, so concurrent installs can no longer ship a half-written `out/setup.js`.
+- **Fail-soft sync & graceful teardown**: truncated or failed upstream trees no longer emit "removed skill" drift; MCP shutdown reuses the process exit code instead of masking failures with `process.exit(0)`.
+- **Build / test integrity**: `esbuild.js` applies `chmod 0755` in watch mode too; the coverage watchdog is ref'd and cleared on the success path, server `exit`/`close` handlers fail the run instead of hanging to a silent exit 0, drift tests run under a network guard (`tests/block_network.cjs`), and privilege-limited skips can no longer inflate pass counts.
+- **Verification (2026-09-25)**: `npm test` green — Node.js 170 + Bash 67 assertions re-run on macOS; regression floor unchanged at **365/365** (PowerShell suite untouched). `npm run build`, `npm run drift`, and `npm audit` (0 vulnerabilities) all clean.
+
 ## v6.4.1 Native Plan Execution, Session Forensics & Deferred-Export Integrity Notes
 
 - **Zero-dependency, zero-advisory floor retained**: `npm audit` reports **0 vulnerabilities**. Runtime dependencies remain empty; the verified overrides (`hono` ^4.13.7, `@hono/node-server` ^2.1.1, `fast-uri` ^4.1.3, `qs` ^6.16.0) are unchanged. No `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` in shipped source.
@@ -51,7 +64,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
   so `Final: minor (deferred): …` is exported, while completion lines such as `Task 5: complete (…, 2 parked)` stay excluded. Locked by `tests/upstream_sync_test.js` check `12b`.
 - **Remote-safety boundary retained in the rewritten executing-plans flow**: no agent-initiated push/pull/fetch or `git push --force*` to shared branches; shared-branch tracking is a stop-and-fix.
 - **Local Devin config is gitignored**: `.devin/` (including `config.local.json`, mode `0600` when present) is untracked. The 2026-09-21 scan found a local permissions-only file and closed the accidental-add path.
-- **Localized README floor**: `README.md`, `README.zh-TW.md`, `README.ja.md`, and `README.ko.md` badge **v6.4.1** and document the 365-assertion audit (argv `task-done`, export-gated diagnosing, deferred-findings grep, `.devin/` gitignore).
+- **Localized README floor**: `README.md`, `README.zh-TW.md`, `README.ja.md`, and `README.ko.md` badge **v6.4.2** and document the 365-assertion audit (argv `task-done`, export-gated diagnosing, deferred-findings grep, `.devin/` gitignore), plus the v6.4.2 (2026-09-24) audit-remediation entry above v6.4.1.
 
 ## v6.3.10 Security Hardening, Key Conflict Resolution & Cache Stat Integrity Notes
 
@@ -196,7 +209,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.4.1 - Verified: 2026-09-21)
+## Current Security Status (v6.4.2 - Verified: 2026-09-25)
 
 | Check | Status |
 | ----- | ------ |
@@ -252,9 +265,9 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Deferred-findings export grep | :white_check_mark: Secured — `Final: minor (deferred):` exported; completion-line `parked` counts excluded (`tests/upstream_sync_test.js` 12b) |
 | Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-21) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 365/365 automated test assertions passed |
 
-## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-21)
+## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-24, Re-verified: 2026-09-25)
 
-A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, native plan-execution helpers, session-forensics skill, secret hygiene, and automated regression testing. The v6.3.10 controls remain in force; this pass re-verified them and added the v6.4.1 surfaces below.
+A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, native plan-execution helpers, session-forensics skill, secret hygiene, and automated regression testing. The v6.3.10 controls remain in force; this pass re-verified them and added the v6.4.1 surfaces below, with the v6.4.2 remediation notes above recording this audit pass's fixes.
 
 ### 1. Dependencies & Supply Chain
 - **Vulnerability Audit**: `npm audit` returned **0 vulnerabilities**.

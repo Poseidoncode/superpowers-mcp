@@ -58,6 +58,7 @@ function parseArgs(argv) {
         else if (arg === "--ref" || arg === "--repo" || arg === "--ignore") {
             const value = argv[++i];
             if (!value) throw new Error(`Missing value for ${arg}`);
+            if (value.startsWith("--")) throw new Error(`Missing value for ${arg} (got "${value}")`);
             if (arg === "--ref") opts.ref = value;
             else if (arg === "--repo") opts.repo = value;
             else opts.ignore.push(value);
@@ -269,19 +270,46 @@ async function main() {
         }
         const upstreamSkills = [...new Set(Object.keys(tree.files).map(skillNameOf).filter(Boolean))].sort();
         const recorded = { repo, ref, commit: tree.commit, capturedAt: new Date().toISOString().slice(0, 10), files, upstreamSkills, ignoredUpstreamSkills: ignored };
-        fs.writeFileSync(BASELINE_PATH, JSON.stringify(recorded, null, 2) + "\n", "utf-8");
+        // Atomic write: temp file + rename so an interrupted --record can never
+        // truncate/corrupt the baseline (which a later run would then silently rebuild).
+        const tmpPath = `${BASELINE_PATH}.${process.pid}.tmp`;
+        try {
+            fs.writeFileSync(tmpPath, JSON.stringify(recorded, null, 2) + "\n", "utf-8");
+            fs.renameSync(tmpPath, BASELINE_PATH);
+        } catch (writeErr) {
+            try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+            throw writeErr;
+        }
+
+        const coverageAfter = classifyCoverage(recorded, localPaths);
+        const movedCount = previousDrift.changed.length + previousDrift.added.length + previousDrift.removed.length;
+        if (opts.json) {
+            console.log(JSON.stringify({
+                recorded: true,
+                repo,
+                ref,
+                commit: recorded.commit,
+                capturedAt: recorded.capturedAt,
+                source: tree.source,
+                tracked: Object.keys(files).length,
+                upstreamTotal: Object.keys(tree.files).length,
+                movedSincePrevious: movedCount,
+                ignored: opts.ignore,
+                coverage: coverageAfter,
+            }, null, 2));
+            return;
+        }
 
         console.log(`Baseline recorded from ${tree.source}: ${repo}@${ref} ${tree.commit.slice(0, 12)} — ${Object.keys(files).length} tracked files of ${Object.keys(tree.files).length} upstream skill files`);
         if (Object.keys(previousFiles).length > 0) {
-            const moved = previousDrift.changed.length + previousDrift.added.length + previousDrift.removed.length;
-            console.log(moved === 0
+            console.log(movedCount === 0
                 ? "No adopted skill file moved upstream since the previous baseline."
-                : `warning: ${moved} adopted skill file(s) moved upstream since the previous baseline — record only what you actually reviewed.`);
+                : `warning: ${movedCount} adopted skill file(s) moved upstream since the previous baseline — record only what you actually reviewed.`);
         }
         if (opts.ignore.length > 0) {
             console.log(`Recorded as deliberately not adopted: ${opts.ignore.join(", ")}`);
         }
-        reportCoverage(classifyCoverage(recorded, localPaths));
+        reportCoverage(coverageAfter);
         return;
     }
 
@@ -305,6 +333,13 @@ async function main() {
 
     const tree = await fetchUpstreamTree(repo, ref);
     const drift = classifyDrift(baseline.files, tree.files, ignored);
+    // A truncated upstream tree has files missing from the listing; those baseline
+    // files would be misclassified as "removed". Suppress the unreliable removals so
+    // the report does not invent drift (changed/added only cover files that ARE listed
+    // and remain trustworthy).
+    if (tree.truncated) {
+        drift.removed = [];
+    }
     const driftCount = drift.changed.length + drift.added.length + drift.removed.length;
     if (opts.json) {
         console.log(JSON.stringify({

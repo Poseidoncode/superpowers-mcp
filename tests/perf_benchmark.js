@@ -14,15 +14,22 @@ async function runBenchmark() {
 
     // 1. Cold listSkills() benchmark
     const coldRuns = 20;
-    let totalColdTime = 0;
+    // Discard warmup rounds (#7): first iterations mix in V8 JIT and OS/FS
+    // cache cold-start cost, which skews an average of millisecond-scale ops.
+    for (let i = 0; i < 3; i++) {
+        manager.clearCache();
+        await manager.listSkills(true);
+    }
+    const coldSamples = [];
     for (let i = 0; i < coldRuns; i++) {
         manager.clearCache();
         const start = performance.now();
         await manager.listSkills(true);
-        totalColdTime += (performance.now() - start);
+        coldSamples.push(performance.now() - start);
     }
-    const avgColdListTime = totalColdTime / coldRuns;
-    console.log(`1. Cold listSkills() avg latency: ${avgColdListTime.toFixed(3)} ms (over ${coldRuns} runs)`);
+    coldSamples.sort((a, b) => a - b);
+    const avgColdListTime = coldSamples[Math.floor(coldRuns / 2)]; // median
+    console.log(`1. Cold listSkills() median latency: ${avgColdListTime.toFixed(3)} ms (over ${coldRuns} runs)`);
 
     // 2. Warm listSkills() benchmark
     const warmRuns = 1000;
@@ -98,4 +105,7 @@ async function runBenchmark() {
     console.log("==================================================");
 }
 
-runBenchmark().catch(console.error);
+runBenchmark().catch((err) => {
+    console.error(err);
+    process.exit(1);
+});

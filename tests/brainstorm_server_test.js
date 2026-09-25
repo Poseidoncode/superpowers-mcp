@@ -27,9 +27,14 @@ const SERVER_CJS = path.join(__dirname, "..", "skills", "brainstorming", "script
 
 let passed = 0;
 let failed = 0;
+let skipped = 0;
 
 function report(name, ok) {
-    if (ok) {
+    if (ok === "skipped") {
+        // Third state (#11): a privilege-limited skip must not inflate the pass count.
+        skipped++;
+        console.log(`  ⏭️ ${name}`);
+    } else if (ok) {
         passed++;
         console.log(`  ✅ ${name}`);
     } else {
@@ -343,9 +348,20 @@ async function run() {
                 0x01,
                 Buffer.from(JSON.stringify({ type: "choice", choice: largeChoice }))
             );
-            await new Promise((r) => setTimeout(r, 800));
+            // Poll until the events file stops growing (#9) so the size check
+            // cannot pass before the server has handled the oversized event.
             const eventsFile = path.join(sessionDir, "state", "events");
-            const eventsSize = fs.existsSync(eventsFile) ? fs.statSync(eventsFile).size : 0;
+            const sizeOf = () => (fs.existsSync(eventsFile) ? fs.statSync(eventsFile).size : 0);
+            let stable = 0;
+            let last = -1;
+            const startAt = Date.now();
+            while (Date.now() - startAt < 3000 && (Date.now() - startAt < 1000 || stable < 3)) {
+                const cur = sizeOf();
+                stable = cur === last ? stable + 1 : 0;
+                last = cur;
+                await new Promise((r) => setTimeout(r, 100));
+            }
+            const eventsSize = sizeOf();
             report("events file hard cap applies to one large event", eventsSize <= 1024 * 1024);
             wsLargeEvent.socket.destroy();
         } else {
@@ -359,9 +375,13 @@ async function run() {
         const oldest = JSON.stringify({ choice: "oldest" }) + "\n";
         const recent = JSON.stringify({ choice: "recent-sentinel" }) + "\n";
         const fillerLine = JSON.stringify({ choice: "filler", data: "x".repeat(900) }) + "\n";
-        let seeded = oldest;
-        while (Buffer.byteLength(seeded + fillerLine + recent) < 1024 * 1024 - 100) seeded += fillerLine;
-        seeded += recent;
+        // Arithmetic count (#10): repeated byteLength over a growing string was O(n²).
+        // Equivalent to "append while byteLength(seeded + filler + recent) < cap".
+        const capBytes = 1024 * 1024 - 100;
+        const fillerBytes = Buffer.byteLength(fillerLine);
+        const overheadBytes = Buffer.byteLength(oldest + recent);
+        const fillerCount = Math.max(0, Math.ceil((capBytes - overheadBytes) / fillerBytes) - 1);
+        const seeded = oldest + fillerLine.repeat(fillerCount) + recent;
         fs.writeFileSync(eventsFile, seeded, { mode: 0o600 });
         const wsCompact = await wsUpgrade(port, key);
         if (wsCompact.ok) {
@@ -504,7 +524,7 @@ async function run() {
             /^[0-9a-f]{64}$/.test(linkKey) && linkKey !== evil &&
             targetAfter === evil && fs.lstatSync(linkFile).isSymbolicLink());
       } else {
-        report("symlinked token file rejected (skipped: no symlink privilege)", true);
+        report("symlinked token file rejected (skipped: no symlink privilege)", "skipped");
       }
       // Without a token file, keys still rotate per logical session.
       const ra = track(startServer(rotA, {}));
@@ -528,7 +548,7 @@ async function run() {
     if (serverStderr.trim()) {
         console.log("\n[server stderr]\n" + serverStderr.trim());
     }
-    console.log(`\n${passed} passed, ${failed} failed`);
+    console.log(`\n${passed} passed, ${failed} failed${skipped > 0 ? `, ${skipped} skipped` : ""}`);
     process.exit(failed === 0 ? 0 : 1);
 }
 

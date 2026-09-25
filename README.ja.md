@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.4.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -180,7 +180,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.4.1（最新）
+### v6.4.2（最新）
+
+- **v6.4.2 セキュリティ監査とコードレビュー（2026-09-24）**:MCP サーバー、セットアップスクリプト、ビルドパイプライン、テストハーネスの監査指摘を是正しました（詳細は [SECURITY.md](SECURITY.md)）。
+  - **トラバーサルとエラー処理の修正**: スキル名を許可リスト検証の**前**にデコードし、二重エンコードされた `..%2f` / `%2e%2e` ペイロードは `InvalidParams` で拒否。未知のツール／プロンプトは `MethodNotFound` ではなく具体的な `InvalidParams` を返します。
+  - **TOCTOU と破壊的操作の防御**: シンボリックリンク検査後に canonical path を再検証、キャッシュ掃除はコピーマニフェストでゲート（フォーク固有スキルは絶対に削除されない）、drift/coverage レコードは一時ファイル + rename でアトミックに書き込み。
+  - **競合しないビルドとソフトフェイル同期**: `out/setup.js` のビルドは排他ロック + mtime 新鮮度の再確認、watch モード出力にも chmod を適用、上流ソース欠損時は偽の drift を出さずに正常終了。
+  - **正直なテストハーネス**: watchdog を ref 化し `exit`/`close` ハンドラでハングを検出、drift テストはネットワーク遮断下で実行、権限限定の skip は合格に数えない — 回帰フロアは **365/365** アサーションを維持。
+
+### v6.4.1
 
 - **上流 obra/superpowers v6.4.1 への同期**：
   - **ネイティブなインライン実行**：書き直された `executing-plans` は新しい `task-start` / `task-done` で計画全体を実行し、最後にブランチ全体を一度レビュー（途中チェックインなし）。

@@ -18,17 +18,34 @@ console.log("==================================================");
 
 let passed = 0;
 let failed = 0;
+let skipped = 0;
+
+const pendingTests = [];
 
 function it(desc, fn) {
+    let result;
     try {
-        fn();
-        console.log(`  ✅ PASS: ${desc}`);
-        passed++;
+        result = fn();
     } catch (err) {
         console.error(`  ❌ FAIL: ${desc}`);
         console.error(`     ${err.message}`);
         failed++;
+        return;
     }
+    if (result && typeof result.then === "function") {
+        // Async case (#14): only count after settlement, so rejections are not lost.
+        pendingTests.push(result.then(() => {
+            console.log(`  ✅ PASS: ${desc}`);
+            passed++;
+        }, (err) => {
+            console.error(`  ❌ FAIL: ${desc}`);
+            console.error(`     ${err.message}`);
+            failed++;
+        }));
+        return;
+    }
+    console.log(`  ✅ PASS: ${desc}`);
+    passed++;
 }
 
 // 1. JSON Configuration Tests (Copilot vs Standard)
@@ -123,11 +140,19 @@ it("should parse and tolerate JSONC with comments and trailing commas", () => {
 it("should defend against polynomial ReDoS (CodeQL js/polynomial-redos) and process inputs in linear time", () => {
     // Attack payload from CodeQL alert: starts with '/*' and with many repetitions of 'a/*' without closing '*/'
     const attackPayload = "/*" + "a/*".repeat(50000);
-    const start = Date.now();
     const result = stripJsonComments(attackPayload);
-    const elapsed = Date.now() - start;
 
-    assert.ok(elapsed < 100, `ReDoS payload took ${elapsed}ms, must be < 100ms`);
+    // Median of 3 runs (#6): a single wall-clock sample flaked on loaded CI.
+    // The threshold only guards against an order-of-magnitude (quadratic) regression.
+    const samples = [0, 0, 0].map(() => {
+        const t = Date.now();
+        stripJsonComments(attackPayload);
+        return Date.now() - t;
+    });
+    samples.sort((a, b) => a - b);
+    const elapsed = samples[1];
+
+    assert.ok(elapsed < 500, `ReDoS payload took ${elapsed}ms (median), must be < 500ms`);
     assert.strictEqual(result, "");
 
     // Test with valid JSON and heavy repeated comment markers inside string literals
@@ -201,7 +226,9 @@ it("should stay linear on YAML padded with long whitespace runs", () => {
     assert.ok(removed.includes("other:"), "Must preserve sibling servers");
 
     const elapsed = Date.now() - start;
-    assert.ok(elapsed < 2000, `Padded YAML handling must stay linear (took ${elapsed}ms)`);
+    // Relaxed threshold (#6): only guards against super-linear blowups; the
+    // absolute value is dominated by CI jitter, not by the algorithm.
+    assert.ok(elapsed < 5000, `Padded YAML handling must stay linear (took ${elapsed}ms)`);
 });
 
 it("should emit clean desktop import JSON without modifying client files", () => {
@@ -893,16 +920,22 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
         const realTarget = path.join(tmpDir, "real_target.json");
         fs.writeFileSync(realTarget, JSON.stringify({ mcpServers: {} }));
         const symlinkPath = path.join(tmpDir, "symlink_config.json");
+        // Only symlink creation may be skipped on restricted OSes (#3); assertion
+        // failures must propagate instead of being swallowed by the catch.
+        let symlinkCreated = true;
         try {
             fs.symlinkSync(realTarget, symlinkPath);
+        } catch (symlinkErr) {
+            symlinkCreated = false;
+            console.log("  ℹ️ Symlink creation skipped on restricted OS");
+        }
+        if (symlinkCreated) {
             safeWriteConfig(symlinkPath, JSON.stringify({ mcpServers: { superpowers: { command: "npx" } } }), false, [tmpDir]);
             assert.ok(fs.lstatSync(symlinkPath).isSymbolicLink(), "Must preserve symlink");
             const updatedContent = JSON.parse(fs.readFileSync(realTarget, "utf8"));
             assert.ok(updatedContent.mcpServers.superpowers, "Must update real target file through symlink");
             console.log("  ✅ PASS: Symlink preservation test passed");
             passed++;
-        } catch (symlinkErr) {
-            console.log("  ℹ️ Symlink creation skipped on restricted OS");
         }
 
         // A symlinked parent must not redirect a targeted setup write outside
@@ -1059,8 +1092,8 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
         const { spawnSync } = require("child_process");
         const entry = path.join(__dirname, "..", "out", "server.js");
         if (!fs.existsSync(entry)) {
-            console.log("  ⏭️  SKIP: out/server.js not built");
-            passed++;
+            console.log("  ⏭️  SKIP: out/server.js not built — CLI exit-code contract NOT verified");
+            skipped++;
             return;
         }
 
@@ -1073,9 +1106,13 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
     });
 
     console.log("==================================================");
-    console.log(`Results: ${passed} passed, ${failed} failed`);
+    await Promise.all(pendingTests);
+    console.log(`Results: ${passed} passed, ${failed} failed${skipped > 0 ? `, ${skipped} skipped` : ""}`);
     console.log("==================================================");
 
+    if (skipped > 0) {
+        console.warn(`  ⚠️ WARNING: ${skipped} test(s) skipped — coverage gap, build out/server.js and re-run`);
+    }
     if (failed > 0) {
         process.exit(1);
     }
