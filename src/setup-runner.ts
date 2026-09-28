@@ -779,14 +779,83 @@ function splitTomlComment(line: string): [string, string] {
 /** Exact managed table header, tolerating surrounding whitespace and a trailing comment. */
 const TOML_SUPERPOWERS_HEADER = /^\s*\[\s*mcp_servers\s*\.\s*superpowers\s*\]\s*(?:#.*)?$/;
 
-/** Any TOML table header line. */
-const TOML_TABLE_HEADER = /^\s*\[.*\]\s*(?:#.*)?$/;
+/** TOML whitespace (space/tab/CR/LF/FF/VT) — explicit set keeps scans linear. */
+function isTomlWhitespace(ch: string): boolean {
+    return ch === " " || ch === "\t" || ch === "\n" || ch === "\r" || ch === "\f" || ch === "\v";
+}
+
+/**
+ * Any TOML table header line — single linear scan, no backtracking.
+ *
+ * Replaces /^\s*\[.*\]\s*(?:#.*)?$/ which backtracks polynomially on
+ * attacker-controlled config lines with many `]` runs (CWE-1333,
+ * CodeQL js/polynomial-redos).
+ */
+function isTomlTableHeader(line: string): boolean {
+    let start = 0;
+    while (start < line.length && isTomlWhitespace(line[start])) start++;
+    if (start >= line.length || line[start] !== "[") return false;
+    const close = line.lastIndexOf("]");
+    if (close <= start) return false;
+    let j = close + 1;
+    while (j < line.length && isTomlWhitespace(line[j])) j++;
+    if (j >= line.length) return true;
+    return line[j] === "#";
+}
 
 /** A `[mcp_servers.superpowers.…]` sub-table header, which belongs to our section. */
 const TOML_SUPERPOWERS_SUBTABLE = /^\s*\[\s*mcp_servers\s*\.\s*superpowers\s*\./;
 
-/** Quoted table-name variants we cannot reason about safely — fail closed on sight. */
-const TOML_QUOTED_MANAGED = /^\s*\[.*["']mcp_servers["'].*["']superpowers["'].*\]\s*(?:#.*)?$/;
+/**
+ * Quoted table-name variants we cannot reason about safely — fail closed on sight.
+ *
+ * Linear scan (no backtracking): the previous
+ * /^\s*\[.*["']mcp_servers["'].*["']superpowers["'].*\]\s*(?:#.*)?$/
+ * stacked three `.*` repetitions and ran polynomially on lines starting with
+ * `["mcp_servers"` (CWE-1333, CodeQL js/polynomial-redos). Any header that
+ * mentions both table names and contains a quote is rejected; the bare
+ * `[mcp_servers.superpowers]` form has no quotes and is unaffected.
+ */
+function isQuotedManagedTableHeader(line: string): boolean {
+    let start = 0;
+    while (start < line.length && isTomlWhitespace(line[start])) start++;
+    if (start >= line.length || line[start] !== "[") return false;
+    const close = line.lastIndexOf("]");
+    if (close <= start) return false;
+    let j = close + 1;
+    while (j < line.length && isTomlWhitespace(line[j])) j++;
+    if (j < line.length && line[j] !== "#") return false;
+    const inner = line.slice(start + 1, close);
+    if (!inner.includes("mcp_servers") || !inner.includes("superpowers")) return false;
+    return inner.includes('"') || inner.includes("'");
+}
+
+/**
+ * Parses a `command = <value>` / `args = <value>` assignment from comment-stripped
+ * TOML code. Linear scan without backtracking (replaces
+ * /^\s*(command|args)\s*=\s*([\s\S]*?)\s*$/).
+ */
+function parseTomlManagedAssignment(code: string): { key: "command" | "args"; value: string } | null {
+    let i = 0;
+    while (i < code.length && isTomlWhitespace(code[i])) i++;
+    let key: "command" | "args" | null = null;
+    if (code.startsWith("command", i)) {
+        key = "command";
+        i += 7;
+    } else if (code.startsWith("args", i)) {
+        key = "args";
+        i += 4;
+    } else {
+        return null;
+    }
+    while (i < code.length && isTomlWhitespace(code[i])) i++;
+    if (i >= code.length || code[i] !== "=") return null;
+    i++;
+    while (i < code.length && isTomlWhitespace(code[i])) i++;
+    let end = code.length;
+    while (end > i && isTomlWhitespace(code[end - 1])) end--;
+    return { key, value: code.slice(i, end) };
+}
 
 /** Direct-child `command` / `args` key lines (comment already split off). */
 const TOML_MANAGED_KEY = /^\s*(command|args)\s*=/;
@@ -814,7 +883,7 @@ export function updateTomlConfig(existingContent: string, cmd: string, args: str
 
     const headerIndexes: number[] = [];
     for (let i = 0; i < lines.length; i++) {
-        if (TOML_QUOTED_MANAGED.test(lines[i])) {
+        if (isQuotedManagedTableHeader(lines[i])) {
             throw new Error("Cannot safely update TOML with quoted mcp_servers.superpowers table names");
         }
         if (TOML_SUPERPOWERS_HEADER.test(lines[i])) headerIndexes.push(i);
@@ -842,13 +911,13 @@ export function updateTomlConfig(existingContent: string, cmd: string, args: str
     // removed together with the parent on remove.
     let end = header + 1;
     while (end < lines.length) {
-        if (TOML_TABLE_HEADER.test(lines[end]) && !TOML_SUPERPOWERS_SUBTABLE.test(lines[end])) break;
+        if (isTomlTableHeader(lines[end]) && !TOML_SUPERPOWERS_SUBTABLE.test(lines[end])) break;
         end++;
     }
     // Direct children end at the first sub-table header.
     let childrenEnd = end;
     for (let i = header + 1; i < end; i++) {
-        if (TOML_TABLE_HEADER.test(lines[i])) {
+        if (isTomlTableHeader(lines[i])) {
             childrenEnd = i;
             break;
         }
@@ -863,14 +932,14 @@ export function updateTomlConfig(existingContent: string, cmd: string, args: str
     const comments: Record<string, string> = {};
     for (let i = header + 1; i < childrenEnd; i++) {
         const [code, comment] = splitTomlComment(lines[i]);
-        const m = code.match(/^\s*(command|args)\s*=\s*([\s\S]*?)\s*$/);
+        const m = parseTomlManagedAssignment(code);
         if (!m) continue;
-        if (m[1] === "command") {
-            if (currentCommand === null) currentCommand = normTomlValue(m[2]);
+        if (m.key === "command") {
+            if (currentCommand === null) currentCommand = normTomlValue(m.value);
         } else {
-            if (currentArgs === null) currentArgs = normTomlValue(m[2]);
+            if (currentArgs === null) currentArgs = normTomlValue(m.value);
         }
-        if (!(m[1] in comments)) comments[m[1]] = comment;
+        if (!(m.key in comments)) comments[m.key] = comment;
     }
     if (currentCommand === normTomlValue(JSON.stringify(cmd)) && currentArgs === normTomlValue(JSON.stringify(args))) {
         return existingContent;
@@ -976,8 +1045,30 @@ export function updateJsonConfig(
     // with a parse error instead of risking corruption.
     if (serverPath && serverPath.length > 0) {
         const dotted = serverPath.join(".");
+        // Prototype-pollution guard (CWE-915, CodeQL js/prototype-polluting-assignment):
+        // serverPath is library input, so a "__proto__"/"constructor"/"prototype"
+        // segment would turn `container[segment]` into Object.prototype and let the
+        // later `container["superpowers"]` write mutate the global prototype.
+        // Fail closed before any computed property access. The literal "__proto__"
+        // comparisons are intentional: CodeQL recognizes them as sanitizers.
+        for (const segment of serverPath) {
+            if (typeof segment !== "string" || segment.length === 0) {
+                throw new Error(`Invalid JSON field "${dotted}"`);
+            }
+            if (segment === "__proto__" || segment === "constructor" || segment === "prototype") {
+                throw new Error(`Refusing to use unsafe JSON field "${dotted}"`);
+            }
+            if (!/^[A-Za-z0-9_-]+$/.test(segment)) {
+                throw new Error(`Invalid JSON field "${dotted}"`);
+            }
+        }
         let container: Record<string, unknown> = json;
         for (const segment of serverPath) {
+            // Re-assert the literal guard at the use site so the sanitizer dominates
+            // the computed property access for static analysis.
+            if (segment === "__proto__" || segment === "constructor" || segment === "prototype") {
+                throw new Error(`Refusing to use unsafe JSON field "${dotted}"`);
+            }
             const next = container[segment];
             if (next === undefined) {
                 if (remove) return existingContent;
