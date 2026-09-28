@@ -3,7 +3,8 @@
  * Supports: macOS, Windows, Linux
  * Targets: GitHub Copilot (VS Code / VS Code Insiders), Cursor, Hermes Desktop, Kimi Work,
  *          Claude Desktop, Devin Desktop, Antigravity, Pi Desktop, QwenPaw, Cline,
- *          Kilo Code, Qoder, Kiro, Trae, LM Studio, Roo Code (VS Code Desktop)
+ *          Kilo Code, Qoder, Kiro, Trae, LM Studio, Roo Code (VS Code Desktop), Codex,
+ *          OpenClaw, Goose
  */
 
 import * as fs from "fs";
@@ -17,8 +18,16 @@ export interface HarnessConfig {
     name: string;
     aliases: string[];
     getConfigPath: (platform: string, homeDir: string, appData?: string, localAppData?: string) => string;
-    type: JsonFormatType | "yaml";
+    type: JsonFormatType | "yaml" | "toml";
     defaultConfig: (cmd: string, args: string[]) => Record<string, unknown>;
+    // Optional explicit container path for JSON configs, e.g. ["mcp", "servers"]
+    // for OpenClaw (mcp.servers.superpowers). When set, discovery, creation,
+    // and removal are confined to this path instead of the format-conventional
+    // root key.
+    serverPath?: string[];
+    // YAML profile: "mcp" writes mcp_servers.<name> with command/args (default),
+    // "goose" writes extensions.<name> with name/cmd/args/type (goose CLI/Desktop).
+    yamlProfile?: "mcp" | "goose";
 }
 
 export const HARNESS_CONFIGS: Record<string, HarnessConfig> = {
@@ -333,6 +342,47 @@ export const HARNESS_CONFIGS: Record<string, HarnessConfig> = {
             args: args,
         }),
     },
+    codex: {
+        name: "Codex",
+        aliases: ["codex"],
+        getConfigPath: (_platform, homeDir) => {
+            return path.join(homeDir, ".codex", "config.toml");
+        },
+        type: "toml",
+        defaultConfig: (cmd, args) => ({
+            command: cmd,
+            args: args,
+        }),
+    },
+    openclaw: {
+        name: "OpenClaw",
+        aliases: ["openclaw", "open-claw"],
+        getConfigPath: (_platform, homeDir) => {
+            return path.join(homeDir, ".openclaw", "openclaw.json");
+        },
+        type: "json-mcpServers",
+        serverPath: ["mcp", "servers"],
+        defaultConfig: (cmd, args) => ({
+            command: cmd,
+            args: args,
+        }),
+    },
+    goose: {
+        name: "Goose",
+        aliases: ["goose"],
+        getConfigPath: (platform, homeDir, appData) => {
+            if (platform === "win32") {
+                return path.join(appData || path.join(homeDir, "AppData", "Roaming"), "Block", "goose", "config", "config.yaml");
+            }
+            return path.join(homeDir, ".config", "goose", "config.yaml");
+        },
+        type: "yaml",
+        yamlProfile: "goose",
+        defaultConfig: (cmd, args) => ({
+            cmd: cmd,
+            args: args,
+        }),
+    },
 };
 
 /**
@@ -481,14 +531,50 @@ function extractInlineComment(line: string): string {
 /**
  * Parses simple YAML to locate/inject mcp_servers.superpowers safely without external dependencies.
  */
-export function updateYamlConfig(existingContent: string, cmd: string, args: string[], remove = false): string {
+export function updateYamlConfig(existingContent: string, cmd: string, args: string[], remove = false, yamlProfile: "mcp" | "goose" = "mcp"): string {
+    // Profile selects the managed root and entry shape. "mcp" (Hermes-style)
+    // owns command/args under mcp_servers.<name>; "goose" owns cmd/args/type
+    // under extensions.<name> and deliberately preserves the user's name,
+    // enabled, timeout, and envs (same philosophy as the JSON updater's enabled/disabled
+    // preservation: never flip a switch the user set explicitly).
+    const spec = yamlProfile === "goose"
+        ? {
+            rootKey: "extensions",
+            // name is create-only default ("Superpowers"): user renames are preserved
+            // on update via keptChildren, same as enabled/timeout/envs.
+            ownedKeys: ["cmd", "args", "type"],
+            freshEntry: (indent: string, c: string, a: string[]): string[] => [
+                `${indent}superpowers:`,
+                `${indent}${indent}name: "Superpowers"`,
+                `${indent}${indent}cmd: ${JSON.stringify(c)}`,
+                `${indent}${indent}args: ${JSON.stringify(a)}`,
+                `${indent}${indent}enabled: true`,
+                `${indent}${indent}type: stdio`,
+                `${indent}${indent}timeout: 300`,
+            ],
+        }
+        : {
+            rootKey: "mcp_servers",
+            ownedKeys: ["command", "args"],
+            freshEntry: (indent: string, c: string, a: string[]): string[] => [
+                `${indent}superpowers:`,
+                `${indent}${indent}command: ${JSON.stringify(c)}`,
+                `${indent}${indent}args: ${JSON.stringify(a)}`,
+            ],
+        };
+    if (!/^[A-Za-z0-9_-]+$/.test(spec.rootKey)) throw new Error("Invalid YAML root key");
+    // Built once from internal constants (never user input): anchored patterns
+    // only, preserving the linear-time ReDoS discipline documented below.
+    const rootKeyPattern = new RegExp(`^(\\s*)${spec.rootKey}\\s*:`);
+    const rootHeaderPattern = new RegExp(`^(\\s*)${spec.rootKey}\\s*:\\s*(?:#.*)?$`);
+    const ownedKeyPattern = new RegExp(`^\\s*["']?(?:${spec.ownedKeys.join("|")})["']?\\s*:`);
     const lines = existingContent ? existingContent.split(/\r?\n/) : [];
     const mcpDeclarations = lines
         // Match the key with a single unambiguous pattern, then trim the remainder with
         // String#trim: the previous `\s*(.*?)\s*$` tail backtracks polynomially on input
         // padded with long whitespace runs (CodeQL js/polynomial-redos).
         .map((line, index) => {
-            const match = line.match(/^(\s*)mcp_servers:/);
+            const match = line.match(rootKeyPattern);
             if (!match) return null;
             return { index, indent: match[1], tail: line.slice(match[0].length).trim() };
         })
@@ -500,17 +586,17 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
     const rootDecls = mcpDeclarations.filter((entry) => entry.indent === "");
 
     if (rootDecls.length > 1) {
-        throw new Error("Cannot safely update YAML with duplicate mcp_servers keys");
+        throw new Error(`Cannot safely update YAML with duplicate ${spec.rootKey} keys`);
     }
     if (rootDecls.length === 1) {
         const declaration = rootDecls[0];
         if (declaration.tail !== "" && !declaration.tail.startsWith("#")) {
-            throw new Error("Cannot safely update YAML unless mcp_servers is a root-level block mapping");
+            throw new Error(`Cannot safely update YAML unless ${spec.rootKey} is a root-level block mapping`);
         }
     } else if (mcpDeclarations.length > 0) {
         // mcp_servers exists but only nested under another key — there is no root
         // mapping to update, and we must not inject into the nested one.
-        throw new Error("Cannot safely update YAML unless mcp_servers is a root-level block mapping");
+        throw new Error(`Cannot safely update YAML unless ${spec.rootKey} is a root-level block mapping`);
     }
 
     let indent = "  ";
@@ -536,7 +622,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
         let superpowersIndent = 0;
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            const mcpMatch = line.match(/^(\s*)mcp_servers:\s*(?:#.*)?$/);
+            const mcpMatch = line.match(rootHeaderPattern);
             if (mcpMatch) {
                 inMcpServers = true;
                 mcpIndent = mcpMatch[1].length;
@@ -574,21 +660,15 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
         return newLines.join("\n");
     }
 
-    const escapedCmd = JSON.stringify(cmd);
-    const argsStr = JSON.stringify(args);
-    const superpowersBlock = [
-        `${indent}superpowers:`,
-        `${indent}${indent}command: ${escapedCmd}`,
-        `${indent}${indent}args: ${argsStr}`,
-    ];
+    const superpowersBlock = spec.freshEntry(indent, cmd, args);
 
     if (!existingContent || existingContent.trim() === "") {
-        return `mcp_servers:\n${superpowersBlock.join("\n")}\n`;
+        return `${spec.rootKey}:\n${superpowersBlock.join("\n")}\n`;
     }
 
     const mcpServersIndex = rootDecls.length === 1 ? rootDecls[0].index : -1;
     if (mcpServersIndex === -1) {
-        return `${existingContent.trimEnd()}\n\nmcp_servers:\n${superpowersBlock.join("\n")}\n`;
+        return `${existingContent.trimEnd()}\n\n${spec.rootKey}:\n${superpowersBlock.join("\n")}\n`;
     }
 
     let superpowersIndex = -1;
@@ -619,6 +699,10 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
         // Keep the user's inline comment on the server declaration.
         const keptChildren: string[] = [];
         let skipIndent = -1;
+        // Only direct children (superpowers indent + one level) are managed.
+        // Deeper keys (e.g. envs: { type: ... } or env: { command: ... })
+        // belong to user nested mappings and must be preserved verbatim.
+        const directChildIndent = spIndent + indent.length;
         for (let i = superpowersIndex + 1; i < endIndex; i++) {
             const line = lines[i];
             if (line.trim() === "") continue;
@@ -628,7 +712,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
                 continue;
             }
             skipIndent = -1;
-            if (childIndent > spIndent && /^\s*["']?(?:command|args)["']?\s*:/.test(line)) {
+            if (childIndent === directChildIndent && ownedKeyPattern.test(line)) {
                 skipIndent = childIndent;
                 continue;
             }
@@ -639,12 +723,207 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
         // 只重寫由我們負責管理的 command / args。舊行為整塊置換，重跑 setup
         // 會讓使用者的 env 等設定無聲消失。
         superpowersBlock[0] += extractInlineComment(lines[superpowersIndex]);
-        lines.splice(superpowersIndex, endIndex - superpowersIndex, ...superpowersBlock, ...keptChildren);
+        // 更新時只重放 header 與受管 key；create 專用的預設值（例如 goose 的
+        // enabled/timeout）不重放，以免與 keptChildren 裡的使用者設定重複成
+        // duplicate key。mcp profile 的 fresh 行全為受管 key，行為與舊版一致。
+        const updateBody = superpowersBlock.filter((line, idx) => {
+            if (idx === 0) return true;
+            const keyMatch = line.match(/^\s*["']?([A-Za-z0-9_-]+)["']?\s*:/);
+            return !keyMatch || spec.ownedKeys.includes(keyMatch[1]);
+        });
+        lines.splice(superpowersIndex, endIndex - superpowersIndex, ...updateBody, ...keptChildren);
         return lines.join("\n");
     } else {
         lines.splice(mcpServersIndex + 1, 0, ...superpowersBlock);
         return lines.join("\n");
     }
+}
+
+/**
+ * Splits a TOML line into [code, comment]. The comment starts at the first `#`
+ * outside single/double-quoted strings; leading whitespace before it belongs to
+ * the comment so reattaching it preserves the original spacing.
+ *
+ * Single linear scan — no backtracking patterns (same ReDoS discipline as the
+ * YAML comment scanner above).
+ */
+function splitTomlComment(line: string): [string, string] {
+    let quote: string | null = null;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (quote) {
+            // TOML basic strings (double-quoted) support backslash escapes
+            // (\" , \\ ...): skip the escaped char so an escaped quote
+            // does not close the string early and a # inside stays code.
+            // Literal strings (single-quoted) have no escapes.
+            if (quote === '"' && ch === '\\' && i + 1 < line.length) {
+                i++;
+                continue;
+            }
+            if (ch === quote) quote = null;
+            continue;
+        }
+        if (ch === '"' || ch === "'") {
+            quote = ch;
+            continue;
+        }
+        if (ch === "#") {
+            let start = i;
+            while (start > 0 && WHITESPACE_CHAR.test(line[start - 1])) start--;
+            return [line.slice(0, start), line.slice(start)];
+        }
+    }
+    return [line, ""];
+}
+
+/** Exact managed table header, tolerating surrounding whitespace and a trailing comment. */
+const TOML_SUPERPOWERS_HEADER = /^\s*\[\s*mcp_servers\s*\.\s*superpowers\s*\]\s*(?:#.*)?$/;
+
+/** Any TOML table header line. */
+const TOML_TABLE_HEADER = /^\s*\[.*\]\s*(?:#.*)?$/;
+
+/** A `[mcp_servers.superpowers.…]` sub-table header, which belongs to our section. */
+const TOML_SUPERPOWERS_SUBTABLE = /^\s*\[\s*mcp_servers\s*\.\s*superpowers\s*\./;
+
+/** Quoted table-name variants we cannot reason about safely — fail closed on sight. */
+const TOML_QUOTED_MANAGED = /^\s*\[.*["']mcp_servers["'].*["']superpowers["'].*\]\s*(?:#.*)?$/;
+
+/** Direct-child `command` / `args` key lines (comment already split off). */
+const TOML_MANAGED_KEY = /^\s*(command|args)\s*=/;
+
+/**
+ * Parses Codex `config.toml` to locate/inject `[mcp_servers.superpowers]` safely without
+ * external dependencies (runtime dependencies must stay empty per SECURITY.md).
+ *
+ * Surgical text updater: every other table, key, comment, and blank line is preserved
+ * verbatim, including `[mcp_servers.superpowers.*]` sub-tables and user-added keys
+ * (`enabled`, `env`, `cwd`, timeouts…). Only `command` / `args` under the managed
+ * table are rewritten; their trailing comments are reattached.
+ */
+export function updateTomlConfig(existingContent: string, cmd: string, args: string[], remove = false): string {
+    const lines = existingContent ? existingContent.split(/\r?\n/) : [];
+
+    // Inline-table form (mcp_servers = {...} or mcp_servers.superpowers = {...})
+    // cannot be merged surgically: appending a [mcp_servers.superpowers] table
+    // would create a duplicate definition (invalid TOML). Fail closed.
+    for (const line of lines) {
+        if (/^\s*mcp_servers(?:\s*\.\s*[A-Za-z0-9_-]+)*\s*=/.test(line)) {
+            throw new Error("Cannot safely update TOML with inline mcp_servers assignment (expected [mcp_servers.superpowers] table)");
+        }
+    }
+
+    const headerIndexes: number[] = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (TOML_QUOTED_MANAGED.test(lines[i])) {
+            throw new Error("Cannot safely update TOML with quoted mcp_servers.superpowers table names");
+        }
+        if (TOML_SUPERPOWERS_HEADER.test(lines[i])) headerIndexes.push(i);
+    }
+    if (headerIndexes.length > 1) {
+        throw new Error("Cannot safely update TOML with duplicate mcp_servers.superpowers tables");
+    }
+
+    const expectedCommand = `command = ${JSON.stringify(cmd)}`;
+    const expectedArgs = `args = ${JSON.stringify(args)}`;
+    // Quote-style and whitespace agnostic comparison so re-runs over an equivalent
+    // file return it untouched (idempotent `up-to-date` instead of noisy `updated`).
+    const normTomlValue = (value: string): string => value.replace(/'/g, '"').replace(/\s+/g, "");
+
+    if (headerIndexes.length === 0) {
+        if (remove) return existingContent;
+        const block = `[mcp_servers.superpowers]\n${expectedCommand}\n${expectedArgs}\n`;
+        if (!existingContent || existingContent.trim() === "") return block;
+        return `${existingContent.trimEnd()}\n\n${block}`;
+    }
+
+    const header = headerIndexes[0];
+    // Our section runs to the next foreign table header (or EOF); sub-tables of
+    // `[mcp_servers.superpowers.…]` belong to us and are preserved on update,
+    // removed together with the parent on remove.
+    let end = header + 1;
+    while (end < lines.length) {
+        if (TOML_TABLE_HEADER.test(lines[end]) && !TOML_SUPERPOWERS_SUBTABLE.test(lines[end])) break;
+        end++;
+    }
+    // Direct children end at the first sub-table header.
+    let childrenEnd = end;
+    for (let i = header + 1; i < end; i++) {
+        if (TOML_TABLE_HEADER.test(lines[i])) {
+            childrenEnd = i;
+            break;
+        }
+    }
+
+    if (remove) {
+        return lines.slice(0, header).concat(lines.slice(end)).join("\n");
+    }
+
+    let currentCommand: string | null = null;
+    let currentArgs: string | null = null;
+    const comments: Record<string, string> = {};
+    for (let i = header + 1; i < childrenEnd; i++) {
+        const [code, comment] = splitTomlComment(lines[i]);
+        const m = code.match(/^\s*(command|args)\s*=\s*([\s\S]*?)\s*$/);
+        if (!m) continue;
+        if (m[1] === "command") {
+            if (currentCommand === null) currentCommand = normTomlValue(m[2]);
+        } else {
+            if (currentArgs === null) currentArgs = normTomlValue(m[2]);
+        }
+        if (!(m[1] in comments)) comments[m[1]] = comment;
+    }
+    if (currentCommand === normTomlValue(JSON.stringify(cmd)) && currentArgs === normTomlValue(JSON.stringify(args))) {
+        return existingContent;
+    }
+
+    const body = [`${expectedCommand}${comments.command ?? ""}`, `${expectedArgs}${comments.args ?? ""}`];
+    const out = lines.slice(0, header + 1);
+    let inserted = false;
+    for (let i = header + 1; i < childrenEnd; i++) {
+        const [code] = splitTomlComment(lines[i]);
+        if (TOML_MANAGED_KEY.test(code)) {
+            if (!inserted) {
+                out.push(...body);
+                inserted = true;
+            }
+            continue;
+        }
+        out.push(lines[i]);
+    }
+    if (!inserted) out.push(...body);
+    out.push(...lines.slice(childrenEnd, end));
+    out.push(...lines.slice(end));
+    return out.join("\n");
+}
+
+/**
+ * Merges a managed `superpowers` server entry over an existing one, preserving
+ * user-authored fields. Shared by the flat-root and nested-path JSON writers
+ * so both keep env/disabled/enabled semantics identical.
+ */
+function mergeServerEntry(
+    existing: unknown,
+    desired: Record<string, unknown>,
+    formatType: JsonFormatType
+): Record<string, unknown> {
+    if (!isPlainObject(existing)) return desired;
+    const merged: Record<string, unknown> = { ...existing, ...desired };
+
+    // enabled 只是預設值：使用者已明示啟用狀態時不得覆寫，
+    // 否則會出現 `disabled: true` 與 `enabled: true` 並存的矛盾設定。
+    if (existing["enabled"] !== undefined || existing["disabled"] !== undefined) {
+        if (existing["enabled"] !== undefined) {
+            merged["enabled"] = existing["enabled"];
+        } else {
+            delete merged["enabled"];
+        }
+    }
+
+    // json-mcp 形式把參數收進 command 陣列，殘留的 args 會與之矛盾。
+    if (formatType === "json-mcp" && Array.isArray(merged["command"])) {
+        delete merged["args"];
+    }
+    return merged;
 }
 
 /**
@@ -656,7 +935,8 @@ export function updateJsonConfig(
     cmd: string,
     args: string[],
     remove = false,
-    customConfig?: Record<string, unknown>
+    customConfig?: Record<string, unknown>,
+    serverPath?: string[]
 ): string {
     let json: Record<string, unknown> = {};
     let hadJsoncSyntax = false;
@@ -688,6 +968,39 @@ export function updateJsonConfig(
 
     const conventionalRootKey =
         formatType === "json-servers" ? "servers" : formatType === "json-mcp" ? "mcp" : "mcpServers";
+
+    // Explicit container path (e.g. OpenClaw ["mcp", "servers"]): discovery,
+    // creation, and removal stay inside it and never touch sibling subtrees.
+    // JSON5 inputs (comments, trailing commas) ride the same JSONC fallback as
+    // above; anything beyond that (single quotes, unquoted keys) fails closed
+    // with a parse error instead of risking corruption.
+    if (serverPath && serverPath.length > 0) {
+        const dotted = serverPath.join(".");
+        let container: Record<string, unknown> = json;
+        for (const segment of serverPath) {
+            const next = container[segment];
+            if (next === undefined) {
+                if (remove) return existingContent;
+                container[segment] = {};
+            } else if (!isPlainObject(next)) {
+                throw new Error(`Existing JSON field "${dotted}" must be an object`);
+            }
+            container = container[segment] as Record<string, unknown>;
+        }
+        if (remove) {
+            delete container["superpowers"];
+        } else {
+            const desired = customConfig ? { ...customConfig } : { command: cmd, args: args };
+            container["superpowers"] = mergeServerEntry(container["superpowers"], desired, formatType);
+        }
+        const updatedNested = JSON.stringify(json, null, 2) + "\n";
+        if (hadJsoncSyntax && updatedNested !== existingContent) {
+            process.stderr.write(
+                "[superpowers-mcp] Warning: JSONC comments/trailing commas in the existing config were removed while updating it (the file is rewritten as plain JSON).\n"
+            );
+        }
+        return updatedNested;
+    }
 
     // 先尋找任何已經存放 superpowers 條目的 root key。舊行為只在「慣用」key 不存在
     // 時直接新建一個空物件，因此當設定檔其實使用另一個等效 key（例如 VS Code 的
@@ -734,29 +1047,7 @@ export function updateJsonConfig(
 
         // 與既有條目合併，保留使用者自行加入的欄位（env、envFile、disabled、
         // alwaysAllow、cwd 等）。舊行為以整塊覆蓋，重跑 setup 會直接刪掉這些設定。
-        const existing = targetServers["superpowers"];
-        if (!isPlainObject(existing)) {
-            targetServers["superpowers"] = desired;
-        } else {
-            const merged: Record<string, unknown> = { ...existing, ...desired };
-
-            // enabled 只是預設值：使用者已明示啟用狀態時不得覆寫，
-            // 否則會出現 `disabled: true` 與 `enabled: true` 並存的矛盾設定。
-            if (existing["enabled"] !== undefined || existing["disabled"] !== undefined) {
-                if (existing["enabled"] !== undefined) {
-                    merged["enabled"] = existing["enabled"];
-                } else {
-                    delete merged["enabled"];
-                }
-            }
-
-            // json-mcp 形式把參數收進 command 陣列，殘留的 args 會與之矛盾。
-            if (formatType === "json-mcp" && Array.isArray(merged["command"])) {
-                delete merged["args"];
-            }
-
-            targetServers["superpowers"] = merged;
-        }
+        targetServers["superpowers"] = mergeServerEntry(targetServers["superpowers"], desired, formatType);
     }
 
     const updated = JSON.stringify(json, null, 2) + "\n";
@@ -1026,10 +1317,12 @@ export async function runSetup(options: SetupOptions = {}): Promise<SetupResult[
 
             let newContent = "";
             if (harness.type === "yaml") {
-                newContent = updateYamlConfig(originalContent, cmd, args, isRemove);
+                newContent = updateYamlConfig(originalContent, cmd, args, isRemove, harness.yamlProfile);
+            } else if (harness.type === "toml") {
+                newContent = updateTomlConfig(originalContent, cmd, args, isRemove);
             } else {
                 const serverConfig = typeof harness.defaultConfig === "function" ? harness.defaultConfig(cmd, args) : undefined;
-                newContent = updateJsonConfig(originalContent, harness.type, cmd, args, isRemove, serverConfig);
+                newContent = updateJsonConfig(originalContent, harness.type, cmd, args, isRemove, serverConfig, harness.serverPath);
             }
 
             if (originalContent.trim() === newContent.trim() && fileExists) {
@@ -1174,7 +1467,10 @@ export async function runSetupCli(argv = process.argv.slice(2)): Promise<void> {
         console.log("  npx -y superpowers-mcp setup --target kilo       # Kilo Code (~/.config/kilo/kilo.jsonc)");
         console.log("  npx -y superpowers-mcp setup --target qoder      # Qoder (~/.qoder/settings.json)");
         console.log("  npx -y superpowers-mcp setup --target kiro       # Kiro (~/.kiro/settings/mcp.json)");
-        console.log("  npx -y superpowers-mcp setup --target trae       # Trae (~/.../Trae/User/mcp.json)\n");
+        console.log("  npx -y superpowers-mcp setup --target trae       # Trae (~/.../Trae/User/mcp.json)");
+        console.log("  npx -y superpowers-mcp setup --target codex      # Codex (~/.codex/config.toml)");
+        console.log("  npx -y superpowers-mcp setup --target openclaw   # OpenClaw (~/.openclaw/openclaw.json)");
+        console.log("  npx -y superpowers-mcp setup --target goose      # Goose (~/.config/goose/config.yaml)\n");
         console.log("💡 Tip:");
         console.log("   You can run this setup command from ANY folder on your system.");
         console.log("   It automatically targets your global config files (~/...) without needing to clone this repo.\n");
@@ -1247,7 +1543,8 @@ Options:
                         copilot (vscode), copilot-insiders (vscode-insiders, code-insiders, insiders),
                         hermes, kimi, claude, devin (windsurf),
                         qwenpaw (qwen-paw, copaw), cline (claude-dev), kilo (kilocode),
-                        qoder, kiro (kiro-code), trae, lmstudio (lm-studio), roo (roo-code, roocode)
+                        qoder, kiro (kiro-code), trae, lmstudio (lm-studio), roo (roo-code, roocode),
+                        codex, openclaw (open-claw), goose
   --print-config        Print importable mcpServers JSON without writing files (optional --bun)
   --bun                 Use "bunx" instead of "npx" in server commands
   --backup              Create a timestamped .bak backup before modifying (Default: false, zero-pollution)
@@ -1271,6 +1568,9 @@ Examples:
   npx -y superpowers-mcp setup --target qoder       # Configure Qoder only
   npx -y superpowers-mcp setup --target kiro        # Configure Kiro only
   npx -y superpowers-mcp setup --target trae        # Configure Trae only
+  npx -y superpowers-mcp setup --target codex       # Configure Codex only
+  npx -y superpowers-mcp setup --target openclaw    # Configure OpenClaw only
+  npx -y superpowers-mcp setup --target goose       # Configure Goose only
 
 Any Directory:
   You can run this command from ANY directory on your machine.

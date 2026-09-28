@@ -5,6 +5,7 @@ const os = require("os");
 const {
     HARNESS_CONFIGS,
     updateYamlConfig,
+    updateTomlConfig,
     updateJsonConfig,
     stripJsonComments,
     isPlainObject,
@@ -333,6 +334,237 @@ it("should reject YAML shapes the updater cannot preserve safely", () => {
     );
 });
 
+it("should create valid TOML structure from empty file", () => {
+    const toml = updateTomlConfig("", "npx", ["-y", "superpowers-mcp"]);
+    assert.ok(toml.includes("[mcp_servers.superpowers]"), "Must create mcp_servers.superpowers table");
+    assert.ok(toml.includes('command = "npx"'), "Must contain command");
+    assert.ok(toml.includes('args = ["-y","superpowers-mcp"]'), "Must contain args");
+});
+
+it("should inject superpowers into existing TOML with other servers", () => {
+    const existing = `model = "gpt-5"
+
+[mcp_servers.other]
+command = "other"
+`;
+    const updated = updateTomlConfig(existing, "npx", ["-y", "superpowers-mcp"]);
+    assert.ok(updated.includes('model = "gpt-5"'), "Must preserve top-level keys");
+    assert.ok(updated.includes("[mcp_servers.other]"), "Must preserve other server");
+    assert.ok(updated.includes("[mcp_servers.superpowers]"), "Must contain superpowers table");
+    assert.strictEqual(updated.match(/\[mcp_servers\.superpowers\]/g).length, 1, "Must not duplicate superpowers table");
+});
+
+it("should update superpowers in existing TOML without duplicating", () => {
+    const existing = `[mcp_servers.superpowers]
+command = "bunx"
+args = ["old-superpowers"]
+enabled = true
+
+[mcp_servers.superpowers.env]
+FOO = "bar"
+`;
+    const updated = updateTomlConfig(existing, "npx", ["-y", "superpowers-mcp"]);
+    assert.ok(updated.includes('command = "npx"'), "Must update command");
+    assert.ok(updated.includes("enabled = true"), "Must preserve user-added keys");
+    assert.ok(updated.includes("[mcp_servers.superpowers.env]"), "Must preserve sub-tables");
+    assert.strictEqual(updated.match(/\[mcp_servers\.superpowers\]/g).length, 1, "Must not duplicate superpowers table");
+});
+
+it("should treat equivalent TOML values as up-to-date", () => {
+    const existing = `[mcp_servers.superpowers]
+command = 'npx'  # kept comment
+args = [ '-y', 'superpowers-mcp' ]
+`;
+    const updated = updateTomlConfig(existing, "npx", ["-y", "superpowers-mcp"]);
+    assert.strictEqual(updated, existing, "Equivalent values must return content unchanged");
+});
+
+it("should remove superpowers from TOML when remove=true", () => {
+    const existing = `model = "gpt-5"
+
+[mcp_servers.superpowers]
+command = "npx"
+args = ["-y", "superpowers-mcp"]
+
+[mcp_servers.superpowers.env]
+FOO = "bar"
+
+[mcp_servers.other]
+command = "other"
+`;
+    const updated = updateTomlConfig(existing, "npx", [], true);
+    assert.ok(!updated.includes("superpowers"), "Should not contain superpowers or its sub-tables");
+    assert.ok(updated.includes("[mcp_servers.other]"), "Should preserve other server");
+    assert.ok(updated.includes('model = "gpt-5"'), "Should preserve top-level keys");
+
+    const untouched = updateTomlConfig("[mcp_servers.other]\ncommand = \"other\"\n", "npx", [], true);
+    assert.ok(untouched.includes("[mcp_servers.other]"), "Remove without our table must leave content unchanged");
+});
+
+it("should reject TOML shapes the updater cannot preserve safely", () => {
+    assert.throws(
+        () => updateTomlConfig("[mcp_servers.superpowers]\ncommand = \"a\"\n[mcp_servers.superpowers]\ncommand = \"b\"\n", "npx", []),
+        /duplicate mcp_servers\.superpowers tables/
+    );
+    assert.throws(
+        () => updateTomlConfig('["mcp_servers"."superpowers"]\ncommand = "a"\n', "npx", []),
+        /quoted mcp_servers\.superpowers table names/
+    );
+});
+
+it("should create valid goose extensions structure from empty file", () => {
+    const yaml = updateYamlConfig("", "npx", ["-y", "superpowers-mcp"], false, "goose");
+    assert.ok(yaml.includes("extensions:"), "Must create extensions root");
+    assert.ok(yaml.includes("superpowers:"), "Must contain superpowers entry");
+    assert.ok(yaml.includes('cmd: "npx"'), "Must contain cmd (goose uses cmd, not command)");
+    assert.ok(yaml.includes('args: ["-y","superpowers-mcp"]'), "Must contain args");
+    assert.ok(yaml.includes("type: stdio"), "Must contain type");
+    assert.ok(!yaml.includes("mcp_servers:"), "Must not create hermes-style root");
+});
+
+it("should merge goose entry preserving user enabled/timeout/envs", () => {
+    const existing = `extensions:
+  github:
+    cmd: "npx"
+    type: stdio
+  superpowers:
+    cmd: "bunx"
+    args: ["old"]
+    enabled: false
+    timeout: 600
+    envs: { "FOO": "bar" }
+`;
+    const updated = updateYamlConfig(existing, "npx", ["-y", "superpowers-mcp"], false, "goose");
+    assert.ok(updated.includes('cmd: "npx"'), "Must update cmd");
+    assert.ok(updated.includes("enabled: false"), "Must not flip user's enabled switch");
+    assert.ok(updated.includes("timeout: 600"), "Must preserve user's timeout");
+    assert.ok(updated.includes('envs: { "FOO": "bar" }'), "Must preserve user's envs");
+    assert.ok(updated.includes("github:"), "Must preserve other extensions");
+    assert.strictEqual(updated.match(/superpowers:/g).length, 1, "Must not duplicate superpowers entry");
+    assert.strictEqual(updated.match(/^\s*enabled:/gm).length, 1, "Must not duplicate enabled key");
+});
+
+it("should remove goose entry preserving others", () => {
+    const existing = `extensions:
+  superpowers:
+    cmd: "npx"
+  other:
+    cmd: "python"
+`;
+    const updated = updateYamlConfig(existing, "npx", [], true, "goose");
+    assert.ok(!updated.includes("superpowers:"), "Should not contain superpowers");
+    assert.ok(updated.includes("other:"), "Should preserve other extensions");
+});
+
+it("should reject duplicate extensions roots", () => {
+    assert.throws(
+        () => updateYamlConfig("extensions:\n  one: {}\nextensions:\n  two: {}\n", "npx", [], false, "goose"),
+        /duplicate extensions keys/
+    );
+});
+
+it("should create nested mcp.servers.superpowers for OpenClaw-style configs", () => {
+    const out = updateJsonConfig("", "json-mcpServers", "npx", ["-y", "superpowers-mcp"], false, undefined, ["mcp", "servers"]);
+    assert.deepStrictEqual(JSON.parse(out).mcp.servers.superpowers, { command: "npx", args: ["-y", "superpowers-mcp"] });
+});
+
+it("should merge into existing nested servers preserving user fields", () => {
+    const existing = JSON.stringify({ mcp: { servers: {
+        other: { command: "other" },
+        superpowers: { command: "bunx", args: ["old"], enabled: false },
+    } } });
+    const out = updateJsonConfig(existing, "json-mcpServers", "npx", ["-y", "superpowers-mcp"], false, undefined, ["mcp", "servers"]);
+    const json = JSON.parse(out);
+    assert.strictEqual(json.mcp.servers.superpowers.command, "npx");
+    assert.strictEqual(json.mcp.servers.superpowers.enabled, false, "Must preserve user's enabled switch");
+    assert.ok(json.mcp.servers.other, "Must preserve sibling servers");
+});
+
+it("should remove nested superpowers without touching siblings", () => {
+    const existing = JSON.stringify({ mcp: { servers: { superpowers: { command: "x" }, other: { command: "y" } } }, gateway: {} });
+    const out = updateJsonConfig(existing, "json-mcpServers", "npx", [], true, undefined, ["mcp", "servers"]);
+    const json = JSON.parse(out);
+    assert.ok(!("superpowers" in json.mcp.servers));
+    assert.ok(json.mcp.servers.other);
+    assert.ok(json.gateway, "Must preserve sibling subtrees");
+    const untouched = updateJsonConfig(JSON.stringify({ mcp: {} }), "json-mcpServers", "npx", [], true, undefined, ["mcp", "servers"]);
+    assert.strictEqual(JSON.parse(untouched).mcp.servers, undefined, "Remove with missing path must leave content unchanged");
+});
+
+it("should reject non-object nested containers", () => {
+    assert.throws(
+        () => updateJsonConfig(JSON.stringify({ mcp: { servers: "nope" } }), "json-mcpServers", "npx", [], false, undefined, ["mcp", "servers"]),
+        /must be an object/
+    );
+});
+
+it("should preserve nested keys that share managed names (yaml direct-child only)", () => {
+    const mcpExisting = `mcp_servers:
+  superpowers:
+    command: "bunx"
+    args: ["old"]
+    env:
+      command: my-nested-value
+      OTHER: 1
+`;
+    const mcpUpdated = updateYamlConfig(mcpExisting, "npx", ["-y"], false, "mcp");
+    assert.ok(mcpUpdated.includes('command: "npx"'), "Must update direct command");
+    assert.ok(mcpUpdated.includes("my-nested-value"), "Must preserve nested command under env");
+    assert.ok(mcpUpdated.includes("OTHER: 1"), "Must preserve sibling nested keys");
+
+    const gooseExisting = `extensions:
+  superpowers:
+    cmd: "bunx"
+    args: ["old"]
+    enabled: false
+    envs:
+      type: foo
+      MYVAR: bar
+`;
+    const gooseUpdated = updateYamlConfig(gooseExisting, "npx", ["-y", "superpowers-mcp"], false, "goose");
+    assert.ok(gooseUpdated.includes('cmd: "npx"'), "Must update direct cmd");
+    assert.ok(gooseUpdated.includes("type: foo"), "Must preserve nested type under envs");
+    assert.ok(gooseUpdated.includes("MYVAR: bar"), "Must preserve sibling nested keys");
+    assert.ok(gooseUpdated.includes("enabled: false"), "Must preserve enabled");
+});
+
+it("should preserve user-customized goose name on update", () => {
+    const existing = `extensions:
+  superpowers:
+    name: "My Custom"
+    cmd: "bunx"
+    args: ["old"]
+    type: stdio
+`;
+    const updated = updateYamlConfig(existing, "npx", ["-y", "superpowers-mcp"], false, "goose");
+    assert.ok(updated.includes('name: "My Custom"'), "Must not overwrite user name");
+    assert.ok(updated.includes('cmd: "npx"'), "Must update direct cmd");
+});
+
+it("should accept YAML root with space before colon without duplicating", () => {
+    const existing = `extensions :\n  superpowers:\n    cmd: "x"\n`;
+    const updated = updateYamlConfig(existing, "npx", ["-y"], false, "goose");
+    assert.strictEqual(updated.match(/extensions\s*:/g).length, 1, "Must not duplicate extensions root");
+    assert.ok(updated.includes('cmd: "npx"'), "Must update entry");
+});
+
+it("should reject TOML inline mcp_servers assignments", () => {
+    assert.throws(
+        () => updateTomlConfig('mcp_servers = { superpowers = { command = "old" } }\n', "npx", []),
+        /inline mcp_servers/
+    );
+    assert.throws(
+        () => updateTomlConfig('mcp_servers.superpowers = { command = "old" }\n', "npx", []),
+        /inline mcp_servers/
+    );
+});
+
+it("should handle escaped quotes in TOML comment scan", () => {
+    const existing = `[mcp_servers.superpowers]\ncommand = "npx"\nargs = ["-y"]\nnote = "a \\" # not comment"\n`;
+    const updated = updateTomlConfig(existing, "npx", ["-y"]);
+    assert.ok(updated.includes("note ="), "Must preserve user key with escaped quote");
+});
+
 // 4. Platform Path Resolvers & Unknown Target Defense
 it("should correctly resolve paths for macOS, Windows, Linux", () => {
     const home = "/mock/home";
@@ -345,6 +577,14 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
             ? path.join(home, "Library", "Application Support") : path.join(home, ".config");
         assert.strictEqual(HARNESS_CONFIGS.roo.getConfigPath(platform, home, appData),
             path.join(base, "Code", "User", "globalStorage", "rooveterinaryinc.roo-cline", "settings", "mcp_settings.json"));
+        assert.strictEqual(HARNESS_CONFIGS.codex.getConfigPath(platform, home, appData),
+            path.join(home, ".codex", "config.toml"));
+        assert.strictEqual(HARNESS_CONFIGS.openclaw.getConfigPath(platform, home, appData),
+            path.join(home, ".openclaw", "openclaw.json"));
+        const gooseExpect = platform === "win32"
+            ? path.join(appData, "Block", "goose", "config", "config.yaml")
+            : path.join(home, ".config", "goose", "config.yaml");
+        assert.strictEqual(HARNESS_CONFIGS.goose.getConfigPath(platform, home, appData), gooseExpect);
     }
 
     // Copilot
@@ -535,6 +775,94 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
             assert.strictEqual(removed[0].status, "removed");
             assert.deepStrictEqual(JSON.parse(fs.readFileSync(configPath, "utf8")), { mcpServers: { other: { command: "other" } }, theme: "dark" });
             console.log(`  ✅ PASS: ${target} install, merge, dry run, Bun, idempotence and removal`);
+            passed++;
+        }
+
+        // Codex (TOML): real temporary-file merge, idempotence, dry run and removal.
+        {
+            const installed = await runSetup({ platform: "darwin", homeDir: mockHome, target: "codex" });
+            assert.strictEqual(installed[0].status, "created");
+            assert.ok(installed[0].path.endsWith(path.join(".codex", "config.toml")));
+            const created = fs.readFileSync(installed[0].path, "utf8");
+            assert.ok(created.includes("[mcp_servers.superpowers]"));
+            const withOther = `${created.trimEnd()}\n\nmodel = "gpt-5"\n\n[mcp_servers.other]\ncommand = "other"\n`;
+            fs.writeFileSync(installed[0].path, withOther);
+            const before = fs.readFileSync(installed[0].path, "utf8");
+            await runSetup({ platform: "darwin", homeDir: mockHome, target: "codex", bun: true, dryRun: true });
+            assert.strictEqual(fs.readFileSync(installed[0].path, "utf8"), before);
+            const changed = await runSetup({ platform: "darwin", homeDir: mockHome, target: "codex", bun: true });
+            assert.strictEqual(changed[0].status, "updated");
+            const merged = fs.readFileSync(installed[0].path, "utf8");
+            assert.ok(merged.includes('command = "bunx"'));
+            assert.ok(merged.includes("[mcp_servers.other]"));
+            assert.ok(merged.includes('model = "gpt-5"'));
+            const again = await runSetup({ platform: "darwin", homeDir: mockHome, target: "codex", bun: true });
+            assert.strictEqual(again[0].status, "up-to-date");
+            const removed = await runSetup({ platform: "darwin", homeDir: mockHome, target: "codex", remove: true });
+            assert.strictEqual(removed[0].status, "removed");
+            const cleaned = fs.readFileSync(installed[0].path, "utf8");
+            assert.ok(!cleaned.includes("superpowers"));
+            assert.ok(cleaned.includes("[mcp_servers.other]"));
+            console.log("  ✅ PASS: codex install, merge, dry run, Bun, idempotence and removal");
+            passed++;
+        }
+
+        // OpenClaw (nested JSON): real temporary-file merge, idempotence, dry run and removal.
+        {
+            const installed = await runSetup({ platform: "darwin", homeDir: mockHome, target: "openclaw" });
+            assert.strictEqual(installed[0].status, "created");
+            assert.ok(installed[0].path.endsWith(path.join(".openclaw", "openclaw.json")));
+            const created = JSON.parse(fs.readFileSync(installed[0].path, "utf8"));
+            assert.deepStrictEqual(created.mcp.servers.superpowers, { command: "npx", args: ["-y", "superpowers-mcp"] });
+            const withOther = { mcp: { servers: { ...created.mcp.servers, other: { command: "other" } } }, gateway: { port: 18789 } };
+            fs.writeFileSync(installed[0].path, JSON.stringify(withOther));
+            const before = fs.readFileSync(installed[0].path, "utf8");
+            await runSetup({ platform: "darwin", homeDir: mockHome, target: "openclaw", bun: true, dryRun: true });
+            assert.strictEqual(fs.readFileSync(installed[0].path, "utf8"), before);
+            const changed = await runSetup({ platform: "darwin", homeDir: mockHome, target: "openclaw", bun: true });
+            assert.strictEqual(changed[0].status, "updated");
+            const merged = JSON.parse(fs.readFileSync(installed[0].path, "utf8"));
+            assert.strictEqual(merged.mcp.servers.superpowers.command, "bunx");
+            assert.ok(merged.mcp.servers.other);
+            assert.strictEqual(merged.gateway.port, 18789);
+            const again = await runSetup({ platform: "darwin", homeDir: mockHome, target: "openclaw", bun: true });
+            assert.strictEqual(again[0].status, "up-to-date");
+            const removed = await runSetup({ platform: "darwin", homeDir: mockHome, target: "openclaw", remove: true });
+            assert.strictEqual(removed[0].status, "removed");
+            const cleaned = JSON.parse(fs.readFileSync(installed[0].path, "utf8"));
+            assert.ok(!("superpowers" in cleaned.mcp.servers));
+            assert.ok(cleaned.mcp.servers.other);
+            console.log("  ✅ PASS: openclaw install, merge, dry run, Bun, idempotence and removal");
+            passed++;
+        }
+
+        // Goose (YAML extensions profile): real temporary-file merge, idempotence, dry run and removal.
+        {
+            const installed = await runSetup({ platform: "darwin", homeDir: mockHome, target: "goose" });
+            assert.strictEqual(installed[0].status, "created");
+            assert.ok(installed[0].path.endsWith(path.join("goose", "config.yaml")));
+            let content = fs.readFileSync(installed[0].path, "utf8");
+            assert.ok(content.includes("extensions:"));
+            const withOther = `extensions:\n  superpowers:\n    cmd: "npx"\n    args: ["-y", "superpowers-mcp"]\n    enabled: false\n    type: stdio\n    timeout: 600\n  developer:\n    cmd: "other"\n    type: stdio\n`;
+            fs.writeFileSync(installed[0].path, withOther);
+            const before = fs.readFileSync(installed[0].path, "utf8");
+            await runSetup({ platform: "darwin", homeDir: mockHome, target: "goose", bun: true, dryRun: true });
+            assert.strictEqual(fs.readFileSync(installed[0].path, "utf8"), before);
+            const changed = await runSetup({ platform: "darwin", homeDir: mockHome, target: "goose", bun: true });
+            assert.strictEqual(changed[0].status, "updated");
+            content = fs.readFileSync(installed[0].path, "utf8");
+            assert.ok(content.includes('cmd: "bunx"'));
+            assert.ok(content.includes("enabled: false"), "Must not flip user's enabled switch");
+            assert.ok(content.includes("developer:"));
+            assert.strictEqual(content.match(/^\s*enabled:/gm).length, 1, "Must not duplicate enabled key");
+            const again = await runSetup({ platform: "darwin", homeDir: mockHome, target: "goose", bun: true });
+            assert.strictEqual(again[0].status, "up-to-date");
+            const removed = await runSetup({ platform: "darwin", homeDir: mockHome, target: "goose", remove: true });
+            assert.strictEqual(removed[0].status, "removed");
+            content = fs.readFileSync(installed[0].path, "utf8");
+            assert.ok(!content.includes("superpowers"));
+            assert.ok(content.includes("developer:"));
+            console.log("  ✅ PASS: goose install, merge, dry run, Bun, idempotence and removal");
             passed++;
         }
 

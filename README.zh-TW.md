@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![版本](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -13,8 +13,8 @@
 
 ### 支援的環境與 Agent 平台
 
-- **AI 程式碼編輯器與 IDE**：**Antigravity (AGY)**、**Cursor**、**VSCode**（GitHub Copilot）、**VSCode Insiders**（GitHub Copilot）、**Devin Desktop**、**Trae**、**Cline**、**Kilo Code**、**Qoder**、**Kiro**、**MiniMax Code Desktop**、**Codex**。
-- **AI 桌面應用與 Agent 工具**：**Claude Desktop**、**Pi Desktop**、**QwenPaw**、**Hermes Desktop**、**Kimi Work**。
+- **AI 程式碼編輯器與 IDE**：**Antigravity (AGY)**、**Cursor**、**VSCode**（GitHub Copilot）、**VSCode Insiders**（GitHub Copilot）、**Devin Desktop**、**Trae**、**Cline**、**Kilo Code**、**Qoder**、**Kiro**、**MiniMax Code Desktop**（需手動配置）、**Codex**。
+- **AI 桌面應用與 Agent 工具**：**Claude Desktop**、**Pi Desktop**、**QwenPaw**、**Hermes Desktop**、**Kimi Work**、**Goose**、**OpenClaw**。
 - **開源與私有化 AI 平台**：**AnythingLLM**、**LibreChat**。
 
 ### 提供之 MCP 協議功能
@@ -43,10 +43,7 @@
 > [!NOTE]
 > **可在系統任何目錄下直接執行**：您不需要預先切換到特定專案目錄，也無須 clone 本儲存庫。在終端機的**任意目錄**皆可直接執行以下指令！安裝程式會自動鎖定您系統中的全域設定檔（以使用者家目錄為基準），一次設定、全域與所有專案皆可自動生效。
 
-桌面版快速安裝：[LM Studio、Roo Code、ChatWise 與 Cherry Studio](docs/desktop-setup.md)。以下新增的 CLI 選項尚未發布至 npm；發布前請使用指南中的本機指令。
-
-> [!TIP]
-> **透明與零污染保護原則**：Superpowers 絕不會像惡意軟體般擅自全域掃描或批量改寫您未指定的其他編輯器。您使用哪一款 AI 工具，就執行該工具的專屬一鍵指令，完全透明、可控且安全無損（採用**原子寫入技術**，保證斷電不壞檔，且**預設零磁碟垃圾殘留**，不隨意產生 `.bak`，亦絕不影響原有其他 MCP 伺服器）。
+ChatWise 與 Cherry Studio 需手動匯入，請見[桌面版匯入指南](docs/desktop-setup.md)。
 
 ### 1. 選擇您的 AI Agent / 編輯器（一鍵精準設定）
 
@@ -71,6 +68,9 @@
 | **Qoder** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qoder` | `~/.qoder/settings.json` |
 | **Kiro** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kiro` | `~/.kiro/settings/mcp.json` |
 | **Trae** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target trae` | `.../Trae/User/mcp.json` *(支援 Trae CN)* |
+| **Codex** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target codex` | `~/.codex/config.toml` *(TOML `[mcp_servers]`)* |
+| **OpenClaw** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target openclaw` | `~/.openclaw/openclaw.json` *(JSON5 `mcp.servers`)* |
+| **Goose** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target goose` | `~/.config/goose/config.yaml` *(Win: `%APPDATA%\Block\goose\config\config.yaml`)* |
 
 *(若偏好使用 Bun，指令可加上 `--bun`，例如 `npx -y superpowers-mcp setup --target cursor --bun`)*
 
@@ -178,7 +178,18 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.4.2 (最新版)
+### v6.4.3 (最新版)
+
+- **Codex 支援與文件清理（2026-09-28）**：
+  - 新增 `codex` 一鍵目標：`setup --target codex` 寫入 `~/.codex/config.toml`（`[mcp_servers.superpowers]`），零依賴 TOML 合併，支援 `--dry-run` / `--backup` / `--bun` / `--remove`。
+  - 新增 `openclaw` / `goose` 目標：前者寫入 `~/.openclaw/openclaw.json`（`mcp.servers`）；後者寫入 goose `config.yaml` 的 `extensions` 區塊（保留使用者的 `enabled`/`timeout`/`envs`）。
+  - 刪除設定章節多餘的「透明與零污染」TIP（與一鍵設定標題重複）；安全細節保留於進階參數與 SECURITY.md。
+  - `docs/desktop-setup.md` 改為純英文的 ChatWise / Cherry Studio 匯入指南（`setup --print-config`）；LM Studio / Roo Code 維持表格一鍵指令。刪除過時的「尚未發布」說明（`lmstudio`、`roo`、`--print-config` 已於 v6.3.9 發布）。
+  - 補上 7 語系 README 導覽（新增西 / 葡 / 印版本）、西 / 葡 / 印 skill-composition 指南，以及 CJK 粗體符號修正。
+  - MiniMax Code Desktop 標註（需手動配置）（設定檔路徑未驗證）。
+  - 驗證：`npm test` 全綠，基準 389/389（新增 17 個 setup-target 案例），`npm audit` 0 漏洞。
+
+### v6.4.2
 
 - **v6.4.2 安全審計與程式碼審計（2026-09-24）**：補上 MCP 伺服器、安裝腳本、建置管線與測試工具的審計缺口（詳見 [SECURITY.md](SECURITY.md)）。
   - **路徑穿越與錯誤訊息修正**：技能名稱先解碼再通過白名單驗證，double-encoding 的 `..%2f` / `%2e%2e` 載荷會以 `InvalidParams` 拒絕；未知工具與 Prompt 改回傳具體可操作的 `InvalidParams`，不再誤報 `MethodNotFound`。

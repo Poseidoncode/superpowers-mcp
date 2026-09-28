@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -13,8 +13,8 @@ This document summarizes the information and usage instructions for packaging th
 
 ### Supported Environments & Harnesses
 
-- **AI Code Editors & IDEs**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **VSCode Insiders** (GitHub Copilot), **Devin Desktop**, **Trae**, **Cline**, **Kilo Code**, **Qoder**, **Kiro**, **MiniMax Code Desktop**, **Codex**.
-- **AI Desktop Applications & Harnesses**: **Claude Desktop**, **Pi Desktop**, **QwenPaw**, **Hermes Desktop**, **Kimi Work**.
+- **AI Code Editors & IDEs**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **VSCode Insiders** (GitHub Copilot), **Devin Desktop**, **Trae**, **Cline**, **Kilo Code**, **Qoder**, **Kiro**, **MiniMax Code Desktop** *(manual setup)*, **Codex**.
+- **AI Desktop Applications & Harnesses**: **Claude Desktop**, **Pi Desktop**, **QwenPaw**, **Hermes Desktop**, **Kimi Work**, **Goose**, **OpenClaw**.
 - **Local & Self-Hosted AI Platforms**: **AnythingLLM**, **LibreChat**.
 
 ### MCP Capabilities Provided
@@ -43,10 +43,7 @@ To get up and running with Superpowers instantly without intrusive background mo
 > [!NOTE]
 > **Run From Any Directory**: You do NOT need to clone this repository or navigate to a specific folder. You can execute these commands directly from **any directory** in your terminal. The installer automatically targets global configuration files rooted in your user home directory (`~`), instantly enabling Superpowers across all your workspaces.
 
-Desktop quick setup: [LM Studio, Roo Code, ChatWise and Cherry Studio](docs/desktop-setup.md). New CLI options below are unreleased; use the local commands in the guide until the next npm release.
-
-> [!TIP]
-> **Transparency & Zero-Pollution Principle**: Superpowers will NEVER silently scan or bulk-modify unselected editors like adware. You explicitly choose the client you use, ensuring 100% transparent and safe modification via **atomic write swap** (zero crash risk, **zero disk pollution by default** without dumping `.bak` files, zero impact on your existing MCP servers).
+ChatWise and Cherry Studio require manual import, see the [desktop import guide](docs/desktop-setup.md).
 
 ### 1. Choose Your AI Agent / Editor (Targeted One-Liner)
 
@@ -71,6 +68,9 @@ Select your client and run the corresponding command in your terminal:
 | **Qoder** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qoder` | `~/.qoder/settings.json` |
 | **Kiro** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kiro` | `~/.kiro/settings/mcp.json` |
 | **Trae** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target trae` | `.../Trae/User/mcp.json` *(supports Trae CN)* |
+| **Codex** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target codex` | `~/.codex/config.toml` *(TOML `[mcp_servers]`)* |
+| **OpenClaw** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target openclaw` | `~/.openclaw/openclaw.json` *(JSON5 `mcp.servers`)* |
+| **Goose** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target goose` | `~/.config/goose/config.yaml` *(Win: `%APPDATA%\Block\goose\config\config.yaml`)* |
 
 *(If using Bun, append `--bun` for faster startup, e.g., `npx -y superpowers-mcp setup --target cursor --bun`)*
 
@@ -179,7 +179,18 @@ To help you choose the right skill, we have structured all 15 skills across the 
 
 ## 🆕 Recent Updates
 
-### v6.4.2 (Latest)
+### v6.4.3 (Latest)
+
+- **Codex target & docs cleanup (2026-09-28)**:
+  - New `codex` one-click target: `setup --target codex` writes `~/.codex/config.toml` (`[mcp_servers.superpowers]`) via zero-dependency TOML merge; supports `--dry-run` / `--backup` / `--bun` / `--remove`.
+  - New `openclaw` / `goose` targets: `setup --target openclaw` writes `~/.openclaw/openclaw.json` (`mcp.servers`); `setup --target goose` writes the `extensions` block of goose's `config.yaml` (user's `enabled`/`timeout`/`envs` preserved).
+  - Removed the redundant Transparency & Zero-Pollution TIP from the setup section (duplicated the targeted-setup heading); safety details remain in Advanced Flags and SECURITY.md.
+  - `docs/desktop-setup.md` is now the English-only import guide for ChatWise and Cherry Studio (`setup --print-config`); LM Studio / Roo Code stay on the one-click table. Dropped the stale "unreleased CLI options" wording (`lmstudio`, `roo`, `--print-config` shipped in v6.3.9).
+  - Released the 7-language README nav (new ES / PT-BR / HI READMEs), ES / PT-BR / HI skill-composition guides, and the CJK bold-delimiter fix.
+  - MiniMax Code Desktop is marked *(manual setup)* (config path unverified).
+  - Verification: `npm test` green, regression floor now **389/389** (+17 setup-target cases), `npm audit` 0 vulnerabilities.
+
+### v6.4.2
 
 - **v6.4.2 security audit & code review (2026-09-24)**: closed the audit findings across the MCP server, setup scripts, build pipeline, and test harness (details in [SECURITY.md](SECURITY.md)).
   - **Traversal & error hygiene**: skill names are decoded *before* allowlist validation, so double-encoded `..%2f` / `%2e%2e` payloads are rejected with `InvalidParams`; unknown tools and prompts now return actionable `InvalidParams` errors instead of `MethodNotFound`.

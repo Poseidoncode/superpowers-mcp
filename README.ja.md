@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -13,8 +13,8 @@
 
 ### サポート環境とエージェントプラットフォーム
 
-- **AI コードエディター & IDE**: **Antigravity (AGY)**、**Cursor**、**VSCode** (GitHub Copilot)、**VSCode Insiders** (GitHub Copilot)、**Devin Desktop**、**Trae**、**Cline**、**Kilo Code**、**Qoder**、**Kiro**、**MiniMax Code Desktop**、**Codex**。
-- **AI デスクトップアプリ & ハーネス**: **Claude Desktop**、**Pi Desktop**、**QwenPaw**、**Hermes Desktop**、**Kimi Work**。
+- **AI コードエディター & IDE**: **Antigravity (AGY)**、**Cursor**、**VSCode** (GitHub Copilot)、**VSCode Insiders** (GitHub Copilot)、**Devin Desktop**、**Trae**、**Cline**、**Kilo Code**、**Qoder**、**Kiro**、**MiniMax Code Desktop**（手動設定）、**Codex**。
+- **AI デスクトップアプリ & ハーネス**: **Claude Desktop**、**Pi Desktop**、**QwenPaw**、**Hermes Desktop**、**Kimi Work**、**Goose**、**OpenClaw**。
 - **セルフホスト & ローカル AI プラットフォーム**: **AnythingLLM**、**LibreChat**。
 
 ### 提供される MCP 機能
@@ -43,10 +43,7 @@
 > [!NOTE]
 > **任意のディレクトリから実行可能**: 本リポジトリを事前にクローンしたり、特定のフォルダに移動したりする必要はありません。ターミナルの**任意の場所**から以下のコマンドを直接実行できます。インストーラーがユーザーホームディレクトリ（`~`）を基準にグローバル設定ファイルを自動検出し、すべてのワークスペースで即座に有効化します。
 
-デスクトップ向け設定：[LM Studio、Roo Code、ChatWise、Cherry Studio](docs/desktop-setup.md)。新しい CLI オプションは npm 未公開です。公開まではガイドのローカルコマンドを使用してください。
-
-> [!TIP]
-> **透明性と環境保護の原則**: Superpowers は、選択されていない他のエディタを勝手にスキャンしたり一括変更したりすることは決してありません。使用する AI ツールに合わせて専用コマンドを実行するだけで、**アトミック書き込み技術**により設定を安全に統合します（クラッシュ時破損ゼロ、**デフォルトで `.bak` ファイル等のゴミを残さない完全クリーン仕様**、既存の他 MCP サーバーには影響なし）。
+ChatWise、Cherry Studio は手動インポートが必要です。[デスクトップ版インポートガイド](docs/desktop-setup.md) を参照してください。
 
 ### 1. お使いの AI Agent / エディタを選択（一発設定）
 
@@ -71,6 +68,9 @@
 | **Qoder** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qoder` | `~/.qoder/settings.json` |
 | **Kiro** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kiro` | `~/.kiro/settings/mcp.json` |
 | **Trae** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target trae` | `.../Trae/User/mcp.json` *(Trae CN 対応)* |
+| **Codex** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target codex` | `~/.codex/config.toml` *(TOML `[mcp_servers]`)* |
+| **OpenClaw** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target openclaw` | `~/.openclaw/openclaw.json` *(JSON5 `mcp.servers`)* |
+| **Goose** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target goose` | `~/.config/goose/config.yaml` *(Win: `%APPDATA%\Block\goose\config\config.yaml`)* |
 
 *(Bun を使用する場合は `--bun` を追加可能、例: `npx -y superpowers-mcp setup --target cursor --bun`)*
 
@@ -180,7 +180,18 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.4.2（最新）
+### v6.4.3（最新）
+
+- **Codex 対応とドキュメント整理（2026-09-28）**：
+  - 新規 `codex` 一発ターゲット：`setup --target codex` が `~/.codex/config.toml`（`[mcp_servers.superpowers]`）に書込。依存ゼロの TOML マージ、`--dry-run` / `--backup` / `--bun` / `--remove` 対応。
+  - 新規 `openclaw` / `goose` ターゲット：前者は `~/.openclaw/openclaw.json`（`mcp.servers`）に書込；後者は goose `config.yaml` の `extensions` ブロックに書込（ユーザーの `enabled`/`timeout`/`envs` は保持）。
+  - セットアップ章の冗長な透明性 TIP を削除（見出しと重複）；安全仕様は Advanced Flags と SECURITY.md に記載。
+  - `docs/desktop-setup.md` は ChatWise / Cherry Studio 専用の英語インポートガイドに（`setup --print-config`）；LM Studio / Roo Code は一覧の一発コマンドのまま。「未公開」表記を削除（`lmstudio`・`roo`・`--print-config` は v6.3.9 で公開済み）。
+  - 7 言語 README ナビ（ES / PT-BR / HI 新規）、ES / PT-BR / HI skill-composition ガイド、CJK 太字区切り修正をリリース。
+  - MiniMax Code Desktop は（手動設定）と表記（設定パス未検証）。
+  - 検証：`npm test` グリーン、基準は 389/389（+17 setup-target ケース）、`npm audit` 0 脆弱性。
+
+### v6.4.2
 
 - **v6.4.2 セキュリティ監査とコードレビュー（2026-09-24）**:MCP サーバー、セットアップスクリプト、ビルドパイプライン、テストハーネスの監査指摘を是正しました（詳細は [SECURITY.md](SECURITY.md)）。
   - **トラバーサルとエラー処理の修正**: スキル名を許可リスト検証の**前**にデコードし、二重エンコードされた `..%2f` / `%2e%2e` ペイロードは `InvalidParams` で拒否。未知のツール／プロンプトは `MethodNotFound` ではなく具体的な `InvalidParams` を返します。

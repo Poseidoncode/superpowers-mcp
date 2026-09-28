@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versão](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versão](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licença](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume as informações e instruções de uso para empacotar as skills do Superpowers e o sistema de fluxos de trabalho autônomos em um servidor **Model Context Protocol (MCP)** independente, de alta performance e seguro.
@@ -13,8 +13,8 @@ Este documento resume as informações e instruções de uso para empacotar as s
 
 ### Ambientes e plataformas compatíveis
 
-- **Editores de código e IDEs com IA**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **VSCode Insiders** (GitHub Copilot), **Devin Desktop**, **Trae**, **Cline**, **Kilo Code**, **Qoder**, **Kiro**, **MiniMax Code Desktop**, **Codex**.
-- **Aplicativos de desktop e plataformas de agentes IA**: **Claude Desktop**, **Pi Desktop**, **QwenPaw**, **Hermes Desktop**, **Kimi Work**.
+- **Editores de código e IDEs com IA**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **VSCode Insiders** (GitHub Copilot), **Devin Desktop**, **Trae**, **Cline**, **Kilo Code**, **Qoder**, **Kiro**, **MiniMax Code Desktop** (configuração manual), **Codex**.
+- **Aplicativos de desktop e plataformas de agentes IA**: **Claude Desktop**, **Pi Desktop**, **QwenPaw**, **Hermes Desktop**, **Kimi Work**, **Goose**, **OpenClaw**.
 - **Plataformas de IA locais e auto-hospedadas**: **AnythingLLM**, **LibreChat**.
 
 ### Recursos MCP fornecidos
@@ -43,10 +43,7 @@ Para começar a usar o Superpowers na hora, sem modificações intrusivas em seg
 > [!NOTE]
 > **Execute de qualquer diretório**: você NÃO precisa clonar este repositório nem navegar até uma pasta específica. Você pode executar estes comandos diretamente de **qualquer diretório** no seu terminal. O instalador mira automaticamente os arquivos de configuração globais no seu diretório home (`~`), ativando o Superpowers em todos os seus workspaces na hora.
 
-Configuração rápida de desktop: [LM Studio, Roo Code, ChatWise e Cherry Studio](docs/desktop-setup.md). As novas opções de CLI abaixo ainda não foram publicadas; use os comandos locais do guia até a próxima release do npm.
-
-> [!TIP]
-> **Princípio de transparência e poluição zero**: o Superpowers NUNCA vai varrer silenciosamente nem modificar em massa outros editores não selecionados como um adware. Você escolhe explicitamente o cliente que usa, garantindo modificação 100% transparente e segura via **troca atômica de escrita** (risco zero de crash, **zero sujeira em disco por padrão** sem arquivos `.bak`, zero impacto nos seus outros servidores MCP).
+ChatWise e Cherry Studio exigem importação manual, consulte o [guia de importação para desktop](docs/desktop-setup.md).
 
 ### 1. Escolha seu agente / editor de IA (comando direcionado)
 
@@ -71,6 +68,9 @@ Selecione seu cliente e execute o comando correspondente no terminal:
 | **Qoder** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qoder` | `~/.qoder/settings.json` |
 | **Kiro** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kiro` | `~/.kiro/settings/mcp.json` |
 | **Trae** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target trae` | `.../Trae/User/mcp.json` *(compatível com Trae CN)* |
+| **Codex** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target codex` | `~/.codex/config.toml` *(TOML `[mcp_servers]`)* |
+| **OpenClaw** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target openclaw` | `~/.openclaw/openclaw.json` *(JSON5 `mcp.servers`)* |
+| **Goose** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target goose` | `~/.config/goose/config.yaml` *(Win: `%APPDATA%\Block\goose\config\config.yaml`)* |
 
 *(Se você usa Bun, adicione `--bun` para inicialização mais rápida, ex. `npx -y superpowers-mcp setup --target cursor --bun`)*
 
@@ -179,7 +179,18 @@ Para ajudar você a escolher a skill certa, estruturamos as 15 skills ao longo d
 
 ## 🆕 Novidades recentes
 
-### v6.4.2 (atual)
+### v6.4.3 (atual)
+
+- **Target Codex e limpeza de docs (2026-09-28)**:
+  - Novo target `codex`: `setup --target codex` grava `~/.codex/config.toml` (`[mcp_servers.superpowers]`) com merge TOML sem dependências; suporta `--dry-run` / `--backup` / `--bun` / `--remove`.
+  - Novos targets `openclaw` / `goose`: o primeiro grava `~/.openclaw/openclaw.json` (`mcp.servers`); o segundo o bloco `extensions` do `config.yaml` do goose (preserva `enabled`/`timeout`/`envs` do usuário).
+  - Removido o bloco TIP redundante de transparência do setup (duplicava o cabeçalho); detalhes de segurança ficam em Advanced Flags e SECURITY.md.
+  - `docs/desktop-setup.md` agora é o guia de importação em inglês para ChatWise e Cherry Studio (`setup --print-config`); LM Studio / Roo Code seguem na tabela de um clique. Removida a nota obsoleta de "opções não publicadas" (`lmstudio`, `roo` e `--print-config` saíram na v6.3.9).
+  - Publicadas a navegação em 7 idiomas (novos README ES / PT-BR / HI), os guias de skill-composition ES / PT-BR / HI e a correção de negrito adjacente a CJK.
+  - MiniMax Code Desktop consta como (configuração manual) (caminho não verificado).
+  - Verificação: `npm test` verde, base agora 389/389 (+17 casos setup-target), `npm audit` 0 vulnerabilidades.
+
+### v6.4.2
 
 - **Auditoria de segurança e code review v6.4.2 (2026-09-24)**: fechou os achados de auditoria no servidor MCP, scripts de setup, pipeline de build e harness de testes (detalhes em [SECURITY.md](SECURITY.md)).
   - **Traversal e higiene de erros**: nomes de skill são decodificados *antes* da validação contra a allowlist, então payloads com dupla codificação `..%2f` / `%2e%2e` são rejeitados com `InvalidParams`; tools e prompts desconhecidos agora retornam erros `InvalidParams` acionáveis em vez de `MethodNotFound`.

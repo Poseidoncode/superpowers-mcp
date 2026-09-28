@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versión](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versión](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licencia](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume la información y las instrucciones de uso para empaquetar las habilidades (skills) de Superpowers y el sistema de flujos de trabajo autónomos en un servidor **Model Context Protocol (MCP)** independiente, de alto rendimiento y seguro.
@@ -13,8 +13,8 @@ Este documento resume la información y las instrucciones de uso para empaquetar
 
 ### Entornos y plataformas compatibles
 
-- **Editores de código e IDE con IA**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **VSCode Insiders** (GitHub Copilot), **Devin Desktop**, **Trae**, **Cline**, **Kilo Code**, **Qoder**, **Kiro**, **MiniMax Code Desktop**, **Codex**.
-- **Aplicaciones de escritorio y plataformas de agentes IA**: **Claude Desktop**, **Pi Desktop**, **QwenPaw**, **Hermes Desktop**, **Kimi Work**.
+- **Editores de código e IDE con IA**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **VSCode Insiders** (GitHub Copilot), **Devin Desktop**, **Trae**, **Cline**, **Kilo Code**, **Qoder**, **Kiro**, **MiniMax Code Desktop** (configuración manual), **Codex**.
+- **Aplicaciones de escritorio y plataformas de agentes IA**: **Claude Desktop**, **Pi Desktop**, **QwenPaw**, **Hermes Desktop**, **Kimi Work**, **Goose**, **OpenClaw**.
 - **Plataformas de IA locales y autoalojadas**: **AnythingLLM**, **LibreChat**.
 
 ### Funcionalidades MCP incluidas
@@ -43,10 +43,7 @@ Para empezar a usar Superpowers al instante, sin modificaciones intrusivas en se
 > [!NOTE]
 > **Ejecútalo desde cualquier directorio**: NO necesitas clonar este repositorio ni navegar a una carpeta específica. Puedes ejecutar estos comandos directamente desde **cualquier directorio** de tu terminal. El instalador apunta automáticamente a los archivos de configuración globales en tu directorio personal (`~`), habilitando Superpowers en todos tus espacios de trabajo al instante.
 
-Configuración rápida de escritorio: [LM Studio, Roo Code, ChatWise y Cherry Studio](docs/desktop-setup.md). Las nuevas opciones CLI que aparecen abajo aún no se han publicado; usa los comandos locales de la guía hasta la próxima versión de npm.
-
-> [!TIP]
-> **Principio de transparencia y cero contaminación**: Superpowers NUNCA escaneará ni modificará en masa y en silencio otros editores no seleccionados, como si fuera adware. Tú eliges explícitamente el cliente que usas, lo que garantiza una modificación 100 % transparente y segura mediante **intercambio atómico de escritura** (cero riesgo de corrupción, **cero basura en disco por defecto** sin archivos `.bak`, cero impacto en tus otros servidores MCP).
+ChatWise y Cherry Studio requieren importación manual, consulta la [guía de importación de escritorio](docs/desktop-setup.md).
 
 ### 1. Elige tu agente / editor de IA (comando dirigido)
 
@@ -71,6 +68,9 @@ Selecciona tu cliente y ejecuta el comando correspondiente en tu terminal:
 | **Qoder** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qoder` | `~/.qoder/settings.json` |
 | **Kiro** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kiro` | `~/.kiro/settings/mcp.json` |
 | **Trae** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target trae` | `.../Trae/User/mcp.json` *(compatible con Trae CN)* |
+| **Codex** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target codex` | `~/.codex/config.toml` *(TOML `[mcp_servers]`)* |
+| **OpenClaw** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target openclaw` | `~/.openclaw/openclaw.json` *(JSON5 `mcp.servers`)* |
+| **Goose** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target goose` | `~/.config/goose/config.yaml` *(Win: `%APPDATA%\Block\goose\config\config.yaml`)* |
 
 *(Si usas Bun, añade `--bun` para un arranque más rápido, p. ej. `npx -y superpowers-mcp setup --target cursor --bun`)*
 
@@ -179,7 +179,18 @@ Para ayudarte a elegir el skill adecuado, hemos estructurado los 15 skills a lo 
 
 ## 🆕 Novedades recientes
 
-### v6.4.2 (versión actual)
+### v6.4.3 (versión actual)
+
+- **Target Codex y limpieza de docs (2026-09-28)**:
+  - Nuevo target `codex`: `setup --target codex` escribe `~/.codex/config.toml` (`[mcp_servers.superpowers]`) con fusión TOML sin dependencias; soporta `--dry-run` / `--backup` / `--bun` / `--remove`.
+  - Nuevos targets `openclaw` / `goose`: el primero escribe `~/.openclaw/openclaw.json` (`mcp.servers`); el segundo el bloque `extensions` del `config.yaml` de goose (se preservan `enabled`/`timeout`/`envs` del usuario).
+  - Eliminado el bloque TIP redundante de transparencia del setup (duplicaba el encabezado); los detalles de seguridad quedan en Advanced Flags y SECURITY.md.
+  - `docs/desktop-setup.md` ahora es la guía de importación en inglés para ChatWise y Cherry Studio (`setup --print-config`); LM Studio / Roo Code siguen en la tabla de un clic. Eliminada la nota obsoleta de "opciones sin publicar" (`lmstudio`, `roo` y `--print-config` se publicaron en v6.3.9).
+  - Publicados la navegación en 7 idiomas (nuevos README ES / PT-BR / HI), las guías de skill-composition ES / PT-BR / HI y la corrección de negritas adyacentes a CJK.
+  - MiniMax Code Desktop figura como (configuración manual) (ruta sin verificar).
+  - Verificación: `npm test` en verde, base ahora 389/389 (+17 casos setup-target), `npm audit` 0 vulnerabilidades.
+
+### v6.4.2
 
 - **Auditoría de seguridad y revisión de código v6.4.2 (2026-09-24)**: se cerraron los hallazgos de auditoría en el servidor MCP, los scripts de configuración, el pipeline de compilación y el arnés de pruebas (detalles en [SECURITY.md](SECURITY.md)).
   - **Recorrido de rutas e higiene de errores**: los nombres de skill se decodifican *antes* de la validación contra la lista permitida, por lo que cargas con doble codificación `..%2f` / `%2e%2e` se rechazan con `InvalidParams`; las herramientas y prompts desconocidos ahora devuelven errores `InvalidParams` accionables en lugar de `MethodNotFound`.

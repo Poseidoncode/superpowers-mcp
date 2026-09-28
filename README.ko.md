@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -13,8 +13,8 @@
 
 ### 지원 환경 및 에이전트 플랫폼
 
-- **AI 코드 편집기 & IDE**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **VSCode Insiders** (GitHub Copilot), **Devin Desktop**, **Trae**, **Cline**, **Kilo Code**, **Qoder**, **Kiro**, **MiniMax Code Desktop**, **Codex**.
-- **AI 데스크톱 앱 & 에이전트 도구**: **Claude Desktop**, **Pi Desktop**, **QwenPaw**, **Hermes Desktop**, **Kimi Work**.
+- **AI 코드 편집기 & IDE**: **Antigravity (AGY)**, **Cursor**, **VSCode** (GitHub Copilot), **VSCode Insiders** (GitHub Copilot), **Devin Desktop**, **Trae**, **Cline**, **Kilo Code**, **Qoder**, **Kiro**, **MiniMax Code Desktop** (수동 설정), **Codex**.
+- **AI 데스크톱 앱 & 에이전트 도구**: **Claude Desktop**, **Pi Desktop**, **QwenPaw**, **Hermes Desktop**, **Kimi Work**, **Goose**, **OpenClaw**.
 - **자체 호스팅 & 로컬 AI 플랫폼**: **AnythingLLM**, **LibreChat**.
 
 ### 제공되는 MCP 프로토콜 기능
@@ -43,10 +43,7 @@
 > [!NOTE]
 > **모든 디렉터리에서 바로 실행 가능**: 이 저장소를 복제(clone)하거나 특정 폴더로 이동할 필요가 없습니다. 터미널의 **어느 위치에서나** 바로 아래 명령어를 실행할 수 있습니다. 설치 도구가 사용자 홈 디렉터리(`~`)를 기준으로 전역 설정 파일을 자동 탐지하여 모든 작업 공간에서 즉시 활성화합니다.
 
-데스크톱 빠른 설정: [LM Studio, Roo Code, ChatWise, Cherry Studio](docs/desktop-setup.md). 새 CLI 옵션은 아직 npm에 배포되지 않았습니다. 배포 전에는 가이드의 로컬 명령을 사용하세요.
-
-> [!TIP]
-> **투명성 및 환경 보호 원칙**: Superpowers MCP는 악성코드처럼 선택되지 않은 다른 에디터를 임의로 스캔하거나 일괄 수정하지 않습니다. 사용 중인 AI 클라이언트 전용 명령어를 실행하기만 하면, **원자적 쓰기(Atomic Swap) 기술**을 통해 설정을 안전하게 병합합니다 (충돌 시 손상 제로, **기본적으로 불필요한 `.bak` 쓰레기 파일을 남기지 않는 클린 사양**, 기존 다른 MCP 서버 무영향).
+ChatWise, Cherry Studio는 수동 가져오기가 필요합니다. [데스크톱 가져오기 가이드](docs/desktop-setup.md)를 참조하세요.
 
 ### 1. 사용 중인 AI Agent / 에디터 선택 (원클릭 정밀 설정)
 
@@ -71,6 +68,9 @@
 | **Qoder** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target qoder` | `~/.qoder/settings.json` |
 | **Kiro** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target kiro` | `~/.kiro/settings/mcp.json` |
 | **Trae** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target trae` | `.../Trae/User/mcp.json` *(Trae CN 지원)* |
+| **Codex** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target codex` | `~/.codex/config.toml` *(TOML `[mcp_servers]`)* |
+| **OpenClaw** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target openclaw` | `~/.openclaw/openclaw.json` *(JSON5 `mcp.servers`)* |
+| **Goose** | macOS / Windows / Linux | `npx -y superpowers-mcp setup --target goose` | `~/.config/goose/config.yaml` *(Win: `%APPDATA%\Block\goose\config\config.yaml`)* |
 
 *(Bun을 선호하는 경우 `--bun`을 추가할 수 있습니다, 예: `npx -y superpowers-mcp setup --target cursor --bun`)*
 
@@ -178,7 +178,18 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.4.2 (최신)
+### v6.4.3 (최신)
+
+- **Codex 지원 및 문서 정리 (2026-09-28)**:
+  - 신규 `codex` 원클릭 타겟: `setup --target codex`가 `~/.codex/config.toml`(`[mcp_servers.superpowers]`)에 기록. 무의존 TOML 병합, `--dry-run` / `--backup` / `--bun` / `--remove` 지원.
+  - 신규 `openclaw` / `goose` 타겟: 전자는 `~/.openclaw/openclaw.json`(`mcp.servers`)에 기록; 후자는 goose `config.yaml`의 `extensions` 블록에 기록(사용자의 `enabled`/`timeout`/`envs` 유지).
+  - 설정 장의 중복된 투명성 TIP 삭제(헤딩과 중복); 안전 사양은 Advanced Flags 및 SECURITY.md에 유지.
+  - `docs/desktop-setup.md`는 ChatWise / Cherry Studio 전용 영어 가져오기 가이드로 전환(`setup --print-config`); LM Studio / Roo Code는 원클릭 표 유지. 오래된 "미출시" 문구 삭제(`lmstudio`, `roo`, `--print-config`는 v6.3.9에 출시됨).
+  - 7개 언어 README 내비(ES / PT-BR / HI 신규), ES / PT-BR / HI skill-composition 가이드, CJK 굵은 글씨 구분자 수정 릴리스.
+  - MiniMax Code Desktop은 (수동 설정)으로 표기(설정 경로 미검증).
+  - 검증: `npm test` 그린, 기준 389/389(+17 setup-target 케이스), `npm audit` 0 취약점.
+
+### v6.4.2
 
 - **v6.4.2 보안 감사 및 코드 리뷰 (2026-09-24)**: MCP 서버, 설정 스크립트, 빌드 파이프라인, 테스트 하네스의 감사 지적 사항을 수정했습니다(자세한 내용은 [SECURITY.md](SECURITY.md)).
   - **경로 탐색 및 오류 위생**: 스킬 이름을 허용 목록 검증 *전*에 디코드하여 이중 인코딩된 `..%2f` / `%2e%2e` 페이로드를 `InvalidParams`로 거부합니다. 미지의 도구와 프롬프트도 `MethodNotFound` 대신 실행 가능한 `InvalidParams` 오류를 반환합니다.

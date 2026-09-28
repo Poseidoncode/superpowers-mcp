@@ -33,6 +33,18 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
+## v6.4.3 (2026-09-28) Codex / OpenClaw / Goose Target Notes
+
+- **Scope**: new `codex` (TOML), `openclaw` (nested JSON), and `goose` (YAML profile) setup targets in `src/setup-runner.ts`, new setup-test assertions, README table rows (7 languages), `scripts/install.sh` target enumeration. v6.4.2 audit findings below remain in force.
+- **TOML updater is surgical text, not a parser**: only `[mcp_servers.superpowers]` (exact bare header) plus its `[mcp_servers.superpowers.…]` sub-tables are touched; everything else is preserved byte-for-byte, including user keys (`enabled`, `env`, `cwd`, timeouts) and comments. No TOML library added — runtime dependencies stay empty.
+- **Fail-closed shapes**: duplicate managed tables and quoted table-name variants (`["mcp_servers"."superpowers"]`) throw instead of writing; remove mode deletes the parent table together with its sub-tables and never touches other servers.
+- **ReDoS discipline kept**: all patterns are anchored with no nested quantifiers (same rule as the YAML updater that closed CodeQL Alert #4); quote-aware comment scanning is a single linear pass.
+- **Write path unchanged**: all three formats go through the same `safeWriteConfig` atomic temp-file + rename gate with `0o700` directory creation, allowed-root confinement, optional `--backup` (pruned to 10 newest), and `--dry-run` preview.
+- **YAML profile keeps ReDoS discipline**: the goose profile reuses anchored-only dynamic patterns built from internal constants; quote-aware comment scanning stays a single linear pass.
+- **Nested JSON stays fail-closed**: non-object containers on the `mcp.servers` path throw instead of writing; removal with a missing path returns the file untouched.
+- **Verification (2026-09-28)**: `npm test` green — **389/389** assertions (Node.js 194, Bash 67, PowerShell 128); `npm run build` and `npm audit` (0 vulnerabilities) clean.
+
+
 ## v6.4.2 (2026-09-24) Code Review & Audit Remediation Notes
 
 > Security notes for the **v6.4.2** patch release (hardening that landed after v6.4.1). Audit findings archive: `.audit/` (server/pipelines, setup/skills, esbuild/scripts, tests).
@@ -209,7 +221,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.4.2 - Verified: 2026-09-25)
+## Current Security Status (v6.4.3 - Verified: 2026-09-28)
 
 | Check | Status |
 | ----- | ------ |
@@ -263,11 +275,11 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Inline plan `task-done` command execution | :white_check_mark: Secured — argv-array execution (`"$@"` / `& $exe @rest`); ledger rendering is display-only; bash requires `--`; PowerShell `-LiteralPath` + UTF-8-without-BOM |
 | Diagnosing-superpowers transcript export | :white_check_mark: Gated — local reads only; no unprompted bundle; redaction policy; partner review required before sharing |
 | Deferred-findings export grep | :white_check_mark: Secured — `Final: minor (deferred):` exported; completion-line `parked` counts excluded (`tests/upstream_sync_test.js` 12b) |
-| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-21) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 365/365 automated test assertions passed |
+| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-28) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 389/389 automated test assertions passed |
 
-## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-24, Re-verified: 2026-09-25)
+## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-28)
 
-A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, native plan-execution helpers, session-forensics skill, secret hygiene, and automated regression testing. The v6.3.10 controls remain in force; this pass re-verified them and added the v6.4.1 surfaces below, with the v6.4.2 remediation notes above recording this audit pass's fixes.
+A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, native plan-execution helpers, session-forensics skill, secret hygiene, and automated regression testing. The v6.4.2 controls and remediations remain in force; this v6.4.3 pass re-verified all surfaces and expanded the multi-language MCP coverage testing across all 7 localized README editions.
 
 ### 1. Dependencies & Supply Chain
 - **Vulnerability Audit**: `npm audit` returned **0 vulnerabilities**.
@@ -383,11 +395,12 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **Writing Skills Render Graphs Suite** (`tests/writing-skills/test-render-graphs.sh`): Passed **8/8 tests** (Direct binary execution, SVG rendering, output verification, error capture).
 - **PowerShell Script Hardening Suite** (`tests/powershell/`): Passed **128/128 assertions** across 7 test scripts (`test-brainstorming-server.ps1`: 29, `test-find-polluter.ps1`: 12, `test-review-package.ps1`: 20, `test-sdd-workspace.ps1`: 20, `test-task-brief.ps1`: 13, `test-task-start.ps1`: 8, `test-task-done.ps1`: 26).
 - **Upstream Sync Regression Suite** (`tests/upstream_sync_test.js`): Passed **29/29 checks** pinning the imported upstream content (Batches 1-4 plus v6.4.1 native execution, diagnosing-superpowers, interpreter invocation, and export-grep `12b` for `Final: minor (deferred):`).
-- **MCP Surface Coverage Suite** (`tests/mcp_coverage_test.js`): Passed **17/17 checks** (one resource per skill on disk, each resource serves that skill's own content, prompt inventory matches all four READMEs exactly, composition guides included in npm package, and unsafe SKILLS_PATH rejection).
+- **MCP Surface Coverage Suite** (`tests/mcp_coverage_test.js`): Passed **23/23 checks** (one resource per skill on disk, each resource serves that skill's own content, prompt inventory and skill URI counts match all seven localized READMEs (`README.md`, `README.zh-TW.md`, `README.ja.md`, `README.ko.md`, `README.es.md`, `README.pt-BR.md`, `README.hi.md`) exactly, composition guides included in npm package, and unsafe SKILLS_PATH rejection).
 - **Upstream Drift Suite** (`tests/drift_test.js`): Passed **10/10 checks** (the offline CLI run is one of them); the committed baseline (`tests/upstream-sync-baseline.json`) records the upstream blob SHAs of every adopted skill file, so a deleted import, a lost upstream lineage or a stale ignore entry fails here. Network mode (`npm run drift`) compares the baseline against upstream without writing anything.
 - **Brainstorm Host Defaults Bash Suite** (`tests/brainstorming/test-start-server-env-hosts.sh`): Passed **11/11 tests** (env-supplied bind/url hosts, flag precedence, empty values, and the non-loopback refusal).
 - **Executing-Plans Helper Suites** (`tests/executing-plans/`, wired into `npm test`): Passed **32/32 tests** (`test-task-start.sh`: 7, `test-task-done.sh`: 25) covering argv quoting, empty/blank output as `(no output)`, failing runs writing no ledger, and Task 4 blank-output isolation.
-- **Total Automated Regression Floor**: **365 automated test assertions across Node.js (170), Bash (67), and PowerShell (128), 100% pass rate, 0 regressions**.
+- **Total Automated Regression Floor**: **389 automated test assertions across Node.js (194), Bash (67), and PowerShell (128), 100% pass rate, 0 regressions**.
+
 
 
 ---

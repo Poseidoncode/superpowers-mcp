@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.4.3] - 2026-09-28
+
+### Added
+
+- **Codex setup target (`codex`)**: `npx -y superpowers-mcp setup --target codex` configures `~/.codex/config.toml` (`[mcp_servers.superpowers]`, stdio `npx -y superpowers-mcp`) across macOS, Windows, and Linux, with `--dry-run`, `--backup`, `--bun`, and `--remove` support.
+- **Zero-dependency TOML updater**: surgical text merge for `[mcp_servers.superpowers]` with no new runtime dependencies — preserves all other tables, keys, comments, sub-tables, and user-added fields (`enabled`, `env`, `cwd`…); reattaches trailing comments on rewritten keys; fail-closed on duplicate or quoted-variant table names.
+- **OpenClaw setup target (`openclaw`)**: `setup --target openclaw` configures `~/.openclaw/openclaw.json` (`mcp.servers.superpowers`, stdio) via a nested-path JSON writer confined to `mcp.servers` — sibling subtrees untouched, JSON5 comments ride the existing JSONC fallback, non-object containers fail closed.
+- **Goose setup target (`goose`)**: `setup --target goose` configures the `extensions` block of goose's `config.yaml` (`~/.config/goose/config.yaml`; Win `%APPDATA%\Block\goose\config\config.yaml`) via a new YAML profile managing `name`/`cmd`/`args`/`type` — the user's `enabled`, `timeout`, and `envs` are preserved and never flipped.
+
+### Documentation
+
+- **Setup docs simplification**: removed the redundant Transparency & Zero-Pollution TIP block from all 7 READMEs (the claim duplicated the Targeted One-Click Setup heading with defensive framing; technical details already live in Advanced Flags and SECURITY.md).
+- **Desktop guide split**: `docs/desktop-setup.md` is now the English-only import guide for ChatWise and Cherry Studio (`setup --print-config` manual JSON import); LM Studio / Roo Code stay on the README one-click table (`setup --target lmstudio` / `roo`). Dropped the stale "unreleased CLI options" wording — `lmstudio`, `roo`, and `--print-config` shipped in v6.3.9.
+- **Manual-setup annotation**: MiniMax Code Desktop is marked manual-setup in the supported list (config path unverified); use Manual MCP Configuration. Codex graduated to a one-click target.
+- **i18n floor (shipped since v6.4.2, now released)**: ES / PT-BR / HI READMEs with 7-language nav, ES / PT-BR / HI skill-composition guides, ZH-TW / JA / KO guide sync to the canonical structure, JA / KO tools-row fix, and CJK-adjacent bold delimiter fix.
+
+### Testing
+
+- **Verification**: `npm test` green — **389/389** assertions (Node.js 194, Bash 67, PowerShell 128: +17 new Codex/OpenClaw/Goose setup cases); `npm run build` and `npm audit` (0 vulnerabilities) clean.
+
 ## [6.4.2] - 2026-09-25
 
 ### Security
