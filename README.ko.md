@@ -1,6 +1,6 @@
 # Superpowers MCP Toolpack 사용 가이드
 
-[English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+[English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
 [![Version](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -21,7 +21,7 @@
 
 | 프로토콜 기능 | 포함 항목 / 수량 | 설명 |
 | :--- | :--- | :--- |
-| **Tools** | `list_skills`, `read_skill` | 14개의 Superpowers 스킬을 온디맨드로 검색, 로드 및 확인합니다. |
+| **Tools** | `list_skills`, `read_skill` | 전체 스킬 지침과 체크리스트를 온디맨드로 탐색, 검색 및 로드합니다. |
 | **Prompts** | 9개의 네이티브 Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
 | **Resources** | 15개 Skill URI + 1개 가이드 | `skill://superpowers/<skill-name>` 및 `guide://superpowers/skill-compositions` |
 

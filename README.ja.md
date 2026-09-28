@@ -1,6 +1,6 @@
 # Superpowers MCP Toolpack 使用ガイド
 
-[English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+[English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
 [![バージョン](https://img.shields.io/badge/version-6.4.2-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -21,7 +21,7 @@
 
 | プロトコル機能 | 項目 / 数量 | 説明 |
 | :--- | :--- | :--- |
-| **Tools** | `list_skills`, `read_skill` | 14 種類の Superpowers スキルをオンデマンドで検索・読み込み。 |
+| **Tools** | `list_skills`, `read_skill` | 全スキルの指示書とチェックリストをオンデマンドで探索・検索・読み込み。 |
 | **Prompts** | 9 個のネイティブ Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
 | **Resources** | 15 個の Skill URI + 1 ガイド | `skill://superpowers/<skill-name>` と `guide://superpowers/skill-compositions` |
 

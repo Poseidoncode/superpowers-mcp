@@ -3,7 +3,7 @@
  *
  * Guards this fork's own contract rather than upstream content: every skill on
  * disk is exposed as an MCP resource that serves that skill's content, the
- * native prompt list matches what all four READMEs document, the counts the
+ * native prompt list matches what all seven READMEs document, the counts the
  * READMEs claim match reality, and the composition guide covers the shipped
  * skills. A skill added without a resource, a renamed prompt, or a stale count
  * in one translation fails here.
@@ -16,7 +16,7 @@ const assert = require("assert");
 
 const ROOT = path.join(__dirname, "..");
 const SKILLS_DIR = path.join(ROOT, "skills");
-const README_FILES = ["README.md", "README.zh-TW.md", "README.ja.md", "README.ko.md"];
+const README_FILES = ["README.md", "README.zh-TW.md", "README.ja.md", "README.ko.md", "README.es.md", "README.pt-BR.md", "README.hi.md"];
 const COMPOSITIONS_DOC = path.join(ROOT, "docs", "skill-compositions.md");
 const COMPOSITIONS_GUIDE_URI = "guide://superpowers/skill-compositions";
 // Meta skills that deliberately stay out of the composition guide.
