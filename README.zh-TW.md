@@ -135,18 +135,18 @@
 ```
 brainstorming ➔ writing-plans ➔ using-git-worktrees ➔ subagent-driven-development (TDD) ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **啟動方式：**從客戶端的 MCP Prompts 選單選取 `feature-pipeline`，提供必要的 `feature_name` 與選填的 `requirements`。
+- **啟動方式**：從客戶端的 MCP Prompts 選單選取 `feature-pipeline`，提供必要的 `feature_name` 與選填的 `requirements`。
 - **流程特色：** 需求確認 (Spec) ➔ 任務拆解 (Plan) ➔ Worktree 隔離 ➔ 獨立 Subagent + TDD 實作 ➔ 全套測試驗證 ➔ 專家代碼審查 ➔ 分支收尾。
 
 ### 2. 結構化多點除錯管線 (Structured Troubleshooting Pipeline)
 ```
 systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **啟動方式：**從 MCP Prompts 選單選取 `structured-debug`，提供錯誤描述或失敗測試。
+- **啟動方式**：從 MCP Prompts 選單選取 `structured-debug`，提供錯誤描述或失敗測試。
 - **流程特色：** 根因分析拆解假說 ➔ Worktree 隔離平行排查 ➔ 多 Agent 驗證 ➔ 編寫失敗測試並修復 ➔ 全套迴歸驗證 ➔ 審查結果解決 ➔ 分支合併收尾。
 
 ### 3. 動態技能導引 (Dynamic Workflow Guide)
-- **啟動方式：**選取 `skill-composition` 取得重構、遷移或舊系統的流程建議；這些情境目前沒有各自獨立的啟動 prompt。
+- **啟動方式**：選取 `skill-composition` 取得重構、遷移或舊系統的流程建議；這些情境目前沒有各自獨立的啟動 prompt。
 - **流程特色：** 針對大型重構、舊代碼防護網建立或團隊新人上手，動態推薦最佳步驟：
   - **大型重構與遷移 (Pipeline 3)：** `brainstorming` ➔ `writing-plans (skeleton-first)` ➔ `using-git-worktrees` ➔ `subagent-driven-development` ➔ `verification-before-completion` ➔ `requesting-code-review` ➔ `finishing-a-development-branch`
   - **舊專案工程防護網 (Pipeline 4)：** `brainstorming` ➔ `writing-plans` ➔ `test-driven-development (characterization)` ➔ `systematic-debugging` ➔ `verification-before-completion`

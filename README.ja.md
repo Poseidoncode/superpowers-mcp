@@ -135,18 +135,18 @@
 ```
 brainstorming ➔ writing-plans ➔ using-git-worktrees ➔ subagent-driven-development (TDD) ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **起動方法：**MCP Prompts メニューから `feature-pipeline` を選択し、必須の `feature_name` と任意の `requirements` を入力します。
+- **起動方法**：MCP Prompts メニューから `feature-pipeline` を選択し、必須の `feature_name` と任意の `requirements` を入力します。
 - **特徴：** 要件明確化 (Spec) ➔ 計画分解 (Plan) ➔ Worktree 分離 ➔ 独立サブエージェント＋TDD 実装 ➔ フルテスト検証 ➔ 敵対的コードレビュー ➔ ブランチ完了。
 
 ### 2. 構造化トラブルシューティングパイプライン (Structured Troubleshooting Pipeline)
 ```
 systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔ test-driven-development ➔ verification-before-completion ➔ requesting-code-review ➔ finishing-a-development-branch
 ```
-- **起動方法：**MCP Prompts メニューから `structured-debug` を選択し、問題または失敗テストを入力します。
+- **起動方法**：MCP Prompts メニューから `structured-debug` を選択し、問題または失敗テストを入力します。
 - **特徴：** 根本原因の仮説分解 ➔ Worktree 隔離並行調査 ➔ 複数エージェント検証 ➔ 失敗テスト作成・修正 ➔ 完全な回帰検証 ➔ レビュー指摘解決 ➔ ブランチ完了。
 
 ### 3. 動的ワークフローガイド (Dynamic Workflow Guide)
-- **起動方法：**`skill-composition` を選択してリファクタリング、移行、レガシーコード向けの推奨手順を取得します。これらには現在、専用ランチャー prompt はありません。
+- **起動方法**：`skill-composition` を選択してリファクタリング、移行、レガシーコード向けの推奨手順を取得します。これらには現在、専用ランチャー prompt はありません。
 - **特徴：** 大規模リファクタリング、レガシーシステムの安全網構築、オンボーディングに最適なパイプラインを動的に提案：
   - **大規模リファクタリング＆移行 (Pipeline 3)：** `brainstorming` ➔ `writing-plans (skeleton-first)` ➔ `using-git-worktrees` ➔ `subagent-driven-development` ➔ `verification-before-completion` ➔ `requesting-code-review` ➔ `finishing-a-development-branch`
   - **レガシーコード安全網 (Pipeline 4)：** `brainstorming` ➔ `writing-plans` ➔ `test-driven-development (characterization)` ➔ `systematic-debugging` ➔ `verification-before-completion`

@@ -2,7 +2,7 @@
 
 [English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md) | [Español](skill-compositions.es.md) | [Português (BR)](skill-compositions.pt-BR.md) | [हिन्दी](skill-compositions.hi.md)
 
-> **重要：**這些 MCP prompts 是互動式工作流啟動器，不是伺服器端自動化。請從客戶端的 MCP Prompts 選單選取；slash command 語法依客戶端而異。Agent 必須能存取檔案、終端機與 Git，並透過 `read_skill` 載入各階段技能。流程會在設計核准、計畫審閱及分支收尾時等待使用者決定。完整指南也可透過 `guide://superpowers/skill-compositions` 讀取。
+> **重要**：這些 MCP prompts 是互動式工作流啟動器，不是伺服器端自動化。請從客戶端的 MCP Prompts 選單選取；slash command 語法依客戶端而異。Agent 必須能存取檔案、終端機與 Git，並透過 `read_skill` 載入各階段技能。流程會在設計核准、計畫審閱及分支收尾時等待使用者決定。完整指南也可透過 `guide://superpowers/skill-compositions` 讀取。
 
 > **單一來源（Source of Truth）：** 本英文文件為正式版本。技能行為變更時請先更新英文版，再同步翻譯。
 
