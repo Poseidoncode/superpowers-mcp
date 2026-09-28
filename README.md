@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -179,7 +179,15 @@ To help you choose the right skill, we have structured all 15 skills across the 
 
 ## 🆕 Recent Updates
 
-### v6.4.3 (Latest)
+### v6.4.4 (Latest)
+
+- **CodeQL remediation & security patch (2026-09-28)**:
+  - Code scanning is now **0 open / 7 fixed**: closed the 3 alerts reported against v6.4.3 in `src/setup-runner.ts` (details in [SECURITY.md](SECURITY.md)).
+  - **TOML ReDoS fix**: quoted-table detection regexes replaced with linear scanners — adversarial config lines no longer cause polynomial backtracking; fail-closed behavior unchanged.
+  - **Prototype-pollution guard**: nested JSON `serverPath` segments (used by the `openclaw` target) now reject `__proto__` / `constructor` / `prototype` and non-identifier keys before any write.
+  - No behavior change for valid configs; verification: `npm test` green (regression floor **389/389**), `tsc` clean, `npm audit` 0 vulnerabilities.
+
+### v6.4.3
 
 - **Codex target & docs cleanup (2026-09-28)**:
   - New `codex` one-click target: `setup --target codex` writes `~/.codex/config.toml` (`[mcp_servers.superpowers]`) via zero-dependency TOML merge; supports `--dry-run` / `--backup` / `--bun` / `--remove`.

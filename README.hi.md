@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![संस्करण](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![संस्करण](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![लाइसेंस](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 यह दस्तावेज़ Superpowers skills लाइब्रेरी और स्वायत्त वर्कफ़्लो सिस्टम को एक स्वतंत्र, उच्च-प्रदर्शन और सुरक्षित **Model Context Protocol (MCP)** सर्वर के रूप में पैकेज करने की जानकारी और उपयोग निर्देशों का सारांश है।
@@ -179,7 +179,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 हाल के अपडेट
 
-### v6.4.3 (नवीनतम)
+### v6.4.4 (नवीनतम)
+
+- **CodeQL सुधार व सुरक्षा पैच (2026-09-28)**:
+  - कोड स्कैनिंग अब **0 खुले / 7 ठीक**: v6.4.3 के विरुद्ध रिपोर्ट किए गए `src/setup-runner.ts` के 3 अलर्ट बंद (विवरण [SECURITY.md](SECURITY.md) में)।
+  - **TOML ReDoS सुधार**: उद्धृत-तालिका पहचान regex को रैखिक स्कैनर से बदला — दुर्भावनापूर्ण कॉन्फ़िग पंक्तियों पर अब बहुपदीय backtracking नहीं; fail-closed व्यवहार अपरिवर्तित।
+  - **प्रोटोटाइप-प्रदूषण रक्षा**: नेस्टेड JSON `serverPath` (`openclaw` टारगेट द्वारा प्रयुक्त) लिखने से पहले `__proto__` / `constructor` / `prototype` व गैर-पहचानकर्ता keys अस्वीकार करता है।
+  - वैध कॉन्फ़िग हेतु कोई व्यवहार बदलाव नहीं; सत्यापन: `npm test` हरा (आधार **389/389**), `tsc` स्वच्छ, `npm audit` 0 कमज़ोरियाँ।
+
+### v6.4.3
 
 - **Codex टारगेट व डॉक्स सफ़ाई (2026-09-28)**:
   - नया `codex` वन-क्लिक टारगेट: `setup --target codex`, `~/.codex/config.toml` (`[mcp_servers.superpowers]`) में लिखता है; शून्य-निर्भरता TOML मर्ज, `--dry-run` / `--backup` / `--bun` / `--remove` समर्थित।

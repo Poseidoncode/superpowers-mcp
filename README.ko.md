@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -178,7 +178,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.4.3 (최신)
+### v6.4.4 (최신)
+
+- **CodeQL 수정 및 보안 패치 (2026-09-28)**:
+  - 코드 스캔 **미해결 0건 / 수정 7건**: v6.4.3에서 보고된 `src/setup-runner.ts` 3건 알림 해소(자세한 내용은 [SECURITY.md](SECURITY.md)).
+  - **TOML ReDoS 수정**: 인용 테이블 감지 정규식을 선형 스캐너로 교체. 악성 설정 줄에서도 다항식 백트래킹이 발생하지 않음. fail-closed 동작은 그대로 유지.
+  - **프로토타입 오염 가드**: 중첩 JSON `serverPath`(`openclaw` 타겟 사용)는 쓰기 전에 `__proto__` / `constructor` / `prototype` 및 비식별자 키를 거부.
+  - 정상 설정의 동작 변경 없음. 검증: `npm test` 그린(기준 **389/389**), `tsc` 클린, `npm audit` 0 취약점.
+
+### v6.4.3
 
 - **Codex 지원 및 문서 정리 (2026-09-28)**:
   - 신규 `codex` 원클릭 타겟: `setup --target codex`가 `~/.codex/config.toml`(`[mcp_servers.superpowers]`)에 기록. 무의존 TOML 병합, `--dry-run` / `--backup` / `--bun` / `--remove` 지원.

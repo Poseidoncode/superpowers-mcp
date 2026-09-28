@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![版本](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -178,7 +178,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.4.3 (最新版)
+### v6.4.4（最新版）
+
+- **CodeQL 修復與安全更新（2026-09-28）**：
+  - Code scanning 已 **0 未修復 / 7 已修復**：補上 v6.4.3 通報的 3 個 `src/setup-runner.ts` 警報（詳見 [SECURITY.md](SECURITY.md)）。
+  - **TOML ReDoS 修復**：引號表格偵測 regex 改為線性掃描，惡意設定行不再造成多項式回溯；fail-closed 行為不變。
+  - **原型污染防護**：巢狀 JSON `serverPath`（`openclaw` 目標使用）寫入前拒絕 `__proto__` / `constructor` / `prototype` 與非識別字 key。
+  - 合法設定行為不變；驗證：`npm test` 全綠（基準 **389/389**），`tsc` 乾淨，`npm audit` 0 漏洞。
+
+### v6.4.3
 
 - **Codex 支援與文件清理（2026-09-28）**：
   - 新增 `codex` 一鍵目標：`setup --target codex` 寫入 `~/.codex/config.toml`（`[mcp_servers.superpowers]`），零依賴 TOML 合併，支援 `--dry-run` / `--backup` / `--bun` / `--remove`。

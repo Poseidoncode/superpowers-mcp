@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.4.4] - 2026-09-28
+
+### Security
+
+- **CodeQL code-scanning fully remediated (0 open / 7 fixed)**: closed the three alerts reported against v6.4.3 in `src/setup-runner.ts` — `js/polynomial-redos` #5 and `js/prototype-polluting-assignment` #6/#7. Details in `SECURITY.md` (new v6.4.4 remediation notes).
+- **TOML polynomial-ReDoS eliminated (Alert #5)**: the quoted-table detector `/^\s*\[.*["']mcp_servers["'].*["']superpowers["'].*\]\s*(?:#.*)?$/` stacked three overlapping `.*` repetitions and evaluated polynomially on attacker-controlled config lines. Replaced with single-pass linear scanners (`isQuotedManagedTableHeader()`, `isTomlTableHeader()`, `parseTomlManagedAssignment()`); a 15 KB adversarial header now processes in ~6 ms per 100 runs. Quoted-variant fail-closed behavior is preserved.
+- **Nested-JSON prototype-pollution guard (Alerts #6/#7)**: `updateJsonConfig(..., serverPath)` performed computed assignments on library-input path segments, so a `"__proto__"` segment turned the working container into `Object.prototype`. Now fails closed up front on `__proto__` / `constructor` / `prototype` (literal comparisons CodeQL recognizes as sanitizers, re-asserted at the use site) and restricts segments to `^[A-Za-z0-9_-]+$`.
+
+### Fixed
+
+- No behavior change for valid configurations: bare `[mcp_servers.superpowers]` headers, quoted-variant rejection, and `["mcp", "servers"]` nested paths all behave as before — only malicious shapes throw earlier with explicit errors.
+
+### Verification
+
+- `npm test` green — regression floor **389/389** intact (setup suite 69/69); `npx tsc --noEmit` clean; `npm audit` 0 vulnerabilities; CodeQL code-scanning 0 open alerts.
+
 ## [6.4.3] - 2026-09-28
 
 ### Added

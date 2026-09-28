@@ -33,6 +33,14 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
+## v6.4.4 (2026-09-28) CodeQL Code-Scanning Remediation Notes
+
+- **Scope**: three open CodeQL code-scanning alerts in `src/setup-runner.ts` reported against v6.4.3 (`js/polynomial-redos` #5, `js/prototype-polluting-assignment` #6/#7). All 7 repository alerts now read **fixed**; the v6.4.2/v6.4.3 controls below remain in force.
+- **TOML polynomial-ReDoS eliminated (Alert #5)**: the quoted-table detector `/^\s*\[.*["']mcp_servers["'].*["']superpowers["'].*\]\s*(?:#.*)?$/` stacked three overlapping `.*` repetitions and evaluated polynomially on attacker-controlled config lines starting with `["mcp_servers"`. Replaced with single-pass linear scanners — `isQuotedManagedTableHeader()` / `isTomlTableHeader()` (`lastIndexOf("]")` + `includes`, no backtracking) — plus a linear `parseTomlManagedAssignment()` for `command`/`args` lines. A 15 KB adversarial header now processes in ~6 ms per 100 runs; quoted-variant fail-closed behavior is preserved and covered by `tests/setup_test.js`.
+- **Prototype-pollution guard on nested JSON paths (Alerts #6/#7)**: `updateJsonConfig(..., serverPath)` performed computed assignments (`container[segment] = {}`, `container = container[segment]`) on library-input path segments, so a `"__proto__"` segment turned `container` into `Object.prototype` and the later `container["superpowers"]` write mutated the global prototype. Now fails closed up front on `__proto__` / `constructor` / `prototype` (literal comparisons CodeQL recognizes as sanitizers, re-asserted at the use site) and restricts segments to `^[A-Za-z0-9_-]+$`.
+- **Verification (2026-09-28)**: `npm test` green — regression floor **389/389** intact (setup suite 69/69); `npx tsc --noEmit` clean; `npm audit` (0 vulnerabilities) clean; CodeQL code-scanning **0 open / 7 fixed**.
+
+
 ## v6.4.3 (2026-09-28) Codex / OpenClaw / Goose Target Notes
 
 - **Scope**: new `codex` (TOML), `openclaw` (nested JSON), and `goose` (YAML profile) setup targets in `src/setup-runner.ts`, new setup-test assertions, README table rows (7 languages), `scripts/install.sh` target enumeration. v6.4.2 audit findings below remain in force.
@@ -221,9 +229,13 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.4.3 - Verified: 2026-09-28)
+## Current Security Status (v6.4.4 - Verified: 2026-09-28)
 
 | Check | Status |
+| ----- | ------ |
+| CodeQL code-scanning alerts | :white_check_mark: 0 open / 7 fixed — `js/polynomial-redos` #3/#4/#5 and `js/prototype-polluting-assignment` #6/#7 closed with linear scanners and path-segment guards; `js/reflected-xss` #2 and `js/xss-through-dom` #1 fixed earlier |
+| TOML Polynomial ReDoS Defense | :white_check_mark: Secured — CodeQL `js/polynomial-redos` Alert #5 closed via single-pass linear scanners (`isQuotedManagedTableHeader`, `isTomlTableHeader`, `parseTomlManagedAssignment`); 15 KB adversarial header processes in ~6 ms per 100 runs |
+| Nested-JSON Prototype Pollution Defense | :white_check_mark: Secured — CodeQL `js/prototype-polluting-assignment` Alerts #6/#7 closed by failing closed on `__proto__` / `constructor` / `prototype` `serverPath` segments plus `^[A-Za-z0-9_-]+$` allowlist before any computed property access |
 | ----- | ------ |
 | npm audit vulnerabilities | :zero: Zero — exact verified overrides for `hono` (^4.13.7), `@hono/node-server` (^2.1.1), `fast-uri` (^4.1.3), `qs` (^6.16.0) |
 | `innerHTML` usage | :zero: Zero — entire codebase uses safe DOM APIs |
@@ -279,7 +291,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 
 ## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-28)
 
-A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, native plan-execution helpers, session-forensics skill, secret hygiene, and automated regression testing. The v6.4.2 controls and remediations remain in force; this v6.4.3 pass re-verified all surfaces and expanded the multi-language MCP coverage testing across all 7 localized README editions.
+A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, native plan-execution helpers, session-forensics skill, secret hygiene, and automated regression testing. The v6.4.2 controls and remediations remain in force; the v6.4.3 pass re-verified all surfaces and expanded the multi-language MCP coverage testing across all 7 localized README editions. The v6.4.4 pass closed the three remaining CodeQL code-scanning alerts (TOML ReDoS, nested-JSON prototype pollution) with linear scanners and fail-closed path guards — code-scanning now reads 0 open / 7 fixed.
 
 ### 1. Dependencies & Supply Chain
 - **Vulnerability Audit**: `npm audit` returned **0 vulnerabilities**.
@@ -347,6 +359,10 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **Expanded Multi-Harness Ecosystem (17 AI Agent Environments)**:
   - Broadened coverage across 17 AI agent harnesses: Antigravity, Pi Desktop, Cursor, Copilot, Copilot Insiders, Hermes, Kimi, Claude, Devin (Windsurf), QwenPaw (CoPaw), Cline, Kilo Code, Qoder, Kiro, Trae, LM Studio (`~/.lmstudio/mcp.json`), and Roo Code (`mcp_settings.json`).
   - Standardized path resolution and isolated backup/commit lifecycles across macOS, Linux, and Windows.
+- **TOML Polynomial ReDoS Mitigation & Comment Preservation (CodeQL Alert #5 closed in v6.4.4)**:
+  - `isQuotedManagedTableHeader()` / `isTomlTableHeader()` replace the stacked-`.*` table detectors with single-pass linear scans (`lastIndexOf("]")` + `includes`, no backtracking); `parseTomlManagedAssignment()` replaces the `([\s\S]*?)` value capture with a linear key/value split. Quoted-variant fail-closed behavior is preserved.
+- **Nested-JSON Prototype Pollution Guard (CodeQL Alerts #6/#7 closed in v6.4.4)**:
+  - `updateJsonConfig(..., serverPath)` fails closed on `__proto__` / `constructor` / `prototype` segments (literal comparisons CodeQL recognizes as sanitizers, asserted both up front and at the use site) and restricts segments to `^[A-Za-z0-9_-]+$`, so a library-input path can never turn the working container into `Object.prototype`.
 - **YAML Polynomial ReDoS Mitigation & Comment Preservation**:
   - `updateYamlConfig` replaces unanchored regexes `\s*(.*?)\s*$` with exact key matching and linear string slicing (`line.slice(match[0].length).trim()`), eliminating polynomial backtracking (CodeQL `js/polynomial-redos`).
   - `extractInlineComment` executes a single-pass linear character scan, safely extracting inline comments while avoiding exponential backtracking on whitespace-padded lines.

@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versión](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versión](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licencia](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume la información y las instrucciones de uso para empaquetar las habilidades (skills) de Superpowers y el sistema de flujos de trabajo autónomos en un servidor **Model Context Protocol (MCP)** independiente, de alto rendimiento y seguro.
@@ -179,7 +179,15 @@ Para ayudarte a elegir el skill adecuado, hemos estructurado los 15 skills a lo 
 
 ## 🆕 Novedades recientes
 
-### v6.4.3 (versión actual)
+### v6.4.4 (versión actual)
+
+- **Corrección CodeQL y parche de seguridad (2026-09-28)**:
+  - El análisis de código queda en **0 abiertos / 7 corregidos**: se cerraron las 3 alertas reportadas contra v6.4.3 en `src/setup-runner.ts` (detalles en [SECURITY.md](SECURITY.md)).
+  - **Corrección ReDoS en TOML**: las regex de detección de tablas entrecomilladas se sustituyeron por escáneres lineales — las líneas de configuración adversas ya no provocan backtracking polinómico; el comportamiento fail-closed no cambia.
+  - **Guardia contra prototype pollution**: los segmentos `serverPath` del JSON anidado (los usa el target `openclaw`) ahora rechazan `__proto__` / `constructor` / `prototype` y claves no identificadoras antes de escribir.
+  - Sin cambios para configuraciones válidas; verificación: `npm test` en verde (base **389/389**), `tsc` limpio, `npm audit` 0 vulnerabilidades.
+
+### v6.4.3
 
 - **Target Codex y limpieza de docs (2026-09-28)**:
   - Nuevo target `codex`: `setup --target codex` escribe `~/.codex/config.toml` (`[mcp_servers.superpowers]`) con fusión TOML sin dependencias; soporta `--dry-run` / `--backup` / `--bun` / `--remove`.

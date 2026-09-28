@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.4.3-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -180,7 +180,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.4.3（最新）
+### v6.4.4（最新）
+
+- **CodeQL 是正とセキュリティパッチ（2026-09-28）**：
+  - コードスキャンは **未対応 0 件／修正済み 7 件** に：v6.4.3 で報告された `src/setup-runner.ts` の 3 件のアラートを解消（詳細は [SECURITY.md](SECURITY.md)）。
+  - **TOML ReDoS 修正**：引用符付きテーブル検出の正規表現を線形スキャナに置換。攻撃的な設定行でも多項式バックトラックが発生しない。fail-closed の動作は不変。
+  - **プロトタイプ汚染ガード**：ネスト JSON の `serverPath`（`openclaw` ターゲットが使用）は書込前に `__proto__`／`constructor`／`prototype` と非識別子キーを拒否。
+  - 正規の設定の動作に変更なし。検証：`npm test` グリーン（基準 **389/389**）、`tsc` クリーン、`npm audit` 0 脆弱性。
+
+### v6.4.3
 
 - **Codex 対応とドキュメント整理（2026-09-28）**：
   - 新規 `codex` 一発ターゲット：`setup --target codex` が `~/.codex/config.toml`（`[mcp_servers.superpowers]`）に書込。依存ゼロの TOML マージ、`--dry-run` / `--backup` / `--bun` / `--remove` 対応。
