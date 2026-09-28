@@ -1,12 +1,36 @@
 # Superpowers MCP：技能編排與工作流流水線指南 (Skill Compositions & Workflow Pipelines)
 
-[English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md)
+[English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md) | [Español](skill-compositions.es.md) | [Português (BR)](skill-compositions.pt-BR.md) | [हिन्दी](skill-compositions.hi.md)
 
 > **重要：**這些 MCP prompts 是互動式工作流啟動器，不是伺服器端自動化。請從客戶端的 MCP Prompts 選單選取；slash command 語法依客戶端而異。Agent 必須能存取檔案、終端機與 Git，並透過 `read_skill` 載入各階段技能。流程會在設計核准、計畫審閱及分支收尾時等待使用者決定。完整指南也可透過 `guide://superpowers/skill-compositions` 讀取。
 
 > **單一來源（Source of Truth）：** 本英文文件為正式版本。技能行為變更時請先更新英文版，再同步翻譯。
 
-## 1. 為什麼需要技能組合 (Why Skill Compositions Matter)
+## 1. 選擇工作流 (Choose a Workflow)
+
+這些 prompts 是**互動式工作流啟動器**，而非伺服器端自動化。選取其一會將結構化指令加入對話；host agent 必須具備檔案、終端機與 Git 存取權，並在每個階段呼叫 `read_skill`。當技能需要設計核准、計畫審閱或分支收尾決策時，流程會暫停等待使用者決定。
+
+| 目標 | MCP Prompt | 功能 |
+| :--- | :--- | :--- |
+| 開發新功能 | `feature-pipeline` | 啟動完整的互動式功能開發流程。 |
+| 調查並修復複雜 Bug | `structured-debug` | 啟動結構化除錯流程。 |
+| 規劃大型重構或遷移 | 搭配重構情境的 `skill-composition` | 推薦 Pipeline 3；目前尚無專屬啟動 prompt。 |
+| 穩定舊程式碼庫 | 搭配舊系統情境的 `skill-composition` | 推薦 Pipeline 4；目前尚無專屬啟動 prompt。 |
+
+跨客戶端通用的呼叫方式是客戶端的 **MCP Prompts 選單**。Slash-command 名稱依客戶端而異，也可能包含已設定的 MCP 伺服器名稱。僅在一般對話中提及 prompt 名稱，並不保證客戶端會取回該 MCP prompt。
+
+本指南亦以 `guide://superpowers/skill-compositions` 暴露給 MCP 客戶端。
+
+### 前置需求 (Prerequisites)
+
+- 在可存取目標儲存庫、檔案、終端機與 Git 的 agent 會話中執行。
+- 建立 worktree 需要 Git 儲存庫，以及建立分支與目錄的權限。
+- `subagent-driven-development` 需要 host 提供的多 agent 工具。若無可用，`feature-pipeline` 會以 `executing-plans` 作為 inline 替代。
+- Push、pull request、merge 與破壞性清理仍屬使用者明確決策。
+
+---
+
+## 2. 為什麼需要技能組合 (Why Skill Compositions Matter)
 
 `superpowers-mcp` 的 15 個核心技能涵蓋了現代軟體工程生命週期（SDLC）的各個階段：從需求澄清、架構規劃、隔離實作、TDD 開發、系統化除錯，到全套驗證、代碼審查與分支整合。
 
@@ -14,7 +38,7 @@
 
 ---
 
-## 2. 核心架構守則 (Core Architectural Principles)
+## 3. 核心架構守則 (Core Architectural Principles)
 
 在編排技能時，必須恪守以下五大防護機制：
 
@@ -26,7 +50,7 @@
 
 ---
 
-## 3. 四大標準工作流流水線 (Four Standard Workflow Pipelines)
+## 4. 四大標準工作流流水線 (Four Standard Workflow Pipelines)
 
 ### Pipeline 1: 端到端新功能開發 (Feature Development Pipeline)
 **適用於：** 從零開發新功能、新增模組或重構核心流程。
@@ -35,11 +59,10 @@
 flowchart LR
     F1[brainstorming] --> F2[writing-plans]
     F2 --> F3[using-git-worktrees]
-    F3 --> F4[subagent-driven-development / executing-plans]
-    F4 --> F5[test-driven-development]
-    F5 --> F6[verification-before-completion]
-    F6 --> F7[requesting-code-review]
-    F7 --> F8[finishing-a-development-branch]
+    F3 --> F4["subagent-driven-development / executing-plans (with TDD)"]
+    F4 --> F5[verification-before-completion]
+    F5 --> F6[requesting-code-review]
+    F6 --> F7[finishing-a-development-branch]
 ```
 
 | 步驟 | 技能 (Skill) | 職責與產出 |
@@ -47,11 +70,10 @@ flowchart LR
 | **1. 需求與設計** | `brainstorming` | 釐清需求、約束、架構決策與邊界條件，先確認共識理解、通過規劃交接審查，再輸出 Spec/設計文檔。 |
 | **2. 計畫制定** | `writing-plans` | 將 Spec 轉化為可獨立驗證的原子任務清單，標註 Recommended Skill。 |
 | **3. 環境隔離** | `using-git-worktrees` | 建立獨立的 Git Worktree 工作區，保護主分支與日常工作。 |
-| **4. 任務執行** | `subagent-driven-development` | 派發獨立 Subagent 依序執行任務，嚴守上下文乾淨原則。 |
-| **5. 邏輯實作** | `test-driven-development` | 針對各任務邏輯，嚴格執行 Red ➔ Green ➔ Refactor 流程。 |
-| **6. 全套驗證** | `verification-before-completion` | 執行專案完整測試套件、Linter、型別檢查，確認無迴歸問題；若無測試指令，則須重新開啟成品並逐項核對需求。 |
-| **7. 程式碼審查** | `requesting-code-review` | 產生 Review Package，發起多維度架構與程式碼品質審查。 |
-| **8. 分支收尾** | `finishing-a-development-branch` | 先匯出延後發現（PR 清單或提交 follow-ups 檔），再合併/PR、清理 Worktree、刪除暫存分支。 |
+| **4. 任務執行** | `subagent-driven-development` 或 `executing-plans` | host 支援時使用全新 Subagent，否則採 inline 執行；實作任務載入 `test-driven-development` 並執行 Red ➔ Green ➔ Refactor。 |
+| **5. 全套驗證** | `verification-before-completion` | 執行專案完整測試套件、Linter、型別檢查，確認無迴歸問題；若無測試指令，則須重新開啟成品並逐項核對需求。 |
+| **6. 程式碼審查** | `requesting-code-review` | 產生 Review Package，發起多維度架構與程式碼品質審查。 |
+| **7. 分支收尾** | `finishing-a-development-branch` | 先匯出延後發現（PR 清單或提交 follow-ups 檔），再合併/PR、清理 Worktree、刪除暫存分支。 |
 
 ---
 
@@ -123,7 +145,7 @@ flowchart LR
 
 ---
 
-## 4. 計畫驅動的技能編排規格 (Plan-Driven Skill Metadata Schema)
+## 5. 計畫驅動的技能編排規格 (Plan-Driven Skill Metadata Schema)
 
 在 `writing-plans` 產生的 Implementation Plan 中，可針對各任務指定建議使用的 Skill：
 
@@ -146,7 +168,7 @@ flowchart LR
 
 ---
 
-## 5. MCP Prompts 跨平台支援
+## 6. MCP Prompts 跨平台支援
 
 為了讓 Cursor, Antigravity, VS Code, Devin Desktop 等客戶端能一鍵發起技能組合，`superpowers-mcp` 原生提供了標準 MCP Prompts：
 
@@ -164,7 +186,7 @@ flowchart LR
 
 ---
 
-## 6. 如何在 IDE 中實際操作與觸發 (How to Use in Practice)
+## 7. 如何在 IDE 中實際操作與觸發 (How to Use in Practice)
 
 只要安裝了 `superpowers-mcp`，您**完全不需要手動記住 15 個技能名稱**。有以下兩種最簡單的使用方式：
 

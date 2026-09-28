@@ -129,7 +129,7 @@ Es la forma más sencilla, ya que resuelve las rutas automáticamente.
 
 ## 🔄 Composición de skills y flujos de trabajo
 
-Para tareas de ingeniería complejas, usa estos **lanzadores de flujo de trabajo interactivos**. Inician un proceso guiado por el agente y se detienen en las decisiones de diseño, revisión del plan y finalización de la rama; no se ejecutan en el servidor ni de forma desatendida. Consulta la [`Guía de composición de skills`](docs/skill-compositions.md) publicada, también disponible como recurso MCP `guide://superpowers/skill-compositions`.
+Para tareas de ingeniería complejas, usa estos **lanzadores de flujo de trabajo interactivos**. Inician un proceso guiado por el agente y se detienen en las decisiones de diseño, revisión del plan y finalización de la rama; no se ejecutan en el servidor ni de forma desatendida. Consulta la [`Guía de composición de skills`](docs/skill-compositions.es.md) publicada, también disponible como recurso MCP `guide://superpowers/skill-compositions`.
 
 ### 1. Flujo de desarrollo de nuevas funcionalidades
 ```

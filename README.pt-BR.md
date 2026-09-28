@@ -129,7 +129,7 @@ Se preferir configurar manualmente, adicione as configurações abaixo ao seu ID
 
 ## 🔄 Composição de skills e pipelines de workflow
 
-Para tarefas complexas de engenharia, use estes **lançadores interativos de workflow**. Eles iniciam um processo guiado pelo agente e pausam nas decisões de design, revisão do plano e finalização do branch; não executam no servidor nem de forma autônoma. Veja o [`Guia de Composição de Skills`](docs/skill-compositions.md) publicado, também disponível como resource MCP `guide://superpowers/skill-compositions`.
+Para tarefas complexas de engenharia, use estes **lançadores interativos de workflow**. Eles iniciam um processo guiado pelo agente e pausam nas decisões de design, revisão do plano e finalização do branch; não executam no servidor nem de forma autônoma. Veja o [`Guia de Composição de Skills`](docs/skill-compositions.pt-BR.md) publicado, também disponível como resource MCP `guide://superpowers/skill-compositions`.
 
 ### 1. Pipeline de desenvolvimento de novas features
 ```

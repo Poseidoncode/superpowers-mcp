@@ -1,12 +1,36 @@
 # Superpowers MCP: 스킬 조합 및 워크플로우 파이프라인 (Skill Compositions & Workflow Pipelines)
 
-[English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md)
+[English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md) | [Español](skill-compositions.es.md) | [Português (BR)](skill-compositions.pt-BR.md) | [हिन्दी](skill-compositions.hi.md)
 
 > **중요:** 이 MCP prompts는 대화형 워크플로 런처이며 서버 측 자동화가 아닙니다. 클라이언트의 MCP Prompts 메뉴에서 선택하세요. slash command 문법은 클라이언트마다 다릅니다. 에이전트는 파일, 터미널, Git에 접근할 수 있어야 하며 각 단계에서 `read_skill`을 호출합니다. 설계 승인, 계획 검토, 브랜치 마무리 단계에서는 사용자 결정을 기다립니다. 전체 가이드는 `guide://superpowers/skill-compositions`에서도 읽을 수 있습니다.
 
 > **단일 소스(Source of Truth):** 이 영어 문서가 정본입니다. 스킬 동작이 바뀌면 영어 문서를 먼저 갱신하고 번역을 동기화하세요.
 
-## 1. 스킬 조합이 중요한 이유 (Why Skill Compositions Matter)
+## 1. 워크플로 선택하기 (Choose a Workflow)
+
+이 prompt들은 **대화형 워크플로 런처**이며 서버 측 자동화가 아닙니다. 하나를 선택하면 구조화된 지침이 대화에 추가됩니다. 호스트 에이전트는 파일, 터미널, Git에 접근할 수 있어야 하며 각 단계에서 `read_skill`을 호출해야 합니다. 스킬이 설계 승인, 계획 검토 또는 브랜치 마무리 결정을 요구하면 워크플로가 사용자 결정을 기다립니다.
+
+| 목표 | MCP Prompt | 내용 |
+| :--- | :--- | :--- |
+| 새 기능 개발 | `feature-pipeline` | 완전한 대화형 기능 개발 워크플로를 시작합니다. |
+| 복잡한 버그 조사 및 수정 | `structured-debug` | 구조화된 디버깅 워크플로를 시작합니다. |
+| 대규모 리팩토링 또는 마이그레이션 계획 | 리팩토링 시나리오와 함께 `skill-composition` | 파이프라인 3을 권장합니다. 전용 런처 prompt는 아직 없습니다. |
+| 레거시 코드베이스 안정화 | 레거시 시나리오와 함께 `skill-composition` | 파이프라인 4를 권장합니다. 전용 런처 prompt는 아직 없습니다. |
+
+이식성 있는 호출 방법은 클라이언트의 **MCP Prompts 메뉴**입니다. slash-command 이름은 클라이언트마다 다르며 구성된 MCP 서버 이름을 포함할 수 있습니다. 일반 채팅에서 prompt 이름을 언급하는 것만으로는 클라이언트가 해당 MCP prompt를 가져온다는 보장이 없습니다.
+
+본 가이드는 MCP 클라이언트에 `guide://superpowers/skill-compositions`로도 노출됩니다.
+
+### 사전 요구사항 (Prerequisites)
+
+- 대상 저장소, 파일, 터미널, Git에 접근할 수 있는 에이전트 세션에서 실행하세요.
+- worktree 생성에는 Git 저장소와 브랜치 및 디렉터리 생성 권한이 필요합니다.
+- `subagent-driven-development`에는 호스트가 제공하는 멀티에이전트 도구가 필요합니다. 사용할 수 없으면 `feature-pipeline`이 인라인 대안으로 `executing-plans`를 사용합니다.
+- push, pull request, 병합, 파괴적인 정리는 계속 사용자의 명시적 결정 사항입니다.
+
+---
+
+## 2. 스킬 조합이 중요한 이유 (Why Skill Compositions Matter)
 
 `superpowers-mcp`의 15개 핵심 스킬은 요구사항 명확화, 아키텍처 설계, 격리된 작업 환경 구축, 테스트 주도 개발(TDD), 체계적 디버깅부터 전체 검증, 코드 리뷰, 브랜치 통합에 이르기까지 소프트웨어 개발 라이프사이클(SDLC) 전반을 다룹니다.
 
@@ -14,7 +38,7 @@
 
 ---
 
-## 2. 핵심 아키텍처 원칙 (Core Architectural Principles)
+## 3. 핵심 아키텍처 원칙 (Core Architectural Principles)
 
 스킬을 조합할 때는 항상 다음 5가지 안전 보호 메커니즘을 준수해야 합니다:
 
@@ -26,7 +50,7 @@
 
 ---
 
-## 3. 4대 표준 스킬 조합 파이프라인 (Four Standard Workflow Pipelines)
+## 4. 4대 표준 스킬 조합 파이프라인 (Four Standard Workflow Pipelines)
 
 ### 파이프라인 1: 엔드투엔드 새 기능 개발 (Feature Development Pipeline)
 **권장 시나리오:** 새 기능 초기 개발, 주요 모듈 추가, 핵심 프로세스 리팩토링.
@@ -35,11 +59,10 @@
 flowchart LR
     F1[brainstorming] --> F2[writing-plans]
     F2 --> F3[using-git-worktrees]
-    F3 --> F4[subagent-driven-development / executing-plans]
-    F4 --> F5[test-driven-development]
-    F5 --> F6[verification-before-completion]
-    F6 --> F7[requesting-code-review]
-    F7 --> F8[finishing-a-development-branch]
+    F3 --> F4["subagent-driven-development / executing-plans (with TDD)"]
+    F4 --> F5[verification-before-completion]
+    F5 --> F6[requesting-code-review]
+    F6 --> F7[finishing-a-development-branch]
 ```
 
 | 단계 | 스킬 (Skill) | 역할 및 산출물 |
@@ -47,11 +70,10 @@ flowchart LR
 | **1. 요구사항 및 설계** | `brainstorming` | 요구사항, 제약사항, 아키텍처 결정을 명확히 하고 공유 이해 확인과 플래닝 핸드오프 리뷰를 거쳐 설계 스펙(Spec) 산출. |
 | **2. 계획 수립** | `writing-plans` | 스펙을 독립 검증 가능한 태스크 목록으로 분해하고 Recommended Skill 명시. |
 | **3. 환경 격리** | `using-git-worktrees` | 격리된 Git Worktree를 생성하여 메인 브랜치와 작업 환경 보호. |
-| **4. 태스크 실행** | `subagent-driven-development` | 독립된 서브에이전트를 순차 실행하여 깨끗한 컨텍스트 유지. |
-| **5. 로직 구현** | `test-driven-development` | 각 태스크의 비즈니스 로직에 대해 Red ➔ Green ➔ Refactor 주기 엄격 준수. |
-| **6. 전체 검증** | `verification-before-completion` | 전체 테스트 스위트, Linter, 타입 검사를 실행하여 회귀가 없음을 확인. 테스트 명령이 없으면 산출물을 다시 열어 요청 사항을 빠짐없이 점검. |
-| **7. 코드 리뷰** | `requesting-code-review` | 리뷰 패키지를 생성하고 다각적인 코드 및 아키텍처 리뷰 수행. |
-| **8. 브랜치 마무리** | `finishing-a-development-branch` | 보류 발견을 내보낸 뒤(PR 체크리스트 또는 follow-ups 파일) 병합/PR, Worktree 정리, 임시 브랜치 삭제를 수행. |
+| **4. 태스크 실행** | `subagent-driven-development` 또는 `executing-plans` | 호스트가 지원하면 새 서브에이전트를 사용하고, 지원하지 않으면 인라인으로 실행. 구현 태스크에는 `test-driven-development`를 로드하고 Red ➔ Green ➔ Refactor를 적용. |
+| **5. 전체 검증** | `verification-before-completion` | 전체 테스트 스위트, Linter, 타입 검사를 실행하여 회귀가 없음을 확인. 테스트 명령이 없으면 산출물을 다시 열어 요청 사항을 빠짐없이 점검. |
+| **6. 코드 리뷰** | `requesting-code-review` | 리뷰 패키지를 생성하고 다각적인 코드 및 아키텍처 리뷰 수행. |
+| **7. 브랜치 마무리** | `finishing-a-development-branch` | 보류 발견을 내보낸 뒤(PR 체크리스트 또는 follow-ups 파일) 병합/PR, Worktree 정리, 임시 브랜치 삭제를 수행. |
 
 ---
 
@@ -123,7 +145,7 @@ flowchart LR
 
 ---
 
-## 4. 계획 기반 스킬 구성 스키마 (Plan-Driven Skill Metadata Schema)
+## 5. 계획 기반 스킬 구성 스키마 (Plan-Driven Skill Metadata Schema)
 
 `writing-plans`로 생성된 구현 계획에서 각 태스크별 권장 스킬을 지정할 수 있습니다:
 
@@ -146,7 +168,7 @@ flowchart LR
 
 ---
 
-## 5. 네이티브 MCP Prompts 레퍼런스
+## 6. 네이티브 MCP Prompts 레퍼런스
 
 `superpowers-mcp`는 주요 IDE(Cursor, Antigravity, VS Code, Devin Desktop 등)에서 즉시 사용할 수 있는 표준 Prompts를 제공합니다:
 
@@ -164,7 +186,7 @@ flowchart LR
 
 ---
 
-## 6. IDE에서 실제로 사용하는 방법 (How to Use in Practice)
+## 7. IDE에서 실제로 사용하는 방법 (How to Use in Practice)
 
 `superpowers-mcp`를 설정하면 **15개의 개별 스킬 이름을 일일이 기억할 필요가 없습니다**. 아래의 두 가지 간단한 방법으로 시작할 수 있습니다:
 

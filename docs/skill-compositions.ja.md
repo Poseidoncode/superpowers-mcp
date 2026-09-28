@@ -1,12 +1,36 @@
 # Superpowers MCP: スキル構成 & ワークフローパイプライン (Skill Compositions & Workflow Pipelines)
 
-[English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md)
+[English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md) | [Español](skill-compositions.es.md) | [Português (BR)](skill-compositions.pt-BR.md) | [हिन्दी](skill-compositions.hi.md)
 
 > **重要:** これらの MCP prompts は対話型ワークフローランチャーであり、サーバー側の自動化ではありません。クライアントの MCP Prompts メニューから選択してください。slash command の構文はクライアントごとに異なります。エージェントにはファイル、ターミナル、Git へのアクセスが必要で、各段階で `read_skill` を呼び出します。設計承認、計画レビュー、ブランチ完了時にはユーザーの判断を待ちます。完全なガイドは `guide://superpowers/skill-compositions` でも取得できます。
 
 > **正典（Source of Truth）：** 本英語版が原本です。スキルの振る舞いが変わったら英語版を先に更新し、翻訳を同期してください。
 
-## 1. スキル構成が重要な理由 (Why Skill Compositions Matter)
+## 1. ワークフローを選択する (Choose a Workflow)
+
+これらの prompt は**対話型ワークフローランチャー**であり、サーバー側の自動化ではありません。いずれかを選択すると構造化された指示が会話に追加されます。ホストエージェントはファイル、ターミナル、Git へのアクセスを持ち、各段階で `read_skill` を呼び出す必要があります。スキルが設計承認、計画レビュー、ブランチ完了の判断を求める場合、ワークフローはユーザーの決定を待ちます。
+
+| 目的 | MCP Prompt | 内容 |
+| :--- | :--- | :--- |
+| 新機能を開発する | `feature-pipeline` | 完全な対話型機能開発ワークフローを開始します。 |
+| 複雑なバグを調査・修正する | `structured-debug` | 構造化デバッグワークフローを開始します。 |
+| 大規模なリファクタリングや移行を計画する | リファクタリングシナリオ付き `skill-composition` | パイプライン 3 を推奨します。専用のランチャー prompt はまだありません。 |
+| レガシーコードベースを安定化させる | レガシーシナリオ付き `skill-composition` | パイプライン 4 を推奨します。専用のランチャー prompt はまだありません。 |
+
+移植性のある呼び出し方法はクライアントの **MCP Prompts メニュー**です。slash-command 名はクライアントごとに異なり、設定済み MCP サーバー名を含む場合があります。通常のチャットで prompt 名に触れただけでは、クライアントがその MCP prompt を取得する保証はありません。
+
+本ガイドは MCP クライアント向けに `guide://superpowers/skill-compositions` としても公開されています。
+
+### 前提条件 (Prerequisites)
+
+- 対象リポジトリ、ファイル、ターミナル、Git にアクセスできるエージェントセッションで実行してください。
+- worktree の作成には Git リポジトリと、ブランチおよびディレクトリを作成する権限が必要です。
+- `subagent-driven-development` にはホスト提供のマルチエージェントツールが必要です。利用できない場合、`feature-pipeline` はインラインの代替として `executing-plans` を使用します。
+- push、pull request、マージ、破壊的なクリーンアップは引き続きユーザーの明示的な判断事項です。
+
+---
+
+## 2. スキル構成が重要な理由 (Why Skill Compositions Matter)
 
 `superpowers-mcp` に含まれる 15 のコアスキルは、要件の明確化、アーキテクチャ設計、分離されたワークスペースの構築、テスト駆動開発 (TDD)、体系的なデバッグから、完全検証、コードレビュー、ブランチ統合に至るまで、ソフトウェア開発ライフサイクル (SDLC) 全体を網羅しています。
 
@@ -14,7 +38,7 @@
 
 ---
 
-## 2. コアアーキテクチャ原則 (Core Architectural Principles)
+## 3. コアアーキテクチャ原則 (Core Architectural Principles)
 
 スキルを組み合わせる際は、常に以下の 5 つの安全防御メカニズムを適用してください。
 
@@ -26,7 +50,7 @@
 
 ---
 
-## 3. 4つの標準スキル構成パイプライン (Four Standard Workflow Pipelines)
+## 4. 4つの標準スキル構成パイプライン (Four Standard Workflow Pipelines)
 
 ### パイプライン 1: エンドツーエンド新機能開発 (Feature Development Pipeline)
 **推奨用途：** 新機能のスクラッチ開発、主要モジュールの追加、コアプロセスのリファクタリング。
@@ -35,11 +59,10 @@
 flowchart LR
     F1[brainstorming] --> F2[writing-plans]
     F2 --> F3[using-git-worktrees]
-    F3 --> F4[subagent-driven-development / executing-plans]
-    F4 --> F5[test-driven-development]
-    F5 --> F6[verification-before-completion]
-    F6 --> F7[requesting-code-review]
-    F7 --> F8[finishing-a-development-branch]
+    F3 --> F4["subagent-driven-development / executing-plans (with TDD)"]
+    F4 --> F5[verification-before-completion]
+    F5 --> F6[requesting-code-review]
+    F6 --> F7[finishing-a-development-branch]
 ```
 
 | ステップ | スキル (Skill) | 責務と成果物 |
@@ -47,11 +70,10 @@ flowchart LR
 | **1. 要件と設計** | `brainstorming` | 要件、制約、アーキテクチャ上の決定事項を整理し、共通理解の確認とプランニング・ハンドオフ・レビューを経て仕様書 (Spec) を出力。 |
 | **2. 計画策定** | `writing-plans` | 仕様書を独立して検証可能なタスクリストに分解し、Recommended Skill を明記。 |
 | **3. 環境分離** | `using-git-worktrees` | 独立した Git Worktree を作成し、メインブランチと作業環境を保護。 |
-| **4. タスク実行** | `subagent-driven-development` | 独立したサブエージェントを順次起動し、クリーンなコンテキストでタスクを実行。 |
-| **5. ロジック実装** | `test-driven-development` | 各タスクのビジネスロジックに対して Red ➔ Green ➔ Refactor を厳格に適用。 |
-| **6. フルテスト検証** | `verification-before-completion` | フルテストスイート、Linter、型チェックを実行し、回帰がないことを確認。テストコマンドが無い場合は成果物を再度開き、要求事項を漏れなく確認。 |
-| **7. コードレビュー** | `requesting-code-review` | レビューパッケージを生成し、多角的なコード＆アーキテクチャレビューを実施。 |
-| **8. ブランチ完了** | `finishing-a-development-branch` | 保留所見をエクスポート（PR チェックリストまたは follow-ups ファイル）してから、マージ/PR、Worktree の整理、一時ブランチの削除を実施。 |
+| **4. タスク実行** | `subagent-driven-development` または `executing-plans` | ホストが対応している場合は新しいサブエージェントを使用し、対応していない場合はインラインで実行。実装タスクでは `test-driven-development` を読み込み、Red ➔ Green ➔ Refactor を適用。 |
+| **5. フルテスト検証** | `verification-before-completion` | フルテストスイート、Linter、型チェックを実行し、回帰がないことを確認。テストコマンドが無い場合は成果物を再度開き、要求事項を漏れなく確認。 |
+| **6. コードレビュー** | `requesting-code-review` | レビューパッケージを生成し、多角的なコード＆アーキテクチャレビューを実施。 |
+| **7. ブランチ完了** | `finishing-a-development-branch` | 保留所見をエクスポート（PR チェックリストまたは follow-ups ファイル）してから、マージ/PR、Worktree の整理、一時ブランチの削除を実施。 |
 
 ---
 
@@ -123,7 +145,7 @@ flowchart LR
 
 ---
 
-## 4. スキル作成とメタデータ標準 (Skill Authoring & Metadata Standards)
+## 5. スキル作成とメタデータ標準 (Skill Authoring & Metadata Standards)
 
 `writing-plans` で作成する実装計画において、各タスクに推奨スキルを指定できます：
 
@@ -146,7 +168,7 @@ flowchart LR
 
 ---
 
-## 5. ネイティブ MCP Prompts 一覧
+## 6. ネイティブ MCP Prompts 一覧
 
 `superpowers-mcp` は主要な MCP クライアント（Cursor、Antigravity、VS Code、Devin Desktop など）で利用可能な標準 Prompts を提供します：
 
@@ -164,7 +186,7 @@ flowchart LR
 
 ---
 
-## 6. IDE での実際の操作方法 (How to Use in Practice)
+## 7. IDE での実際の操作方法 (How to Use in Practice)
 
 `superpowers-mcp` を設定すれば、**15 個の個別スキル名を覚える必要は一切ありません**。以下の 2 つの方法で簡単に利用できます：
 

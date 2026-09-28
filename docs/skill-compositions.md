@@ -1,6 +1,6 @@
 # Superpowers MCP: Skill Compositions & Workflow Pipelines
 
-[English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md)
+[English](skill-compositions.md) | [繁體中文](skill-compositions.zh-TW.md) | [日本語](skill-compositions.ja.md) | [한국어](skill-compositions.ko.md) | [Español](skill-compositions.es.md) | [Português (BR)](skill-compositions.pt-BR.md) | [हिन्दी](skill-compositions.hi.md)
 
 > **Source of truth:** this English document is canonical. Update it first when skill behavior changes, then sync the translations.
 
