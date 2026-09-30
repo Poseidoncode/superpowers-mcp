@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -161,7 +161,7 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 | # | 개발 단계 (Phase) | 스킬 이름 (Skill Name) | 역할 및 핵심 가치 (Purpose & Core Value) | 추천 사용 시나리오 (Recommended Scenario) |
 | :-: | :--- | :--- | :--- | :--- |
 | 1 | **🚀 계획 및 설계** | **`brainstorming`** | **요구사항 명확화 및 설계 탐색**：코드 작성 전 아키텍처 방안과 제약을 명확히 하고 스펙을 산출. Visual Companion 브라우저 UI 검토 지원. | 새 기능이나 대규모 변경을 시작하기 전, AI가 바로 코딩하는 것을 방지. |
-| 2 | **🚀 계획 및 설계** | **`writing-plans`** | **구현 계획 분해**：스펙을 독립 검증 가능한 작업 목록으로 분해하고 Recommended Skill 및 파일 계약 명시. | 여러 파일 리팩토링이나 복잡한 마이그레이션 전 명확한 청사진 수립. |
+| 2 | **🚀 계획 및 설계** | **`writing-plans`** | **구현 계획 분해**：스펙을 독립 검증 가능한 작업 목록으로 분해하고 Recommended Skill 및 정확한 파일 참조 명시. | 여러 파일 리팩토링이나 복잡한 마이그레이션 전 명확한 청사진 수립. |
 | 3 | **💻 구현 및 개발** | **`executing-plans`** | **세션 내 계획 순차 실행**：현재 세션에서 모든 작업을 단계별로 실행한 뒤 마지막에 브랜치 전체를 한 번 검토. | 서브에이전트를 생성하지 않고 동일 세션 내에서 순차적으로 계획을 실행할 때. |
 | 4 | **💻 구현 및 개발** | **`subagent-driven-development`** | **서브에이전트 주도 개발 (SDD)**：작업별로 깨끗한 컨텍스트의 서브에이전트를 디스패치하고 이중 대립 코드 리뷰 수행. | 복잡한 계획 실행 시 컨텍스트 오염을 방지하고 정확도를 높이는 권장 방식. |
 | 5 | **💻 구현 및 개발** | **`test-driven-development`** | **테스트 주도 개발 (TDD)**：Red ➔ Green ➔ Refactor 주기를 엄격히 준수하여 견고한 테스트를 갖춘 코드 구현. | 논리적으로 복잡한 기능이나 핵심 알고리즘을 구현할 때. |
@@ -178,7 +178,14 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.4.4 (최신)
+### v6.4.5 (최신)
+
+- **상류 `obra/superpowers@8ca22db` (상류 v6.4.2, 2026-09-25, PR #2384 "leaner plans") 동기화**: `writing-plans`가 코드를 옮겨 적는 대신 구현에 필요한 결정(시그니처, 테스트 단언, spec 값)을 기록합니다. 명시적 `Spec:` 경로를 가진 spec 우선 플랜 헤더, 새 `## What a Step Contains` 단계 템플릿, `## Bite-Sized Task Granularity` → `## Step Granularity` 개명, 7단계 `## Self-Review`.
+- **포크 콘텐츠 보존**: 포크 전용 `## Two Plan Shapes` 섹션과 `skeleton-first-plans.md`는 병합 후에도 유지됩니다. `plan-document-reviewer-prompt.md`는 `src/server.ts`가 `plan-reviewer` MCP 프롬프트로 렌더링하므로 포크에 유지합니다.
+- **drift baseline을 `8ca22db`로 재기록** (상류 스킬 파일 74/74, `npm run drift` 클린). `tests/upstream_sync_test.js`에 회귀 테스트 `Test 19 (v6.4.2)` 추가.
+- **문서 및 스캔 위생**: 이 README의 스킬 표와 `docs/skill-compositions.*` 예제가 현재 `writing-plans` 템플릿과 일치(이미 제거된 "파일 계약" 대신 정확한 파일 참조); `npm run drift`는 OS 파일(`.DS_Store`)을 포크 전용으로 나열하지 않습니다.
+
+### v6.4.4
 
 - **CodeQL 수정 및 보안 패치 (2026-09-28)**:
   - 코드 스캔 **미해결 0건 / 수정 7건**: v6.4.3에서 보고된 `src/setup-runner.ts` 3건 알림 해소(자세한 내용은 [SECURITY.md](SECURITY.md)).

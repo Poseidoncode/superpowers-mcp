@@ -151,13 +151,17 @@ flowchart LR
 
 ```markdown
 ### Task 1: 토큰 인증 미들웨어 구현
-- **Goal**: JWT 토큰 검증 및 클레임 추출
-- **Target Files**: `src/auth/jwt.ts`, `tests/auth/jwt.test.ts`
-- **Recommended Skill**: `superpowers:test-driven-development`
-- **Task Brief**:
-  1. 만료 및 유효하지 않은 서명에 대한 실패 테스트 작성 (FAIL)
-  2. 최소한의 검증 로직을 구현하여 테스트 통과 (PASS)
-  3. 엄격한 타입 안전성을 확보하며 리팩토링
+
+**Files:**
+- Create: `src/auth/jwt.ts`
+- Test: `tests/auth/jwt.test.ts`
+
+**Recommended Skill:** `superpowers:test-driven-development` (or relevant skill)
+
+**Checklist:**
+- [ ] 1. 만료 및 유효하지 않은 서명에 대한 실패 테스트 작성 (FAIL) — verify with: `npm test`
+- [ ] 2. 최소한의 검증 로직을 구현하여 테스트 통과 (PASS) — verify with: `npm test`
+- [ ] 3. 엄격한 타입 안전성을 확보하며 리팩토링 — verify with: `npx tsc --noEmit`
 ```
 
 ### 컨트롤러와 서브에이전트 디스패치 프로토콜

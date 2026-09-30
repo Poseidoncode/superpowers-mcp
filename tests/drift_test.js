@@ -16,6 +16,7 @@ const { execFileSync } = require("child_process");
 const {
     parseArgs,
     skillNameOf,
+    isOsJunk,
     readBaseline,
     localSkillPaths,
     classifyDrift,
@@ -199,6 +200,28 @@ check("10 (CLI offline mode)", () => {
     const json = JSON.parse(run(["--json"]));
     assert.strictEqual(json.baseline.tracked, Object.keys(readBaseline().files).length);
     assert.deepStrictEqual(json.coverage.missingLocal, []);
+});
+
+// 11. Finder/Explorer junk must never reach the drift scan (it is not upstream
+// content and regenerates whenever the folder is opened in Finder).
+check("11 (OS junk excluded from localSkillPaths)", () => {
+    const junkPath = path.join(SKILLS_DIR, ".DS_Store");
+    const preExisting = fs.existsSync(junkPath);
+    if (!preExisting) {
+        fs.writeFileSync(junkPath, "finder metadata");
+    }
+    try {
+        const paths = localSkillPaths();
+        assert.ok(paths.size > 0, "expected the skills walk to return paths");
+        for (const p of paths) {
+            const base = p.split("/").pop();
+            assert.ok(!isOsJunk(base), `localSkillPaths leaked OS junk: ${p}`);
+        }
+    } finally {
+        if (!preExisting) {
+            fs.unlinkSync(junkPath);
+        }
+    }
 });
 
 if (failures.length > 0) {

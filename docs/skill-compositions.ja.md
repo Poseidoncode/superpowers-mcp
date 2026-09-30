@@ -151,13 +151,17 @@ flowchart LR
 
 ```markdown
 ### Task 1: トークン認証ミドルウェアの実装
-- **Goal**: JWT トークンの検証とクレーム抽出
-- **Target Files**: `src/auth/jwt.ts`, `tests/auth/jwt.test.ts`
-- **Recommended Skill**: `superpowers:test-driven-development`
-- **Task Brief**:
-  1. 期限切れおよび無効な署名の失敗テストを作成 (FAIL)
-  2. 最小限の検証ロジックを実装してパスさせる (PASS)
-  3. 厳格な型安全性を確保してリファクタリング
+
+**Files:**
+- Create: `src/auth/jwt.ts`
+- Test: `tests/auth/jwt.test.ts`
+
+**Recommended Skill:** `superpowers:test-driven-development` (or relevant skill)
+
+**Checklist:**
+- [ ] 1. 期限切れおよび無効な署名の失敗テストを作成 (FAIL) — verify with: `npm test`
+- [ ] 2. 最小限の検証ロジックを実装してパスさせる (PASS) — verify with: `npm test`
+- [ ] 3. 厳格な型安全性を確保してリファクタリング — verify with: `npx tsc --noEmit`
 ```
 
 ### コントローラーとサブエージェントのディスパッチプロトコル

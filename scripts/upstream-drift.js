@@ -93,11 +93,18 @@ function readBaseline(baselinePath = BASELINE_PATH) {
     return parsed;
 }
 
+/** OS metadata Finder/Explorer drop into folders; never upstream content. */
+const OS_JUNK = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
+const isOsJunk = (name) => OS_JUNK.has(name) || name.startsWith("._");
+
 /** Walk the fork's skills tree and return the upstream-style paths it covers. */
 function localSkillPaths(skillsDir = SKILLS_DIR) {
     const found = new Set();
     const walk = (dir, relative) => {
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (isOsJunk(entry.name)) {
+                continue;
+            }
             const nextRelative = relative ? `${relative}/${entry.name}` : entry.name;
             if (entry.isDirectory()) {
                 walk(path.join(dir, entry.name), nextRelative);
@@ -378,4 +385,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { parseArgs, skillNameOf, readBaseline, localSkillPaths, classifyDrift, classifyCoverage, requireCompleteTreeForRecord };
+module.exports = { parseArgs, skillNameOf, isOsJunk, readBaseline, localSkillPaths, classifyDrift, classifyCoverage, requireCompleteTreeForRecord };

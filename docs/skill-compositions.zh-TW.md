@@ -151,13 +151,17 @@ flowchart LR
 
 ```markdown
 ### Task 1: 實作 Token 驗證中介軟體 (Token Middleware)
-- **Goal**: 驗證 JWT Token 並解析 Claims
-- **Target Files**: `src/auth/jwt.ts`, `tests/auth/jwt.test.ts`
-- **Recommended Skill**: `superpowers:test-driven-development`
-- **Task Brief**:
-  1. 編寫 JWT 簽名與過期驗證測試 (FAIL)
-  2. 實作驗證邏輯使測試通過 (PASS)
-  3. 重構並確保型別安全
+
+**Files:**
+- Create: `src/auth/jwt.ts`
+- Test: `tests/auth/jwt.test.ts`
+
+**Recommended Skill:** `superpowers:test-driven-development` (or relevant skill)
+
+**Checklist:**
+- [ ] 1. 編寫 JWT 簽名與過期驗證測試 (FAIL) — verify with: `npm test`
+- [ ] 2. 實作驗證邏輯使測試通過 (PASS) — verify with: `npm test`
+- [ ] 3. 重構並確保型別安全 — verify with: `npx tsc --noEmit`
 ```
 
 ### 主 Agent 與 Subagent 調度協議

@@ -148,13 +148,17 @@ En planes generados por `writing-plans`, especifica los skills recomendados por 
 
 ```markdown
 ### Task 1: Implement Token Authentication Middleware
-- **Goal**: Validate JWT tokens and extract user claims
-- **Target Files**: `src/auth/jwt.ts`, `tests/auth/jwt.test.ts`
-- **Recommended Skill**: `superpowers:test-driven-development`
-- **Task Brief**:
-  1. Write failing test for expired and invalid signatures (FAIL)
-  2. Implement minimal signature verification (PASS)
-  3. Refactor with strict type safety
+
+**Files:**
+- Create: `src/auth/jwt.ts`
+- Test: `tests/auth/jwt.test.ts`
+
+**Recommended Skill:** `superpowers:test-driven-development` (or relevant skill)
+
+**Checklist:**
+- [ ] 1. Write failing test for expired and invalid signatures (FAIL) — verify with: `npm test`
+- [ ] 2. Implement minimal signature verification (PASS) — verify with: `npm test`
+- [ ] 3. Refactor with strict type safety — verify with: `npx tsc --noEmit`
 ```
 
 ### Protocolo de despacho controlador → subagente

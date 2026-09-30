@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versão](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versão](https://img.shields.io/badge/version-6.4.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licença](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume as informações e instruções de uso para empacotar as skills do Superpowers e o sistema de fluxos de trabalho autônomos em um servidor **Model Context Protocol (MCP)** independente, de alta performance e seguro.
@@ -162,7 +162,7 @@ Para ajudar você a escolher a skill certa, estruturamos as 15 skills ao longo d
 | # | Fase do SDLC | Nome da skill | O que faz (propósito e valor principal) | Cenário recomendado |
 | :-: | :--- | :--- | :--- | :--- |
 | 1 | **🚀 Planejamento e design** | **`brainstorming`** | **Requisitos e design de arquitetura**: Explora opções e restrições antes de codar; gera specs de design; inclui revisão de UI no navegador com Visual Companion. | Antes de começar qualquer feature nova ou grande mudança; evita pular direto para o código. |
-| 2 | **🚀 Planejamento e design** | **`writing-plans`** | **Planejamento da implementação**: Decompõe specs em tarefas pequenas e testáveis, com skills recomendadas e contratos de arquivos. | Antes de refatorações multiarquivo, migrações complexas ou implementações grandes. |
+| 2 | **🚀 Planejamento e design** | **`writing-plans`** | **Planejamento da implementação**: Decompõe specs em tarefas pequenas e testáveis, com skills recomendadas e referências exatas de arquivos. | Antes de refatorações multiarquivo, migrações complexas ou implementações grandes. |
 | 3 | **💻 Implementação** | **`executing-plans`** | **Execução do plano na sessão**: Executa cada tarefa passo a passo na sessão atual e depois faz uma revisão do branch inteiro no final. | Execução de planos em lote dentro da mesma sessão, sem criar subagentes. |
 | 4 | **💻 Implementação** | **`subagent-driven-development`** | **Desenvolvimento dirigido por subagentes (SDD)**: Despacha subagentes novos e isolados por tarefa, com revisões adversariais em duas camadas. | Modelo de execução recomendado para planos complexos, sem poluição de contexto. |
 | 5 | **💻 Implementação** | **`test-driven-development`** | **Desenvolvimento guiado por testes (TDD)**: Aplica ciclos rigorosos de Vermelho ➔ Verde ➔ Refatoração, garantindo cobertura robusta. | Ao implementar features logicamente desafiadoras ou algoritmos críticos. |
@@ -179,7 +179,14 @@ Para ajudar você a escolher a skill certa, estruturamos as 15 skills ao longo d
 
 ## 🆕 Novidades recentes
 
-### v6.4.4 (atual)
+### v6.4.5 (atual)
+
+- **Sincronização com `obra/superpowers@8ca22db` (v6.4.2, 2026-09-25, PR #2384 "leaner plans")**: `writing-plans` agora registra as decisões que o implementador precisa (assinaturas, asserções de teste, valores do spec) em vez de transcrever código: novo cabeçalho de plano centrado no spec com `Spec:` explícito, nova plantilha `## What a Step Contains`, `## Bite-Sized Task Granularity` renomeado para `## Step Granularity` e `## Self-Review` com sete verificações.
+- **Conteúdo do fork preservado no merge**: a seção própria `## Two Plan Shapes` e `skeleton-first-plans.md` permanecem intactos; `plan-document-reviewer-prompt.md` fica no fork porque `src/server.ts` o renderiza como prompt MCP `plan-reviewer`.
+- **Baseline de drift regravada em `8ca22db`** (74/74 arquivos de skills upstream, `npm run drift` limpo); novo teste de regressão `Test 19 (v6.4.2)` em `tests/upstream_sync_test.js`.
+- **Documentação e higiene do scan**: a matriz de skills deste README e os exemplos de `docs/skill-compositions.*` seguem o template atual do `writing-plans` (referências exatas de arquivos, não os "contratos de arquivos" já removidos); `npm run drift` ignora arquivos do sistema (`.DS_Store`).
+
+### v6.4.4
 
 - **Correção CodeQL e patch de segurança (2026-09-28)**:
   - O code scanning fica em **0 abertos / 7 corrigidos**: fechados os 3 alertas reportados contra a v6.4.3 em `src/setup-runner.ts` (detalhes em [SECURITY.md](SECURITY.md)).

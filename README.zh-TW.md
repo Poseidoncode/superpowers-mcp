@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![版本](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.4.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -161,7 +161,7 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 | # | 開發階段 (Phase) | 技能名稱 (Skill Name) | 它是幹嘛用的？ (Purpose & Core Value) | 推薦使用情境 (Recommended Scenario) |
 | :-: | :--- | :--- | :--- | :--- |
 | 1 | **🚀 規劃與設計** | **`brainstorming`** | **需求澄清與設計探索**：在寫代碼前探索架構方案、釐清邊界，產出 Spec。內建 Visual Companion 瀏覽器即時設計審查。 | 啟動任何新功能或大改版前，防止 AI 直接衝進去寫 code。 |
-| 2 | **🚀 規劃與設計** | **`writing-plans`** | **實作計畫拆解**：將設計規格分解為獨立可測試的原子任務清單，標註檔案契約與 Recommended Skill。 | 進行多檔案重構、複雜遷移或大型開發前，建立清晰藍圖。 |
+| 2 | **🚀 規劃與設計** | **`writing-plans`** | **實作計畫拆解**：將設計規格分解為獨立可測試的原子任務清單，標註精確檔案參照與 Recommended Skill。 | 進行多檔案重構、複雜遷移或大型開發前，建立清晰藍圖。 |
 | 3 | **💻 開發與實作** | **`executing-plans`** | **會話內計畫執行**：在當前會話中依據計畫逐步執行全部任務，完成後再做一次全分支審查。 | 不需要開多個 Subagent 時的連續計畫執行。 |
 | 4 | **💻 開發與實作** | **`subagent-driven-development`** | **子代理驅動開發 (SDD)**：為各任務派發乾淨上下文的獨立 Subagent 實作，並在任務間發起雙層對抗式代碼審查。 | 推薦的複雜計畫執行方式，防止上下文污染並提高精確度。 |
 | 5 | **💻 開發與實作** | **`test-driven-development`** | **測試驅動開發 (TDD)**：嚴格執行「紅燈（寫失敗測試）➔ 綠燈（最小實作）➔ 重構」循環。 | 實作邏輯複雜功能時，確保代碼隨附測試且具備回歸防護。 |
@@ -178,7 +178,14 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.4.4（最新版）
+### v6.4.5（最新版）
+
+- **上游同步至 `obra/superpowers@8ca22db`（上游 v6.4.2，2026-09-25，PR #2384「leaner plans」）**：`writing-plans` 改為記錄實作時需要的決策（函式簽章、測試斷言、spec 數值），而非抄寫程式碼——新增明確 `Spec:` 路徑的 spec 優先計畫標頭、新增 `## What a Step Contains` 步驟範本、`## Bite-Sized Task Granularity` 更名為 `## Step Granularity`，以及含七項檢查的 `## Self-Review`。
+- **三方合併保留 fork 內容**：fork 獨有的 `## Two Plan Shapes` 段落與 `skeleton-first-plans.md` 完整保留；`plan-document-reviewer-prompt.md` 留在 fork，因為 `src/server.ts` 用它產生 `plan-reviewer` MCP prompt。
+- **Drift baseline 重錄於 `8ca22db`**（74/74 上游 skill 檔案，`npm run drift` 已歸零）；`tests/upstream_sync_test.js` 新增回歸測試 `Test 19 (v6.4.2)`。
+- **文件與掃描衛生**：README 技能矩陣與 `docs/skill-compositions.*` 範例已對齊目前的 `writing-plans` 範本（改用精確檔案參照，不再提到早已移除的「檔案契約」）；`npm run drift` 不再把系統雜項（`.DS_Store`）列為 fork 獨有檔案。
+
+### v6.4.4
 
 - **CodeQL 修復與安全更新（2026-09-28）**：
   - Code scanning 已 **0 未修復 / 7 已修復**：補上 v6.4.3 通報的 3 個 `src/setup-runner.ts` 警報（詳見 [SECURITY.md](SECURITY.md)）。

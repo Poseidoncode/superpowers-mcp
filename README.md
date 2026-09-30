@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -162,7 +162,7 @@ To help you choose the right skill, we have structured all 15 skills across the 
 | # | SDLC Phase | Skill Name | What It Does (Purpose & Core Value) | Recommended Scenario |
 | :-: | :--- | :--- | :--- | :--- |
 | 1 | **🚀 Planning & Design** | **`brainstorming`** | **Requirements & Architecture Design**: Explores options and constraints before coding; outputs Design Specs; includes Visual Companion browser UI review. | Before starting any new feature or major change; prevents jumping straight into code. |
-| 2 | **🚀 Planning & Design** | **`writing-plans`** | **Implementation Planning**: Decomposes specs into bite-sized, testable tasks annotated with Recommended Skills and file contracts. | Before multi-file refactoring, complex migrations, or major implementations. |
+| 2 | **🚀 Planning & Design** | **`writing-plans`** | **Implementation Planning**: Decomposes specs into bite-sized, testable tasks annotated with Recommended Skills and exact file references. | Before multi-file refactoring, complex migrations, or major implementations. |
 | 3 | **💻 Implementation** | **`executing-plans`** | **In-Session Plan Execution**: Executes every planned task step-by-step in the current session, then one whole-branch review at the end. | Batch execution of plans within the same session without spawning subagents. |
 | 4 | **💻 Implementation** | **`subagent-driven-development`** | **Subagent-Driven Development (SDD)**: Dispatches fresh, context-isolated subagents per task with dual-layer adversarial reviews. | Recommended execution model for complex plans to eliminate context pollution. |
 | 5 | **💻 Implementation** | **`test-driven-development`** | **Test-Driven Development (TDD)**: Enforces strict Red ➔ Green ➔ Refactor cycles ensuring robust test coverage. | When implementing logically challenging features or critical algorithms. |
@@ -179,7 +179,14 @@ To help you choose the right skill, we have structured all 15 skills across the 
 
 ## 🆕 Recent Updates
 
-### v6.4.4 (Latest)
+### v6.4.5 (Latest)
+
+- **Upstream sync to `obra/superpowers@8ca22db` (upstream v6.4.2, 2026-09-25, PR #2384 "leaner plans")**: `writing-plans` now records the decisions an implementer needs (signatures, test assertions, spec values) instead of transcribing code — new spec-first plan header with an explicit `Spec:` path, new `## What a Step Contains` step template, `## Bite-Sized Task Granularity` renamed `## Step Granularity`, and a seven-check `## Self-Review`.
+- **Fork content preserved through the three-way merge**: the fork-only `## Two Plan Shapes` section and `skeleton-first-plans.md` survive intact; `plan-document-reviewer-prompt.md` stays in the fork because `src/server.ts` renders it as the `plan-reviewer` MCP prompt.
+- **Drift baseline re-recorded** at `8ca22db` (74/74 upstream skill files, `npm run drift` clean); new regression `Test 19 (v6.4.2)` in `tests/upstream_sync_test.js`.
+- **Docs & scan hygiene**: the README skill matrix and `docs/skill-compositions.*` examples now match the current `writing-plans` template (exact file references, not the long-removed "file contracts"); `npm run drift` ignores OS junk (`.DS_Store`) instead of listing it as a fork-only file.
+
+### v6.4.4
 
 - **CodeQL remediation & security patch (2026-09-28)**:
   - Code scanning is now **0 open / 7 fixed**: closed the 3 alerts reported against v6.4.3 in `src/setup-runner.ts` (details in [SECURITY.md](SECURITY.md)).

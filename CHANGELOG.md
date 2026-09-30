@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.4.5] - 2026-09-30
+
+### Upstream Sync to obra/superpowers v6.4.2 (8ca22db, PR #2384 "leaner plans")
+
+- **`writing-plans` adopts the leaner-plans rewrite**: plans record the decisions an
+  implementer needs (signatures, test assertions, spec values) instead of transcribing
+  code; spec-first plan header with an explicit `Spec:` path, new `## What a Step Contains`
+  step template, `## Bite-Sized Task Granularity` renamed to `## Step Granularity`, and a
+  seven-check `## Self-Review`.
+- **Three-way merge preserves fork content**: the fork-only `## Two Plan Shapes` section
+  and `skills/writing-plans/skeleton-first-plans.md` survive intact; the latter's reference
+  to upstream's deleted `No Placeholders` section now points at `What a Step Contains`.
+- **Reviewer prompt kept fork-side**: upstream deleted
+  `skills/writing-plans/plan-document-reviewer-prompt.md`, but `src/server.ts` renders it as
+  the `plan-reviewer` MCP prompt (`tests/run_test.js`), so it ships as a fork-only file.
+- **Drift baseline re-recorded** at `obra/superpowers@main 8ca22db` (74/74 upstream skill
+  files); `npm run drift` reports zero remaining drift.
+
+### Testing
+
+- New regression `Test 19 (v6.4.2: leaner writing-plans keeps fork shape)` in
+  `tests/upstream_sync_test.js` guards the merged overview, renamed/added sections, the
+  surviving fork-only sections, and the retained reviewer prompt.
+
+### Documentation & Hygiene
+
+- **Stale `writing-plans` docs corrected (7 languages)**: the README skill matrix no longer
+  promises "file contracts" (a concept that left the skill long ago) — now "exact file
+  references"; the `docs/skill-compositions.*` section-5 example now mirrors the real task
+  template (`**Files:**` / `**Recommended Skill:**` / `**Checklist:**` with `verify with:`
+  commands) instead of the removed Goal/Target Files/Task Brief shape.
+- **Drift scan ignores OS junk**: `npm run drift` skips `.DS_Store`, `._*`, `Thumbs.db` and
+  `desktop.ini` via the new `isOsJunk` filter (drift test 11) instead of listing them as
+  fork-only files; stray `.DS_Store` files were deleted (they were never tracked — the root
+  `.gitignore` already covers them).
+
 ## [6.4.4] - 2026-09-28
 
 ### Security

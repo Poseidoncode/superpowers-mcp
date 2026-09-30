@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versión](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versión](https://img.shields.io/badge/version-6.4.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licencia](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume la información y las instrucciones de uso para empaquetar las habilidades (skills) de Superpowers y el sistema de flujos de trabajo autónomos en un servidor **Model Context Protocol (MCP)** independiente, de alto rendimiento y seguro.
@@ -162,7 +162,7 @@ Para ayudarte a elegir el skill adecuado, hemos estructurado los 15 skills a lo 
 | # | Fase del SDLC | Nombre del skill | Qué hace (propósito y valor principal) | Escenario recomendado |
 | :-: | :--- | :--- | :--- | :--- |
 | 1 | **🚀 Planificación y diseño** | **`brainstorming`** | **Requisitos y diseño de arquitectura**: Explora opciones y restricciones antes de programar; produce especificaciones de diseño; incluye revisión de IU en el navegador con Visual Companion. | Antes de empezar cualquier funcionalidad nueva o cambio importante; evita saltar directamente al código. |
-| 2 | **🚀 Planificación y diseño** | **`writing-plans`** | **Planificación de la implementación**: Descompone las especificaciones en tareas pequeñas y verificables, con skills recomendados y contratos de archivos. | Antes de refactorizaciones multifichero, migraciones complejas o implementaciones grandes. |
+| 2 | **🚀 Planificación y diseño** | **`writing-plans`** | **Planificación de la implementación**: Descompone las especificaciones en tareas pequeñas y verificables, con skills recomendados y referencias exactas de archivos. | Antes de refactorizaciones multifichero, migraciones complejas o implementaciones grandes. |
 | 3 | **💻 Implementación** | **`executing-plans`** | **Ejecución del plan en la sesión**: Ejecuta cada tarea paso a paso en la sesión actual y luego hace una revisión de toda la rama al final. | Ejecución de planes por lotes dentro de la misma sesión sin crear subagentes. |
 | 4 | **💻 Implementación** | **`subagent-driven-development`** | **Desarrollo dirigido por subagentes (SDD)**: Despacha subagentes nuevos y aislados por tarea, con revisiones adversariales de doble capa. | Modelo de ejecución recomendado para planes complejos, sin contaminación de contexto. |
 | 5 | **💻 Implementación** | **`test-driven-development`** | **Desarrollo guiado por pruebas (TDD)**: Aplica ciclos estrictos de Rojo ➔ Verde ➔ Refactorización para una cobertura sólida. | Al implementar funcionalidades lógicamente difíciles o algoritmos críticos. |
@@ -179,7 +179,14 @@ Para ayudarte a elegir el skill adecuado, hemos estructurado los 15 skills a lo 
 
 ## 🆕 Novedades recientes
 
-### v6.4.4 (versión actual)
+### v6.4.5 (versión actual)
+
+- **Sincronización con `obra/superpowers@8ca22db` (v6.4.2, 2026-09-25, PR #2384 "leaner plans")**: `writing-plans` ahora registra las decisiones que necesita quien implementa (firmas, aserciones de prueba, valores del spec) en lugar de transcribir código: nuevo encabezado de plan centrado en el spec con `Spec:` explícito, nueva plantilla `## What a Step Contains`, `## Bite-Sized Task Granularity` renombrado a `## Step Granularity` y `## Self-Review` con siete comprobaciones.
+- **Contenido del fork preservado en el merge**: la sección propia `## Two Plan Shapes` y `skeleton-first-plans.md` se mantienen intactos; `plan-document-reviewer-prompt.md` permanece en el fork porque `src/server.ts` lo renderiza como prompt MCP `plan-reviewer`.
+- **Baseline de drift rehecha en `8ca22db`** (74/74 archivos de skills upstream, `npm run drift` limpio); nuevo test de regresión `Test 19 (v6.4.2)` en `tests/upstream_sync_test.js`.
+- **Documentación e higiene del escaneo**: la matriz de skills de este README y los ejemplos de `docs/skill-compositions.*` coinciden con la plantilla actual de `writing-plans` (referencias exactas de archivos, no los "contratos de archivos" ya eliminados); `npm run drift` ignora archivos del sistema (`.DS_Store`).
+
+### v6.4.4
 
 - **Corrección CodeQL y parche de seguridad (2026-09-28)**:
   - El análisis de código queda en **0 abiertos / 7 corregidos**: se cerraron las 3 alertas reportadas contra v6.4.3 en `src/setup-runner.ts` (detalles en [SECURITY.md](SECURITY.md)).

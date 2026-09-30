@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.4.4-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.4.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -161,7 +161,7 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 | # | 開発フェーズ (Phase) | スキル名 (Skill Name) | 役割とコアバリュー (Purpose & Core Value) | 推奨利用シナリオ (Recommended Scenario) |
 | :-: | :--- | :--- | :--- | :--- |
 | 1 | **🚀 計画と設計** | **`brainstorming`** | **要件定義と設計探索**：コードを書く前に設計案や制約を明確化し仕様書を作成。Visual Companion による画面レビューも提供。 | 新機能や大幅な改修の開始前。AI がいきなりコードを書き始めるのを防止。 |
-| 2 | **🚀 計画と設計** | **`writing-plans`** | **実装計画の作成**：仕様書を独立検証可能なタスク一覧に分解し、Recommended Skill と変更対象を明記。 | 複数ファイルのリファクタリングや複雑な移行作業の前に実行計画を確立。 |
+| 2 | **🚀 計画と設計** | **`writing-plans`** | **実装計画の作成**：仕様書を独立検証可能なタスク一覧に分解し、Recommended Skill と変更対象ファイルの参照を明記。 | 複数ファイルのリファクタリングや複雑な移行作業の前に実行計画を確立。 |
 | 3 | **💻 実装と開発** | **`executing-plans`** | **計画の順次実行**：現在のセッションで全タスクをステップバイステップで実行し、最後にブランチ全体を一度レビュー。 | サブエージェントを起動せず、同一セッション内で計画を順次実行したい時。 |
 | 4 | **💻 実装と開発** | **`subagent-driven-development`** | **サブエージェント駆動開発 (SDD)**：タスクごとにクリーンなコンテキストのサブエージェントを起動し、2 段階の対抗的レビューを実施。 | 複雑な計画を実行する際の推奨方式。コンテキスト汚染を防ぎ精度を向上。 |
 | 5 | **💻 実装と開発** | **`test-driven-development`** | **テスト駆動開発 (TDD)**：Red ➔ Green ➔ Refactor サイクルを厳格に適用し、テストを伴う高品質なコードを実装。 | ロジックの複雑な機能やコアアルゴリズムの実装時。 |
@@ -180,7 +180,14 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.4.4（最新）
+### v6.4.5（最新）
+
+- **上流 `obra/superpowers@8ca22db`（上流 v6.4.2、2026-09-25、PR #2384「leaner plans」）へ同期**: `writing-plans` はコードの書き写しではなく、実装者が必要とする判断（シグネチャ、テストのアサーション、spec の値）を記録します。明示的な `Spec:` 路を持つ spec 優先の新プランヘッダ、新セクション `## What a Step Contains`、`## Bite-Sized Task Granularity` から `## Step Granularity` への改名、7 項目チェックの `## Self-Review`。
+- **フォーク固有の内容を保持**: フォーク独自の `## Two Plan Shapes` と `skeleton-first-plans.md` はマージ後も維持されます。`plan-document-reviewer-prompt.md` は `src/server.ts` が `plan-reviewer` MCP プロンプトとして使うため、フォークに残します。
+- **drift baseline を `8ca22db` で再記録**（上流スキルファイル 74/74、`npm run drift` クリーン）。`tests/upstream_sync_test.js` に回帰テスト `Test 19 (v6.4.2)` を追加。
+- **ドキュメントとスキャンの衛生**: この README のスキル一覧と `docs/skill-compositions.*` の例が現在の `writing-plans` テンプレートに一致（削除済みの「ファイル契約」ではなく正確なファイル参照）；`npm run drift` は OS ファイル（`.DS_Store`）を fork 専用ファイルとして列挙しなくなった。
+
+### v6.4.4
 
 - **CodeQL 是正とセキュリティパッチ（2026-09-28）**：
   - コードスキャンは **未対応 0 件／修正済み 7 件** に：v6.4.3 で報告された `src/setup-runner.ts` の 3 件のアラートを解消（詳細は [SECURITY.md](SECURITY.md)）。
