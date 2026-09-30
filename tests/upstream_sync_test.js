@@ -24,7 +24,7 @@ function expectContains(file, needle) {
 }
 
 async function runUpstreamSyncTests() {
-    console.log("🧪 Starting Upstream Sync Regression Tests (Batches 1–4, v6.4.1)...\n");
+    console.log("🧪 Starting Upstream Sync Regression Tests (Batches 1–4, v6.4.2)...\n");
 
     // Batch 1 guards the skill content adopted from obra/superpowers PRs
     // #2229, #2263, #2265, #2270 and #2237; Batch 2 the dev intent gates
@@ -392,6 +392,32 @@ async function runUpstreamSyncTests() {
         expectContains(diagnosing, "Every finding cites `path:line`");
         expectContains(diagnosing, "prompts/analyst-common.md");
         expectContains(diagnosing, "## Hard rules");
+    });
+
+    // Test 19: upstream v6.4.2 (#2384) — leaner plans.
+    // Baseline re-recorded at obra/superpowers@8ca22db carries upstream's
+    // rewritten writing-plans skill: plans record decisions instead of code,
+    // the step template moved to "## What a Step Contains" and the granularity
+    // section was renamed. The fork's own Two Plan Shapes section and the
+    // skeleton-first-plans.md cross-reference must survive that merge, while
+    // the orphaned upstream reviewer prompt stays fork-side because
+    // src/server.ts renders it as the plan-reviewer MCP prompt.
+    check("19 (v6.4.2: leaner writing-plans keeps fork shape)", () => {
+        const plans = readSkill("writing-plans");
+        expectContains(plans, "Write implementation plans for an engineer who has not seen this codebase or this spec");
+        expectContains(plans, "## What a Step Contains");
+        expectContains(plans, "**Spec:** [path to the spec/design doc this plan implements");
+        expectContains(plans, "longer than the code it describes has written the code instead");
+        expectContains(plans, "## Two Plan Shapes");
+        assert.ok(!plans.includes("Write comprehensive implementation plans"),
+            "pre-v6.4.2 overview wording must be gone");
+        assert.ok(!plans.includes("## Bite-Sized Task Granularity"),
+            "renamed granularity section must not come back");
+        assert.ok(fs.existsSync(path.join(SKILLS_DIR, "writing-plans", "plan-document-reviewer-prompt.md")),
+            "plan-document-reviewer-prompt.md must stay in the fork (plan-reviewer prompt)");
+        expectContains(readSkillFile("writing-plans", "skeleton-first-plans.md"), '"What a Step Contains"');
+        assert.ok(!readSkillFile("writing-plans", "skeleton-first-plans.md").includes('"No Placeholders"'),
+            "skeleton-first-plans must not point at the section upstream deleted");
     });
 
     if (failures.length > 0) {

@@ -1,8 +1,8 @@
 {
   "repo": "obra/superpowers",
   "ref": "main",
-  "commit": "5bf4e78011075bcfc0dc295f0724994cd123ee71",
-  "capturedAt": "2026-09-21",
+  "commit": "8ca22dba9a94f28898bbce59f2537ff4d87c747d",
+  "capturedAt": "2026-09-30",
   "files": {
     "skills/brainstorming/SKILL.md": "e3f17885f8d5f87d7a92f0469141662b476e1288",
     "skills/brainstorming/scripts/frame-template.html": "f540bb8a4f88107e2b37b2871a4c1a55a3b6f720",
@@ -70,8 +70,7 @@
     "skills/using-superpowers/references/muse-tools.md": "a87d6d83878518ba4f748be8dcd1ac9aad4b99e5",
     "skills/using-superpowers/references/pi-tools.md": "0c1f21713a45255ece4144fd2fee353e4ed4f90e",
     "skills/verification-before-completion/SKILL.md": "7d45333cc4a49c57a80df6c1fe2fa777a207afbc",
-    "skills/writing-plans/SKILL.md": "78c7126e0bf9d9777916de12971775fbad0363be",
-    "skills/writing-plans/plan-document-reviewer-prompt.md": "1c12c1d6180395262d7150bdb12a9a90efc9cfa0",
+    "skills/writing-plans/SKILL.md": "4cf0275d88d67aa4ef09f4bbca9970ed6ff74a00",
     "skills/writing-skills/SKILL.md": "182dfad177c9940d8ea388be322aadddd6c4db5f",
     "skills/writing-skills/anthropic-best-practices.md": "15ea9eae223d9081b602618849791c07a7758f3d",
     "skills/writing-skills/examples/CLAUDE_MD_TESTING.md": "47881fc85bd6c01b32b84d52ed9a0c73c8d6a089",

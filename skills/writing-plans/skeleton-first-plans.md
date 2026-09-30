@@ -117,8 +117,9 @@ are **plan failures** — never write them:
 
 ## Self-Review
 
-Run SKILL.md's Self-Review checklist, reading step 2 against "No Vague
-Contracts" above rather than "No Placeholders".
+Run SKILL.md's Self-Review checklist, reading step 2 against
+"No Vague Contracts" above rather than against the step template in
+"What a Step Contains".
 
 ## Red Flags
 
