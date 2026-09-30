@@ -23,6 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Drift baseline re-recorded** at `obra/superpowers@main 8ca22db` (74/74 upstream skill
   files); `npm run drift` reports zero remaining drift.
 
+### Security
+
+- **Transitive advisory remediated**: `fast-uri` 4.1.4 (via `@modelcontextprotocol/sdk` →
+  `ajv`) carried GHSA-hrr3-gc8f-f4qj (host case normalization) and GHSA-jvvf-x445-j334
+  (`mailto:` header injection), both moderate. `npm audit fix` moved the lockfile to
+  `fast-uri` 4.2.1 and the `overrides.fast-uri` floor in `package.json` was raised from
+  `^4.1.3` to `^4.2.1` so the vulnerable range 4.0.0–4.1.4 cannot re-enter; `npm audit`
+  reports 0 vulnerabilities. Details in [SECURITY.md](SECURITY.md).
+- Drift-scanner file intake hardened: `localSkillPaths()` now filters OS junk
+  (`.DS_Store`, `._*`, `Thumbs.db`, `desktop.ini`) so local artifacts can never be
+  misreported as fork-only skills (`.DS_Store` was never tracked — root `.gitignore`).
+
 ### Testing
 
 - New regression `Test 19 (v6.4.2: leaner writing-plans keeps fork shape)` in

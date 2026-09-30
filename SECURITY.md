@@ -229,15 +229,38 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **RFC 3986 Resource URI Compliance**: `encodeURIComponent`/`decodeURIComponent` for resource URIs with spaces or special characters.
 - **Concurrency Lock Safety**: instance-reference-checked `loadingPromise` release; `forceReload` clears the content cache.
 
-## Current Security Status (v6.4.4 - Verified: 2026-09-28)
+## v6.4.5 (2026-09-30) Upstream Sync, Dependency Advisory & Drift-Scan Notes
+
+**Scope**: adopt upstream `obra/superpowers@8ca22dba9a94` (upstream v6.4.2, PR #2384 "leaner plans"), remediate a newly disclosed transitive-dependency advisory, and harden the drift scanner's file intake.
+
+### 1. Upstream Writing-Plans Rewrite Adopted (`skills/writing-plans/SKILL.md`)
+
+- **Adopted as upstream-fast-forward with a three-way merge** (`git merge-file`, base `5bf4e78` → upstream `8ca22db`): new spec-first plan header with explicit `Spec:` path, `## What a Step Contains` step template, `## Bite-Sized Task Granularity` renamed `## Step Granularity`, and the seven-check `## Self-Review`. **Fork-only content preserved**: `## Two Plan Shapes`, the execution-handoff options block, the TDD skill pointer, and `skills/writing-plans/skeleton-first-plans.md` (cross-reference retargeted from upstream's deleted `No Placeholders` to `What a Step Contains`).
+- **Upstream deletion not followed for `plan-document-reviewer-prompt.md`**: it ships as a fork-only file because `src/server.ts` (`promptName === "plan-reviewer"`) renders it as an MCP prompt via `readPromptFileSafe(...)` — upstream's "nothing referenced it" only holds upstream-side.
+- **Baseline re-recorded** at `obra/superpowers@main 8ca22dba9a94` (2026-09-30; 74/74 upstream skill files tracked); `npm run drift` reports **0 drift** (12 fork-only files, no untracked upstream changes).
+- **Verification (2026-09-30)**: `npm test` green — regression floor **396/396** (Node.js 201, Bash 67, PowerShell 128); `npx tsc --noEmit` clean; CodeQL code-scanning **0 open / 7 fixed** re-checked via API.
+
+### 2. Transitive Advisory Remediation: `fast-uri` (moderate severity)
+
+- **Advisories**: [GHSA-hrr3-gc8f-f4qj](https://github.com/advisories/GHSA-hrr3-gc8f-f4qj) (inconsistent host case normalization via percent-encoded octets) and [GHSA-jvvf-x445-j334](https://github.com/advisories/GHSA-jvvf-x445-j334) (`mailto:` header injection) affect `fast-uri` 4.0.0 – 4.1.4.
+- **Reachability**: transitive only — `@modelcontextprotocol/sdk` → `ajv` → `fast-uri`; the MCP server never parses URIs through `fast-uri`, so no exploit path exists in-process.
+- **Remediation**: `npm audit fix` moved the lockfile from the vulnerable `4.1.4` to `4.2.1`, and the `overrides.fast-uri` floor in `package.json` was raised from `^4.1.3` to `^4.2.1` so the vulnerable range cannot re-enter the tree (the old floor still admitted 4.1.4).
+- **Verification (2026-09-30)**: `npm audit` reports **0 vulnerabilities**; `npm test` green (396/396) and `npx tsc --noEmit` clean.
+
+### 3. Drift-Scanner File Intake Hygiene (`scripts/upstream-drift.js`)
+
+- `localSkillPaths()` now skips OS junk (`.DS_Store`, `._*`, `Thumbs.db`, `desktop.ini`) via the new `isOsJunk` filter, so local Finder artifacts are never classified as fork-only skills (previously `skills/.DS_Store` appeared in the drift report).
+- `.DS_Store` was **never git-tracked** (root `.gitignore` line 20 already covers it); the stray on-disk copies were deleted. New `tests/drift_test.js` check 11 pins both the filter and the cleanup so the fork-only list stays truthful.
+
+## Current Security Status (v6.4.5 - Verified: 2026-09-30)
 
 | Check | Status |
 | ----- | ------ |
 | CodeQL code-scanning alerts | :white_check_mark: 0 open / 7 fixed — `js/polynomial-redos` #3/#4/#5 and `js/prototype-polluting-assignment` #6/#7 closed with linear scanners and path-segment guards; `js/reflected-xss` #2 and `js/xss-through-dom` #1 fixed earlier |
 | TOML Polynomial ReDoS Defense | :white_check_mark: Secured — CodeQL `js/polynomial-redos` Alert #5 closed via single-pass linear scanners (`isQuotedManagedTableHeader`, `isTomlTableHeader`, `parseTomlManagedAssignment`); 15 KB adversarial header processes in ~6 ms per 100 runs |
 | Nested-JSON Prototype Pollution Defense | :white_check_mark: Secured — CodeQL `js/prototype-polluting-assignment` Alerts #6/#7 closed by failing closed on `__proto__` / `constructor` / `prototype` `serverPath` segments plus `^[A-Za-z0-9_-]+$` allowlist before any computed property access |
-| ----- | ------ |
-| npm audit vulnerabilities | :zero: Zero — exact verified overrides for `hono` (^4.13.7), `@hono/node-server` (^2.1.1), `fast-uri` (^4.1.3), `qs` (^6.16.0) |
+| npm audit vulnerabilities | :zero: Zero — `fast-uri` advisory (GHSA-hrr3-gc8f-f4qj / GHSA-jvvf-x445-j334, moderate) fixed at `fast-uri` 4.2.1 in v6.4.5; exact verified overrides for `hono` (^4.13.7), `@hono/node-server` (^2.1.1), `fast-uri` (^4.2.1), `qs` (^6.16.0) |
+| Local → Upstream Drift Tracker | :white_check_mark: Clean — `npm run drift` reports **0 drift** (12 fork-only files, baseline `8ca22dba9a94` captured 2026-09-30); OS junk (`.DS_Store`, `._*`, `Thumbs.db`, `desktop.ini`) filtered from `localSkillPaths()` since v6.4.5 |
 | `innerHTML` usage | :zero: Zero — entire codebase uses safe DOM APIs |
 | `eval` / `new Function` / `document.write` | :zero: Zero occurrences |
 | Partial-Read Buffer Truncation Defense | :white_check_mark: Secured — looping `while (totalRead < fileSize)` in `readFileNoFollow` guarantees complete byte-level reads under high disk concurrency |
@@ -287,15 +310,15 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 | Inline plan `task-done` command execution | :white_check_mark: Secured — argv-array execution (`"$@"` / `& $exe @rest`); ledger rendering is display-only; bash requires `--`; PowerShell `-LiteralPath` + UTF-8-without-BOM |
 | Diagnosing-superpowers transcript export | :white_check_mark: Gated — local reads only; no unprompted bundle; redaction policy; partner review required before sharing |
 | Deferred-findings export grep | :white_check_mark: Secured — `Final: minor (deferred):` exported; completion-line `parked` counts excluded (`tests/upstream_sync_test.js` 12b) |
-| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-28) — 0 vulnerabilities, 0 hardcoded secrets, 0 world-writable files, 389/389 automated test assertions passed |
+| Full Security Audit & Secret Hygiene | :white_check_mark: Verified (2026-09-30) — 0 vulnerabilities (`fast-uri` advisory GHSA-hrr3-gc8f-f4qj / GHSA-jvvf-x445-j334 remediated at 4.2.1), 0 hardcoded secrets, 0 world-writable files, 396/396 automated test assertions passed |
 
-## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-28)
+## Comprehensive Security Audit & Verification Report (Last Audited: 2026-09-30)
 
-A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, native plan-execution helpers, session-forensics skill, secret hygiene, and automated regression testing. The v6.4.2 controls and remediations remain in force; the v6.4.3 pass re-verified all surfaces and expanded the multi-language MCP coverage testing across all 7 localized README editions. The v6.4.4 pass closed the three remaining CodeQL code-scanning alerts (TOML ReDoS, nested-JSON prototype pollution) with linear scanners and fail-closed path guards — code-scanning now reads 0 open / 7 fixed.
+A full repository security audit was conducted covering dependencies, core MCP server, Universal Global Setup Engine, Brainstorm Companion server, native plan-execution helpers, session-forensics skill, secret hygiene, and automated regression testing. The v6.4.2 controls and remediations remain in force; the v6.4.3 pass re-verified all surfaces and expanded the multi-language MCP coverage testing across all 7 localized README editions. The v6.4.4 pass closed the three remaining CodeQL code-scanning alerts (TOML ReDoS, nested-JSON prototype pollution) with linear scanners and fail-closed path guards — code-scanning now reads 0 open / 7 fixed. The v6.4.5 pass (2026-09-30) adopted upstream `obra/superpowers@8ca22dba9a94`, remediated the newly disclosed `fast-uri` advisories (GHSA-hrr3-gc8f-f4qj / GHSA-jvvf-x445-j334) by moving the lockfile to 4.2.1 and raising the override floor to ^4.2.1, added the `isOsJunk` filter to the drift scanner, and re-verified: full suite green (396/396), `npx tsc --noEmit` clean, `npm audit` 0 vulnerabilities, CodeQL 0 open / 7 fixed (API re-check), world-writable and secret-hygiene scans clean, `npm run drift` clean.
 
 ### 1. Dependencies & Supply Chain
 - **Vulnerability Audit**: `npm audit` returned **0 vulnerabilities**.
-- **Dependency Overrides**: Verified exact overrides for `hono` (^4.13.7), `@hono/node-server` (^2.1.1), `fast-uri` (^4.1.3), and `qs` (^6.16.0) protect against upstream CVEs (including GHSA-8j4g-w8fx-2239).
+- **Dependency Overrides**: Verified exact overrides for `hono` (^4.13.7), `@hono/node-server` (^2.1.1), `fast-uri` (^4.2.1), and `qs` (^6.16.0) protect against upstream CVEs (including GHSA-8j4g-w8fx-2239; the `fast-uri` floor was raised from ^4.1.3 to ^4.2.1 in v6.4.5 so the GHSA-hrr3-gc8f-f4qj / GHSA-jvvf-x445-j334 vulnerable range 4.0.0–4.1.4 cannot re-enter the tree).
 
 ### 2. MCP Server, Prompts & Skills Core Engine (`src/server.ts`, `src/skills-manager.ts`)
 - **Partial-Read Buffer Truncation Defense & Looping I/O**:
@@ -405,17 +428,17 @@ A full repository security audit was conducted covering dependencies, core MCP s
 - **Edge Cases & Security Suite** (`tests/edge_cases_test.js`): Passed **11/11 tests** (BOM handling, traversal blocking, concurrency locks, dot-named skills, transient failure cache preservation, automatic cache revalidation, duplicate skill-name collision handling, single-stat cache validation, and epoch invalidation).
 - **MCP Protocol & Prompts Suite** (`tests/run_test.js`): Passed **7/7 tests** (Initialization, `list_skills`, `read_skill`, malformed URI handling, `prompts/list`, `prompts/get` dynamic injection).
 - **Companion Server Suite** (`tests/brainstorm_server_test.js`): Passed **33/33 tests** (Authentication, token persistence, WS caps, CSP, traversal protection, PID lifecycle, fragmented text assembly, resilient tail event compaction).
-- **Compositions & Prompts Injection Suite** (`tests/prompts_compositions_test.js`): Passed **16/16 checks** (Workflow prompts coverage, multi-stage integrity, dynamic scenario focus, cascading injection defense, unknown prompt rejection, declared SDD review-file arguments, an explicitly named review file, normalised-path substitution, brief-file substitution, and `superpowers:` prefix normalization).
-- **Global Setup Engine Suite** (`tests/setup_test.js`): Passed **47/47 tests** (Full coverage across 17 AI agent harnesses: Antigravity, Pi Desktop, Cursor, Copilot, Copilot Insiders, Hermes, Kimi, Claude, Devin, QwenPaw, Cline, Kilo Code, Qoder, Kiro, Trae, LM Studio, Roo Code; JSONC comment tolerance, YAML comment preservation, YAML linear ReDoS guard with 60,000 whitespace padding, `--print-config` clean JSON emission, `json-mcp` local format, YAML injection defense, plain object validation, anti-bulk target consent, cross-platform path resolution, atomic write sandbox & symlink preservation, idempotent removal, double invocation defense, parent-directory symlink breakout defense, concurrent config change detection, fail-closed shape parsing, user-managed JSON fields preservation, multi-root keys reuse, disabled flag consistency, non-identifier YAML indentation, and malformed CLI invocation exit codes).
+- **Compositions & Prompts Injection Suite** (`tests/prompts_compositions_test.js`): Passed **17/17 checks** (Workflow prompts coverage, multi-stage integrity, dynamic scenario focus, cascading injection defense, unknown prompt rejection, declared SDD review-file arguments, an explicitly named review file, normalised-path substitution, brief-file substitution, and `superpowers:` prefix normalization).
+- **Global Setup Engine Suite** (`tests/setup_test.js`): Passed **69/69 tests** (Full coverage across 17 AI agent harnesses: Antigravity, Pi Desktop, Cursor, Copilot, Copilot Insiders, Hermes, Kimi, Claude, Devin, QwenPaw, Cline, Kilo Code, Qoder, Kiro, Trae, LM Studio, Roo Code; JSONC comment tolerance, YAML comment preservation, YAML linear ReDoS guard with 60,000 whitespace padding, `--print-config` clean JSON emission, `json-mcp` local format, YAML injection defense, plain object validation, anti-bulk target consent, cross-platform path resolution, atomic write sandbox & symlink preservation, idempotent removal, double invocation defense, parent-directory symlink breakout defense, concurrent config change detection, fail-closed shape parsing, user-managed JSON fields preservation, multi-root keys reuse, disabled flag consistency, non-identifier YAML indentation, and malformed CLI invocation exit codes).
 - **SDD Workspace Bash Suite** (`tests/sdd/test-sdd-workspace.sh`): Passed **16/16 tests** (Workspace isolation, path normalization, collision counters, commit range validation, permission-stripped execution).
 - **Writing Skills Render Graphs Suite** (`tests/writing-skills/test-render-graphs.sh`): Passed **8/8 tests** (Direct binary execution, SVG rendering, output verification, error capture).
 - **PowerShell Script Hardening Suite** (`tests/powershell/`): Passed **128/128 assertions** across 7 test scripts (`test-brainstorming-server.ps1`: 29, `test-find-polluter.ps1`: 12, `test-review-package.ps1`: 20, `test-sdd-workspace.ps1`: 20, `test-task-brief.ps1`: 13, `test-task-start.ps1`: 8, `test-task-done.ps1`: 26).
-- **Upstream Sync Regression Suite** (`tests/upstream_sync_test.js`): Passed **29/29 checks** pinning the imported upstream content (Batches 1-4 plus v6.4.1 native execution, diagnosing-superpowers, interpreter invocation, and export-grep `12b` for `Final: minor (deferred):`).
+- **Upstream Sync Regression Suite** (`tests/upstream_sync_test.js`): Passed **30/30 checks** pinning the imported upstream content (Batches 1-4, v6.4.1 native execution, diagnosing-superpowers, interpreter invocation, export-grep `12b` for `Final: minor (deferred):`, and v6.4.2 leaner writing-plans `Test 19`).
 - **MCP Surface Coverage Suite** (`tests/mcp_coverage_test.js`): Passed **23/23 checks** (one resource per skill on disk, each resource serves that skill's own content, prompt inventory and skill URI counts match all seven localized READMEs (`README.md`, `README.zh-TW.md`, `README.ja.md`, `README.ko.md`, `README.es.md`, `README.pt-BR.md`, `README.hi.md`) exactly, composition guides included in npm package, and unsafe SKILLS_PATH rejection).
-- **Upstream Drift Suite** (`tests/drift_test.js`): Passed **10/10 checks** (the offline CLI run is one of them); the committed baseline (`tests/upstream-sync-baseline.json`) records the upstream blob SHAs of every adopted skill file, so a deleted import, a lost upstream lineage or a stale ignore entry fails here. Network mode (`npm run drift`) compares the baseline against upstream without writing anything.
+- **Upstream Drift Suite** (`tests/drift_test.js`): Passed **11/11 checks** (the offline CLI run is one of them; check 11 filters OS junk such as `.DS_Store` out of `localSkillPaths()` since v6.4.5); the committed baseline (`tests/upstream-sync-baseline.json`) records the upstream blob SHAs of every adopted skill file, so a deleted import, a lost upstream lineage or a stale ignore entry fails here. Network mode (`npm run drift`) compares the baseline against upstream without writing anything.
 - **Brainstorm Host Defaults Bash Suite** (`tests/brainstorming/test-start-server-env-hosts.sh`): Passed **11/11 tests** (env-supplied bind/url hosts, flag precedence, empty values, and the non-loopback refusal).
 - **Executing-Plans Helper Suites** (`tests/executing-plans/`, wired into `npm test`): Passed **32/32 tests** (`test-task-start.sh`: 7, `test-task-done.sh`: 25) covering argv quoting, empty/blank output as `(no output)`, failing runs writing no ledger, and Task 4 blank-output isolation.
-- **Total Automated Regression Floor**: **389 automated test assertions across Node.js (194), Bash (67), and PowerShell (128), 100% pass rate, 0 regressions**.
+- **Total Automated Regression Floor**: **396 automated test assertions across Node.js (201), Bash (67), and PowerShell (128), 100% pass rate, 0 regressions**.
 
 
 
