@@ -11,6 +11,9 @@
  *      rejected per RFC 6455.
  *   5. /files/* must not serve files outside the content dir (traversal).
  *   6. Unauthenticated requests must be rejected with 403.
+ *   7. Template substitutions must use replacer functions, so `$\u0026`-style
+ *      sequences in agent-authored screens survive verbatim (a string
+ *      replacement expands them and corrupts the rendered page).
  *
  * Pure Node (http + net), no external dependencies, no curl required.
  */
@@ -441,6 +444,32 @@ async function run() {
         const f404 = await getWithCookie(port, key, "/files/secret.html");
         report("non-regular /files/ asset returns 404 without crash",
             f404.status === 404 && server.exitCode === null);
+
+        // 11b. Frame wrapping must preserve literal substitution sequences in
+        //     agent-authored screens. A string replacement expands them, so a
+        //     screen containing shell/JS `$` idioms renders corrupted.
+        //     Isolate the screen under test: getNewestScreen() serves the newest
+        //     .html in the content dir, so earlier fixtures would race it.
+        for (const stale of ["pre.html", "post.html", "huge.html"]) {
+            fs.rmSync(path.join(contentDir, stale), { force: true });
+        }
+        const tokenFragment = "<p>amp: $& backtick: $` quote: $' dollar: $$ one: $1</p>";
+        fs.writeFileSync(path.join(contentDir, "tokens.html"), tokenFragment);
+        const tokenScreen = await getWithCookie(port, key, "/");
+        report(
+            "frame wrapper preserves literal substitution tokens",
+            tokenScreen.status === 200 && tokenScreen.body.includes(tokenFragment)
+        );
+
+        // 11c. Static guard for both template substitutions. The `</body>`
+        //     helper injection cannot be triggered from a test without mutating
+        //     the shipped helper.js, so its shape is asserted directly.
+        const serverSource = fs.readFileSync(SERVER_CJS, "utf-8");
+        report(
+            "template substitutions use replacer functions",
+            serverSource.includes(".replace('<!-- CONTENT -->', () => content)") &&
+                serverSource.includes(".replace('</body>', () => injection + '\\n</body>')")
+        );
     } finally {
         server.kill();
         // Race the close event with a timeout: if the server already crashed

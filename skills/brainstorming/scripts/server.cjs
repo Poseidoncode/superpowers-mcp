@@ -334,7 +334,10 @@ function isFullDocument(html) {
 }
 
 function wrapInFrame(content) {
-  return renderBranding(frameTemplate).replace('<!-- CONTENT -->', content);
+  // Replacer function, not a string: agent-authored HTML routinely contains
+  // `$&`, `$'`, `$`` or `$$`, which String.replace expands as substitution
+  // tokens, mangling or truncating the rendered screen.
+  return renderBranding(frameTemplate).replace('<!-- CONTENT -->', () => content);
 }
 
 function ensurePrivateDirectory(directory) {
@@ -679,7 +682,9 @@ function handleRequest(req, res) {
     const injection = helperInjection(nonce);
 
     if (html.includes('</body>')) {
-      html = html.replace('</body>', injection + '\n</body>');
+      // Function replacer for the same reason as wrapInFrame: the injected
+      // helper script is substitution-token safe only by convention.
+      html = html.replace('</body>', () => injection + '\n</body>');
     } else {
       html += injection;
     }
