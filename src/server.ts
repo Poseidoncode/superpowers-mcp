@@ -720,9 +720,14 @@ ${skillContent}
         const rendered = interpolateTemplate(template, replacements);
         const alreadyApplied = appliedInterpolations(template, replacements);
 
+        // appliedInterpolations() reports the placeholder NAMES it substituted, so
+        // the suppression test must use the key, not the value. Passing taskDesc /
+        // reviewTarget made this guard a permanent no-op: a value can never equal
+        // "[TASK_DESCRIPTION]" / "[REVIEW_TARGET]", so the legacy section was appended
+        // even when the template already consumed the value.
         const legacyAppends = [
-            taskDesc && !alreadyApplied.has(taskDesc) ? `\n\n### Reviewed Task:\n${taskDesc}` : "",
-            reviewTarget && !alreadyApplied.has(reviewTarget) ? `\n\n### Review Target:\n${reviewTarget}` : "",
+            taskDesc && !alreadyApplied.has("[TASK_DESCRIPTION]") ? `\n\n### Reviewed Task:\n${taskDesc}` : "",
+            reviewTarget && !alreadyApplied.has("[REVIEW_TARGET]") ? `\n\n### Review Target:\n${reviewTarget}` : "",
         ].join("");
 
         return {
@@ -792,7 +797,7 @@ ${skillContent}
         const replacements = { "[SPEC_FILE_PATH]": specFile };
         const rendered = interpolateTemplate(template, replacements);
         const alreadyApplied = appliedInterpolations(template, replacements);
-        const legacyAppend = specFile && !alreadyApplied.has(specFile) ? `\n\n### Target Specification:\n${specFile}` : "";
+        const legacyAppend = specFile && !alreadyApplied.has("[SPEC_FILE_PATH]") ? `\n\n### Target Specification:\n${specFile}` : "";
 
         return {
             description: "Brainstorming Spec Document Reviewer Prompt",
@@ -818,8 +823,8 @@ ${skillContent}
         };
         const rendered = interpolateTemplate(template, replacements);
         const alreadyApplied = appliedInterpolations(template, replacements);
-        const legacyAppend = planFile && !alreadyApplied.has(planFile) ? `\n\n### Target Implementation Plan:\n${planFile}` : "";
-        const legacySpecAppend = specFile && !alreadyApplied.has(specFile) ? `\n\n### Reference Specification:\n${specFile}` : "";
+        const legacyAppend = planFile && !alreadyApplied.has("[PLAN_FILE_PATH]") ? `\n\n### Target Implementation Plan:\n${planFile}` : "";
+        const legacySpecAppend = specFile && !alreadyApplied.has("[SPEC_FILE_PATH]") ? `\n\n### Reference Specification:\n${specFile}` : "";
 
         return {
             description: "Writing-Plans Plan Document Reviewer Prompt",

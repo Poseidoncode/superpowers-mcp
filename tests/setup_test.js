@@ -565,6 +565,123 @@ it("should handle escaped quotes in TOML comment scan", () => {
     assert.ok(updated.includes("note ="), "Must preserve user key with escaped quote");
 });
 
+// 3b. YAML idempotency: re-running setup must not rewrite the user's file.
+it("should preserve a trailing newline when updating an existing YAML entry", () => {
+    const original = "mcp_servers:\n  superpowers:\n    command: OLD\n";
+    const updated = updateYamlConfig(original, "npx", ["-y"], false, "mcp");
+    assert.ok(
+        updated.endsWith("\n"),
+        "trailing newline must survive the line-splice reassembly"
+    );
+    // The real invariant: a second identical run is a byte-for-byte no-op.
+    assert.strictEqual(
+        updateYamlConfig(updated, "npx", ["-y"], false, "mcp"),
+        updated,
+        "re-running setup must be idempotent"
+    );
+});
+
+it("should preserve trailing-newline state across CRLF install/update/remove", () => {
+    const original = 'mcp_servers: # c\r\n  other:\r\n    command: "x"\r\n';
+    const installed = updateYamlConfig(original, "npx", ["-y"], false, "mcp");
+    assert.ok(installed.endsWith("\r\n"), "CRLF convention must be preserved");
+    const updated = updateYamlConfig(installed, "npx", ["-y"], false, "mcp");
+    assert.strictEqual(updated, installed, "CRLF update must be idempotent");
+    const removed = updateYamlConfig(updated, "npx", ["-y"], true, "mcp");
+    assert.ok(removed.endsWith("\r\n"), "CRLF convention must survive removal");
+});
+
+// Regression: removing the last managed entry used to leave a bare `mcp_servers:`
+// header, which parses as a null value rather than an empty map. Clients that
+// distinguish null from absent reject the resulting config.
+it("should emit an explicit empty map when removal empties the root key", () => {
+    const removed = updateYamlConfig(
+        "mcp_servers:\n  superpowers:\n    enabled: true\n",
+        "npx",
+        [],
+        true,
+        "mcp"
+    );
+    assert.strictEqual(removed, "mcp_servers: {}\n");
+    assert.ok(
+        !/^mcp_servers:\s*$/m.test(removed),
+        "must not leave a valueless (null) root key"
+    );
+});
+
+it("should not rewrite the root key when sibling entries survive removal", () => {
+    const removed = updateYamlConfig(
+        "mcp_servers:\n  other:\n    x: 1\n  superpowers:\n    enabled: true\n",
+        "npx",
+        [],
+        true,
+        "mcp"
+    );
+    assert.strictEqual(removed, "mcp_servers:\n  other:\n    x: 1\n");
+    assert.ok(!removed.includes("{}"), "non-empty map must not be collapsed to {}");
+});
+
+// Regression: YAML permits quoting the root key (`"mcp_servers":`). The updater
+// did not match quoted forms, so the add path appended a *second* unquoted
+// `mcp_servers:` block — a duplicate-key mapping — and remove silently no-op'd.
+it("should update in place under a double-quoted root key without duplicating it", () => {
+    const existing = '"mcp_servers":\n  other:\n    x: 1\n';
+    const added = updateYamlConfig(existing, "npx", ["-y"], false, "mcp");
+    assert.strictEqual(
+        (added.match(/^\s*["']?mcp_servers["']?\s*:/gm) || []).length,
+        1,
+        "must not emit a duplicate root key"
+    );
+    assert.ok(added.startsWith('"mcp_servers":'), "quoted style must be preserved");
+    assert.ok(added.includes("superpowers:"), "entry must actually be added");
+});
+
+it("should update in place under a single-quoted root key", () => {
+    const existing = "'mcp_servers':\n  other:\n    x: 1\n";
+    const added = updateYamlConfig(existing, "npx", ["-y"], false, "mcp");
+    assert.strictEqual(
+        (added.match(/^\s*["']?mcp_servers["']?\s*:/gm) || []).length,
+        1,
+        "must not emit a duplicate root key"
+    );
+    assert.ok(added.includes("superpowers:"), "entry must actually be added");
+});
+
+it("should remove entries nested under a quoted root key", () => {
+    const removed = updateYamlConfig(
+        '"mcp_servers":\n  superpowers:\n    enabled: true\n',
+        "npx",
+        [],
+        true,
+        "mcp"
+    );
+    assert.strictEqual(removed, "mcp_servers: {}\n");
+    assert.ok(!removed.includes("superpowers"), "entry must actually be removed");
+});
+
+it("should remove entries whose own key is quoted", () => {
+    const removed = updateYamlConfig(
+        'mcp_servers:\n  "superpowers":\n    enabled: true\n',
+        "npx",
+        [],
+        true,
+        "mcp"
+    );
+    assert.ok(!removed.includes("superpowers"), "quoted child key must be removed");
+    assert.strictEqual(removed, "mcp_servers: {}\n");
+});
+
+it("should apply the empty-map rule to the goose extensions profile", () => {
+    const removed = updateYamlConfig(
+        "extensions:\n  superpowers:\n    enabled: true\n",
+        "npx",
+        [],
+        true,
+        "goose"
+    );
+    assert.strictEqual(removed, "extensions: {}\n");
+});
+
 // 4. Platform Path Resolvers & Unknown Target Defense
 it("should correctly resolve paths for macOS, Windows, Linux", () => {
     const home = "/mock/home";

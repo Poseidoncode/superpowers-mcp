@@ -565,10 +565,24 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
     if (!/^[A-Za-z0-9_-]+$/.test(spec.rootKey)) throw new Error("Invalid YAML root key");
     // Built once from internal constants (never user input): anchored patterns
     // only, preserving the linear-time ReDoS discipline documented below.
-    const rootKeyPattern = new RegExp(`^(\\s*)${spec.rootKey}\\s*:`);
-    const rootHeaderPattern = new RegExp(`^(\\s*)${spec.rootKey}\\s*:\\s*(?:#.*)?$`);
+    // YAML permits the root key to be quoted (`"mcp_servers":` / `'mcp_servers':`),
+    // which is what several editors emit. Without the optional quotes these forms
+    // are invisible to the updater: the add path appended a second, unquoted
+    // `mcp_servers:` block (a duplicate-key mapping that most parsers reject or
+    // silently overwrite) and the remove path left the entry in place.
+    const rootKeyPattern = new RegExp(`^(\\s*)["']?${spec.rootKey}["']?\\s*:`);
+    const rootHeaderPattern = new RegExp(`^(\\s*)["']?${spec.rootKey}["']?\\s*:\\s*(?:#.*)?$`);
     const ownedKeyPattern = new RegExp(`^\\s*["']?(?:${spec.ownedKeys.join("|")})["']?\\s*:`);
     const lines = existingContent ? existingContent.split(/\r?\n/) : [];
+    // Line edits are newline-agnostic (lines are split on /\r?\n/), so every
+    // reassembly must restore the file's original convention. CRLF configs are
+    // common on Windows; emitting LF would rewrite every line of the user's file.
+    const eol = existingContent.includes("\r\n") ? "\r\n" : "\n";
+    const withEol = (body: string): string => {
+        const hadTrailingEol = existingContent.endsWith("\n");
+        const text = body.split("\n").join(eol);
+        return hadTrailingEol ? text.replace(/(?:\r?\n)?$/, eol) : text.replace(/(?:\r?\n)+$/, "");
+    };
     const mcpDeclarations = lines
         // Match the key with a single unambiguous pattern, then trim the remainder with
         // String#trim: the previous `\s*(.*?)\s*$` tail backtracks polynomially on input
@@ -620,12 +634,15 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
         let mcpIndent = 0;
         let inSuperpowers = false;
         let superpowersIndent = 0;
+        let removedEntry = false;
+        let headerIndex = -1;
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const mcpMatch = line.match(rootHeaderPattern);
             if (mcpMatch) {
                 inMcpServers = true;
                 mcpIndent = mcpMatch[1].length;
+                headerIndex = newLines.length;
                 newLines.push(line);
                 continue;
             }
@@ -640,10 +657,11 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
                     inMcpServers = false;
                     inSuperpowers = false;
                 } else {
-                    const spMatch = line.match(/^(\s*)superpowers:\s*(?:#.*)?$/);
+                    const spMatch = line.match(/^(\s*)["']?superpowers["']?\s*:\s*(?:#.*)?$/);
                     if (spMatch && spMatch[1] === indent) {
                         inSuperpowers = true;
                         superpowersIndent = spMatch[1].length;
+                        removedEntry = true;
                         continue;
                     }
                     if (inSuperpowers) {
@@ -657,18 +675,38 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             }
             newLines.push(line);
         }
-        return newLines.join("\n");
+        // Removing the last managed entry leaves `rootKey:` with no children,
+        // which parses as a null value. Some clients distinguish a null map from
+        // an absent key and reject the config, so emit an explicit empty map.
+        if (removedEntry && headerIndex >= 0 && headerIndex < newLines.length) {
+            const header = newLines[headerIndex];
+            const headerMatch = header.match(rootHeaderPattern);
+            if (headerMatch) {
+                const rest = newLines.slice(headerIndex + 1).some(
+                    (l) => l.trim() !== "" && !l.trimStart().startsWith("#") && /^\s/.test(l)
+                );
+                if (!rest) {
+                    newLines[headerIndex] = header.replace(
+                        rootHeaderPattern,
+                        `${headerMatch[1]}${spec.rootKey}: {}`
+                    );
+                }
+            }
+        }
+        return withEol(newLines.join("\n"));
     }
 
     const superpowersBlock = spec.freshEntry(indent, cmd, args);
 
     if (!existingContent || existingContent.trim() === "") {
-        return `${spec.rootKey}:\n${superpowersBlock.join("\n")}\n`;
+        return withEol(`${spec.rootKey}:\n${superpowersBlock.join("\n")}`);
     }
 
     const mcpServersIndex = rootDecls.length === 1 ? rootDecls[0].index : -1;
     if (mcpServersIndex === -1) {
-        return `${existingContent.trimEnd()}\n\n${spec.rootKey}:\n${superpowersBlock.join("\n")}\n`;
+        return withEol(
+            `${existingContent.trimEnd()}\n\n${spec.rootKey}:\n${superpowersBlock.join("\n")}`
+        );
     }
 
     let superpowersIndex = -1;
@@ -732,10 +770,10 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             return !keyMatch || spec.ownedKeys.includes(keyMatch[1]);
         });
         lines.splice(superpowersIndex, endIndex - superpowersIndex, ...updateBody, ...keptChildren);
-        return lines.join("\n");
+        return withEol(lines.join("\n"));
     } else {
         lines.splice(mcpServersIndex + 1, 0, ...superpowersBlock);
-        return lines.join("\n");
+        return withEol(lines.join("\n"));
     }
 }
 

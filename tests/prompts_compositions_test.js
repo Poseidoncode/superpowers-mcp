@@ -419,12 +419,39 @@ server.stdout.on("data", (data) => {
                 const text = response.result?.content?.[0]?.text || "";
                 if (text.includes("# Skill: brainstorming")) {
                     console.log("✅ read_skill accepts the documented superpowers: prefix");
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 16,
+                        method: "prompts/get",
+                        params: {
+                            name: "plan-reviewer",
+                            arguments: { plan_file: "/tmp/plan-16.md" }
+                        }
+                    });
+                    continue;
+                }
+                console.error("❌ read_skill did not normalize the superpowers: prefix:", response);
+                process.exit(1);
+            } else if (response.id === 16) {
+                // plan-reviewer substitutes [PLAN_FILE_PATH] into the template AND has a
+                // legacy "### Target Implementation Plan:" section guarded by
+                // alreadyApplied.has(...). That guard was tested against the *value*
+                // ("/tmp/plan-16.md") instead of the *placeholder name*
+                // ("[PLAN_FILE_PATH]"), so it could never match and the path was
+                // emitted twice on every request. The path must appear exactly once.
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                const occurrences = text.split("/tmp/plan-16.md").length - 1;
+                if (occurrences === 1) {
+                    console.log("✅ prompts/get plan-reviewer emits the interpolated plan path exactly once");
                     console.log("🎉 ALL ADVANCED COMPOSITIONS & SECURITY PROMPT TESTS PASSED 100%!");
                     finished = true;
                     server.kill();
                     process.exit(0);
                 }
-                console.error("❌ read_skill did not normalize the superpowers: prefix:", response);
+                console.error(
+                    `❌ prompts/get plan-reviewer emitted the plan path ${occurrences} times (expected 1); ` +
+                        "alreadyApplied.has() must be tested with the placeholder name, not the value"
+                );
                 process.exit(1);
             }
         } catch (err) {

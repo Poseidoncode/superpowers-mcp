@@ -303,8 +303,10 @@ async function runEdgeCaseTests() {
 
             const originalOpen = fsp.open;
             const originalReaddir = fsp.readdir;
+            const originalLstat = fsp.lstat;
             let opens = 0;
             let readdirs = 0;
+            let lstats = 0;
             fsp.open = async (...args) => {
                 opens++;
                 return originalOpen.apply(fsp, args);
@@ -312,6 +314,15 @@ async function runEdgeCaseTests() {
             fsp.readdir = async (...args) => {
                 readdirs++;
                 return originalReaddir.apply(fsp, args);
+            };
+            // The fingerprint (computeSkillSignature) stats via lstat, not open, so an
+            // `open`-only assertion cannot see fingerprint work being repeated once per
+            // concurrent caller. Before the single-flight lock was moved ahead of the
+            // fingerprint and registered synchronously, each of the 40 callers ran the
+            // full lstat sweep before discovering the scan already in flight.
+            fsp.lstat = async (...args) => {
+                lstats++;
+                return originalLstat.apply(fsp, args);
             };
             try {
                 const burstManager = new SkillsManager(tmpSkillsDir);
@@ -324,12 +335,82 @@ async function runEdgeCaseTests() {
                     opens <= skillFileCount,
                     `40 concurrent listSkills() calls must share one scan (opened ${opens} files for ${skillFileCount} skills)`
                 );
+                // The fingerprint lstats each skill dir and its SKILL.md once, so a
+                // single cold scan costs ~2 * skillFileCount lstats no matter how many
+                // callers pile in. Allow headroom for the root stat and the scan's own
+                // SKILL.md stats, but stay well below the 40x amplification of a
+                // per-caller fingerprint.
+                assert.ok(
+                    lstats <= skillFileCount * 6 + 20,
+                    `40 concurrent listSkills() calls must share one fingerprint (${lstats} lstats for ${skillFileCount} skills)`
+                );
             } finally {
                 fsp.open = originalOpen;
                 fsp.readdir = originalReaddir;
+                fsp.lstat = originalLstat;
             }
         }
         console.log("  ✅ Test 11 Passed!");
+
+        console.log("\nTest 12: a scan invalidated mid-flight must not repopulate the cache...");
+        {
+            const fsp = require("fs/promises");
+            const epochDir = path.join(tmpSkillsDir, "epoch-skill");
+            fs.mkdirSync(epochDir, { recursive: true });
+            fs.writeFileSync(
+                path.join(epochDir, "SKILL.md"),
+                "---\nname: epoch-skill\ndescription: before\n---\n\noriginal body\n",
+                "utf8"
+            );
+
+            const epochManager = new SkillsManager(tmpSkillsDir);
+
+            // Hold the scan open inside its concurrent read phase, so we can invalidate
+            // it while it is provably in flight. Every SKILL.md open is gated on `release`,
+            // which stays closed until after clearCache() has bumped scanEpoch.
+            let release;
+            const gate = new Promise((resolve) => {
+                release = resolve;
+            });
+            const originalOpen = fsp.open;
+            fsp.open = async (...args) => {
+                await gate;
+                return originalOpen.apply(fsp, args);
+            };
+
+            let inFlight;
+            try {
+                inFlight = epochManager.listSkills();
+                // Let the scan get past the fingerprint and into the gated read phase.
+                await new Promise((resolve) => setImmediate(resolve));
+                await new Promise((resolve) => setImmediate(resolve));
+
+                epochManager.clearCache();
+                release();
+
+                const stale = await inFlight;
+                assert.strictEqual(
+                    stale.length,
+                    0,
+                    "a scan invalidated by clearCache() must not return its stale result"
+                );
+                assert.strictEqual(
+                    epochManager.cachedSkills,
+                    null,
+                    "a scan invalidated by clearCache() must not repopulate cachedSkills"
+                );
+
+                // A subsequent cold scan must still work and see current on-disk state.
+                const fresh = await epochManager.listSkills();
+                assert.ok(
+                    fresh.some((s) => s.name === "epoch-skill"),
+                    "a fresh scan after clearCache() must rediscover the skill"
+                );
+            } finally {
+                fsp.open = originalOpen;
+            }
+        }
+        console.log("  ✅ Test 12 Passed!");
 
         console.log("\n🎉 ALL EDGE CASE & SECURITY UNIT TESTS PASSED!");
     } finally {
