@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![版本](https://img.shields.io/badge/version-6.4.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.4.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -178,7 +178,14 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.4.5（最新版）
+### v6.4.6（最新版）
+
+- **完整安全性掃描（2026-10-06）**：`src/*.ts`、brainstorming companion server、`scripts/` 與建置流程皆無新增發現——發佈程式碼中 `eval` / `new Function` / `innerHTML` / `shell: true` 為 0、子程序僅用 argv、`crypto.randomBytes` 暫存檔隨機值、0 硬編碼密鑰、0 全域可寫檔案（詳見 [SECURITY.md](SECURITY.md)）。
+- **依賴安全諮詢已修復（`npm audit` 2 → 0）**：GHSA-6qxp-vccf-f47h（高危，MCP SDK OAuth 憑證外洩）透過升級 `@modelcontextprotocol/sdk` 至 `^1.32.1` 修復；GHSA-jqcg-44mw-7w3h（嚴重，經由 `express` 的 `proxy-addr` IP 偽造）以新增 `overrides.proxy-addr ^2.0.8` 下限修復。兩者皆僅存在於建置期，stdio-only 的發佈包無法觸及。
+- **v6.4.5 之後的原始碼修復正式記錄**：brainstorming frame 注入改用 function replacer 保留字面 `$` token；單飛技能掃描、引號 YAML 根鍵處理（含空映射輸出與 CRLF 保留）、以及 placeholder-key 提示附加守衛。
+- 驗證：`npm test` 全綠（基準 **409 斷言**：setup 78/78、edge-cases 12/12、brainstorming 35/35、prompts 18/18），`tsc` 乾淨，`npm audit` 0 漏洞。
+
+### v6.4.5
 
 - **上游同步至 `obra/superpowers@8ca22db`（上游 v6.4.2，2026-09-25，PR #2384「leaner plans」）**：`writing-plans` 改為記錄實作時需要的決策（函式簽章、測試斷言、spec 數值），而非抄寫程式碼——新增明確 `Spec:` 路徑的 spec 優先計畫標頭、新增 `## What a Step Contains` 步驟範本、`## Bite-Sized Task Granularity` 更名為 `## Step Granularity`，以及含七項檢查的 `## Self-Review`。
 - **三方合併保留 fork 內容**：fork 獨有的 `## Two Plan Shapes` 段落與 `skeleton-first-plans.md` 完整保留；`plan-document-reviewer-prompt.md` 留在 fork，因為 `src/server.ts` 用它產生 `plan-reviewer` MCP prompt。

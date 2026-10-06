@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![संस्करण](https://img.shields.io/badge/version-6.4.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![संस्करण](https://img.shields.io/badge/version-6.4.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![लाइसेंस](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 यह दस्तावेज़ Superpowers skills लाइब्रेरी और स्वायत्त वर्कफ़्लो सिस्टम को एक स्वतंत्र, उच्च-प्रदर्शन और सुरक्षित **Model Context Protocol (MCP)** सर्वर के रूप में पैकेज करने की जानकारी और उपयोग निर्देशों का सारांश है।
@@ -179,7 +179,14 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 हाल के अपडेट
 
-### v6.4.5 (नवीनतम)
+### v6.4.6 (नवीनतम)
+
+- **पूर्ण सुरक्षा स्कैन (2026-10-06)**: `src/*.ts`, brainstorming companion सर्वर, `scripts/` और बिल्ड पाइपलाइन में कोई नई खोज नहीं — वितरित कोड में `eval` / `new Function` / `innerHTML` / `shell: true` 0, चाइल्ड प्रोसेस केवल argv द्वारा, `crypto.randomBytes` अस्थायी nonce, 0 हार्डकोडेड रहस्य, 0 world-writable फ़ाइलें (विवरण [SECURITY.md](SECURITY.md) में)।
+- **निर्भरता परामर्श ठीक (`npm audit` 2 → 0)**: GHSA-6qxp-vccf-f47h (उच्च, MCP SDK OAuth क्रेडेंशियल लीक) `@modelcontextprotocol/sdk` को `^1.32.1` पर बढ़ाकर ठीक; GHSA-jqcg-44mw-7w3h (गंभीर, `express` के माध्यम से `proxy-addr` IP स्पूफिंग) नए `overrides.proxy-addr ^2.0.8` फ्लोर से ठीक। दोनों केवल बिल्ड-समय में हैं और stdio-only पैकेज से अप्राप्य।
+- **v6.4.5 के बाद के स्रोत सुधार दर्ज**: brainstorming फ्रेम इंजेक्शन function replacer से शाब्दिक `$` टोकन सुरक्षित रखता है; single-flight स्किल स्कैन, उद्धृत YAML रूट-कुंजी प्रबंधन (खाली-मैप उत्सर्जन व CRLF संरक्षण सहित), और placeholder-key प्रॉम्प्ट संलग्न रक्षक।
+- सत्यापन: `npm test` हरा (आधार **409 अभिकथन**: setup 78/78, edge-cases 12/12, brainstorming 35/35, prompts 18/18), `tsc` स्वच्छ, `npm audit` 0 कमज़ोरियाँ।
+
+### v6.4.5
 
 - **अपस्ट्रीम `obra/superpowers@8ca22db` (v6.4.2, 2026-09-25, PR #2384 "leaner plans") के साथ सिंक**: `writing-plans` अब कोड की प्रतिलिपि के बजाय उन निर्णयों को दर्ज करता है जिन्हें लागू करने वाले को चाहिए (हस्ताक्षर, टेस्ट असर्टन, spec मान) — स्पष्ट `Spec:` पथ वाला नया spec-केंद्रित प्लान हेडर, नया `## What a Step Contains` चरण टेम्पलेट, `## Bite-Sized Task Granularity` से `## Step Granularity` नाम परिवर्तन, और सात-जाँच वाला `## Self-Review`।
 - **फोर्क सामग्री मर्ज में सुरक्षित**: फोर्क-केवल `## Two Plan Shapes` अनुभाग और `skeleton-first-plans.md` अक्षुण्ण रहते हैं; `plan-document-reviewer-prompt.md` फोर्क में रहता है क्योंकि `src/server.ts` उसे `plan-reviewer` MCP प्रॉम्प्ट के रूप में रेंडर करता है।

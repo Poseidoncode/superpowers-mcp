@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versión](https://img.shields.io/badge/version-6.4.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versión](https://img.shields.io/badge/version-6.4.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licencia](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume la información y las instrucciones de uso para empaquetar las habilidades (skills) de Superpowers y el sistema de flujos de trabajo autónomos en un servidor **Model Context Protocol (MCP)** independiente, de alto rendimiento y seguro.
@@ -179,7 +179,14 @@ Para ayudarte a elegir el skill adecuado, hemos estructurado los 15 skills a lo 
 
 ## 🆕 Novedades recientes
 
-### v6.4.5 (versión actual)
+### v6.4.6 (versión actual)
+
+- **Escaneo completo de seguridad (2026-10-06)**: sin hallazgos nuevos en `src/*.ts`, el servidor companion de brainstorming, `scripts/` y el pipeline de build — 0 `eval` / `new Function` / `innerHTML` / `shell: true` en el código distribuido, procesos hijo solo por argv, nonces temporales con `crypto.randomBytes`, 0 secretos hardcodeados, 0 archivos world-writable (detalles en [SECURITY.md](SECURITY.md)).
+- **Avisos de dependencias corregidos (`npm audit` 2 → 0)**: GHSA-6qxp-vccf-f47h (alta, fuga de credenciales OAuth del SDK MCP) corregido subiendo `@modelcontextprotocol/sdk` a `^1.32.1`; GHSA-jqcg-44mw-7w3h (crítica, suplantación de IP en `proxy-addr` vía `express`) corregido con el nuevo piso `overrides.proxy-addr ^2.0.8`. Ambos solo existen en tiempo de compilación e inalcanzables desde el paquete stdio-only.
+- **Correcciones posteriores a v6.4.5 ya registradas**: la inyección de marcos de brainstorming conserva tokens `$` literales con function replacers; escaneos de skills en single-flight, manejo de claves raíz YAML entrecomilladas (con emisión de mapa vacío y preservación CRLF) y guardias de anexado por clave de placeholder.
+- Verificación: `npm test` en verde (base **409 aserciones**: setup 78/78, edge-cases 12/12, brainstorming 35/35, prompts 18/18), `tsc` limpio, `npm audit` 0 vulnerabilidades.
+
+### v6.4.5
 
 - **Sincronización con `obra/superpowers@8ca22db` (v6.4.2, 2026-09-25, PR #2384 "leaner plans")**: `writing-plans` ahora registra las decisiones que necesita quien implementa (firmas, aserciones de prueba, valores del spec) en lugar de transcribir código: nuevo encabezado de plan centrado en el spec con `Spec:` explícito, nueva plantilla `## What a Step Contains`, `## Bite-Sized Task Granularity` renombrado a `## Step Granularity` y `## Self-Review` con siete comprobaciones.
 - **Contenido del fork preservado en el merge**: la sección propia `## Two Plan Shapes` y `skeleton-first-plans.md` se mantienen intactos; `plan-document-reviewer-prompt.md` permanece en el fork porque `src/server.ts` lo renderiza como prompt MCP `plan-reviewer`.

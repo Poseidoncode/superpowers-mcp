@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -178,7 +178,14 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.4.5 (최신)
+### v6.4.6 (최신)
+
+- **전체 보안 스캔 (2026-10-06)**: `src/*.ts`, brainstorming 컴패니언 서버, `scripts/`, 빌드 파이프라인에서 새로운 발견 없음 — 출하 코드 내 `eval` / `new Function` / `innerHTML` / `shell: true` 0건, 자식 프로세스는 argv 전용, `crypto.randomBytes` 임시 nonce, 하드코딩된 비밀 0건, world-writable 파일 0건 (자세한 내용은 [SECURITY.md](SECURITY.md)).
+- **의존성 권고 해소 (`npm audit` 2 → 0)**: GHSA-6qxp-vccf-f47h (높음, MCP SDK OAuth 자격 증명 유출)는 `@modelcontextprotocol/sdk`를 `^1.32.1`로 올려 수정; GHSA-jqcg-44mw-7w3h (심각, `express` 경유의 `proxy-addr` IP 스푸핑)는 신규 `overrides.proxy-addr ^2.0.8` 하한으로 수정. 둘 다 빌드 시점 전용이며 stdio 전용 출하 번들에서는 도달 불가.
+- **v6.4.5 이후 소스 수정 기록**: brainstorming 프레임 주입은 function replacer로 리터럴 `$` 토큰 보존; single-flight 스킬 스캔, 따옴표 있는 YAML 루트 키 처리 (빈 맵 출력·CRLF 보존 포함), 플레이스홀더 키 방식 프롬프트 추가 가드.
+- 검증: `npm test` 그린 (기준 **409 어서션**: setup 78/78, edge-cases 12/12, brainstorming 35/35, prompts 18/18), `tsc` 클린, `npm audit` 0 취약점.
+
+### v6.4.5
 
 - **상류 `obra/superpowers@8ca22db` (상류 v6.4.2, 2026-09-25, PR #2384 "leaner plans") 동기화**: `writing-plans`가 코드를 옮겨 적는 대신 구현에 필요한 결정(시그니처, 테스트 단언, spec 값)을 기록합니다. 명시적 `Spec:` 경로를 가진 spec 우선 플랜 헤더, 새 `## What a Step Contains` 단계 템플릿, `## Bite-Sized Task Granularity` → `## Step Granularity` 개명, 7단계 `## Self-Review`.
 - **포크 콘텐츠 보존**: 포크 전용 `## Two Plan Shapes` 섹션과 `skeleton-first-plans.md`는 병합 후에도 유지됩니다. `plan-document-reviewer-prompt.md`는 `src/server.ts`가 `plan-reviewer` MCP 프롬프트로 렌더링하므로 포크에 유지합니다.

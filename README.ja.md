@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.4.5-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.4.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -180,7 +180,14 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.4.5（最新）
+### v6.4.6（最新）
+
+- **フルセキュリティスキャン（2026-10-06）**：`src/*.ts`、brainstorming コンパニオンサーバー、`scripts/`、ビルドパイプラインに新たな所見なし——出荷コード中の `eval` / `new Function` / `innerHTML` / `shell: true` は 0、子プロセスは argv のみ、`crypto.randomBytes` による一時ファイル nonce、ハードコードされた秘密情報 0、ワールドライタブルファイル 0（詳細は [SECURITY.md](SECURITY.md)）。
+- **依存関係アドバイザリを解消（`npm audit` 2 → 0）**：GHSA-6qxp-vccf-f47h（高、MCP SDK の OAuth 認証情報漏洩）は `@modelcontextprotocol/sdk` を `^1.32.1` に引き上げて修正；GHSA-jqcg-44mw-7w3h（重大、`express` 経由の `proxy-addr` IP 偽装）は新規 `overrides.proxy-addr ^2.0.8` 下限で修正。いずれもビルド時のみで、stdio 専用の出荷バンドルからは到達不能。
+- **v6.4.5 以降のソース修正を記録**：brainstorming フレーム注入は function replacer でリテラル `$` トークンを保持；シングルフライトのスキルスキャン、クォート付き YAML ルートキー処理（空マップ出力・CRLF 保持付き）、プレースホルダーキー方式のプロンプト追記ガード。
+- 検証：`npm test` グリーン（基準 **409 アサーション**：setup 78/78、edge-cases 12/12、brainstorming 35/35、prompts 18/18）、`tsc` クリーン、`npm audit` 0 脆弱性。
+
+### v6.4.5
 
 - **上流 `obra/superpowers@8ca22db`（上流 v6.4.2、2026-09-25、PR #2384「leaner plans」）へ同期**: `writing-plans` はコードの書き写しではなく、実装者が必要とする判断（シグネチャ、テストのアサーション、spec の値）を記録します。明示的な `Spec:` 路を持つ spec 優先の新プランヘッダ、新セクション `## What a Step Contains`、`## Bite-Sized Task Granularity` から `## Step Granularity` への改名、7 項目チェックの `## Self-Review`。
 - **フォーク固有の内容を保持**: フォーク独自の `## Two Plan Shapes` と `skeleton-first-plans.md` はマージ後も維持されます。`plan-document-reviewer-prompt.md` は `src/server.ts` が `plan-reviewer` MCP プロンプトとして使うため、フォークに残します。

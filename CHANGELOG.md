@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.4.6] - 2026-10-06
+
+### Security
+
+- **Full project security scan** (`src/*.ts`, brainstorming companion `server.cjs`,
+  `scripts/`, `esbuild.js`, `npm audit`, secret/permission hygiene, all suites):
+  no new findings. `eval` / `new Function` / `innerHTML` / `document.write` /
+  `shell: true` = 0 in shipped source; `child_process` only as argv-based
+  `execFile` (no shell); temp files use `crypto.randomBytes(8)` nonces with `wx`
+  exclusive creation + atomic rename; zero hardcoded secrets; zero
+  world-writable files; ReDoS discipline (anchored patterns, linear scans) and
+  path-traversal / TOCTOU / allowed-roots / `0o700`/`0o600` controls all in force.
+- **Transitive advisories remediated (`npm audit` 2 → 0)**:
+  GHSA-6qxp-vccf-f47h (high, `@modelcontextprotocol/sdk` OAuth client credential
+  leak, range 1.12.0–1.30.1) and GHSA-jqcg-44mw-7w3h (critical, `proxy-addr`
+  IP spoofing via `sdk → express`, range 1.1.0–2.0.7). Both are build-time-only
+  and unreachable from the stdio-only shipped bundle (`src/server.ts` imports
+  only `Server` / `StdioServerTransport` / `types`; no `proxy-addr`/`express` in
+  `out/server.js`). Fix: `devDependencies.@modelcontextprotocol/sdk` `^1.5.0` →
+  `^1.32.1` (lockfile 1.26.0 → 1.32.1) plus a new `overrides.proxy-addr ^2.0.8`
+  floor (lockfile 2.0.7 → 2.0.8). Details in [SECURITY.md](SECURITY.md).
+- **Post-v6.4.5 source fixes now on record** (each with fail-without / pass-with
+  regression tests): brainstorming frame injection preserves literal `$&` / `$\`` /
+  `$'` / `$$` / `$n` tokens via function replacers (`d82c8b9`); single-flight
+  skill scans, YAML quoted-root-key handling with empty-map emission and CRLF
+  preservation, and placeholder-key prompt append guards (`b9a3ea6`).
+
+### Testing
+
+- Regression floor now **409 assertions** (Node.js 214 + Bash 67 + PowerShell 128):
+  setup suite 78/78 (+9), edge-cases 12/12 (+1 Test 12), brainstorming companion
+  35/35 (+2 token tests), prompts/compositions 18/18 (+1). `npm run build` ok,
+  `npx tsc --noEmit` clean, `npm audit` 0 vulnerabilities.
+
 ## [6.4.5] - 2026-09-30
 
 ### Upstream Sync to obra/superpowers v6.4.2 (8ca22db, PR #2384 "leaner plans")
