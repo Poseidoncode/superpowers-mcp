@@ -578,10 +578,32 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
     // reassembly must restore the file's original convention. CRLF configs are
     // common on Windows; emitting LF would rewrite every line of the user's file.
     const eol = existingContent.includes("\r\n") ? "\r\n" : "\n";
+    // Strips up to `max` trailing "\r?\n" terminators (`max` < 0 strips all)
+    // with a single linear scan. The previous `text.replace(/(?:\r?\n)+$/, "")`
+    // was quadratic on newline-padded input (CodeQL js/polynomial-redos #8):
+    // every candidate start position inside a "\n" run re-consumed the
+    // remainder before failing the `$` anchor. Consuming one trailing "\n"
+    // (plus its "\r" half, if present) per iteration matches the regex exactly,
+    // including lone-"\r" pass-through (the regex never strips a bare "\r").
+    const stripTerminators = (value: string, max: number): string => {
+        let end = value.length;
+        let stripped = 0;
+        while (end > 0 && value[end - 1] === "\n" && (max < 0 || stripped < max)) {
+            end--;
+            if (end > 0 && value[end - 1] === "\r") {
+                end--;
+            }
+            stripped++;
+        }
+        return value.slice(0, end);
+    };
     const withEol = (body: string): string => {
         const hadTrailingEol = existingContent.endsWith("\n");
         const text = body.split("\n").join(eol);
-        return hadTrailingEol ? text.replace(/(?:\r?\n)?$/, eol) : text.replace(/(?:\r?\n)+$/, "");
+        // With a trailing EOL the file keeps content plus exactly one normalized
+        // terminator (the old `/(?:\r?\n)?$/` dropped at most one); without one,
+        // every trailing terminator goes (the old `/(?:\r?\n)+$/`).
+        return hadTrailingEol ? stripTerminators(text, 1) + eol : stripTerminators(text, -1);
     };
     const mcpDeclarations = lines
         // Match the key with a single unambiguous pattern, then trim the remainder with

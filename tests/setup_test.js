@@ -591,6 +591,20 @@ it("should preserve trailing-newline state across CRLF install/update/remove", (
     assert.ok(removed.endsWith("\r\n"), "CRLF convention must survive removal");
 });
 
+// Regression (CodeQL js/polynomial-redos #8): the trailing-newline normalizer
+// used `/(?:\r?\n)+$/`, which rescans every "\n" run once per candidate start
+// position — quadratic on newline-padded input (5k→29ms, 10k→104ms, 20k→422ms
+// measured pre-fix). A mid-file run with no trailing EOL exercises the
+// strip-all branch; it must pass through byte-identical, in milliseconds.
+it("should pass long newline runs through in linear time without changing bytes", () => {
+    const padded = `mcp_servers:\n  other:\n    x: 1${"\n".repeat(60000)}tail: 2`;
+    const start = Date.now();
+    const result = updateYamlConfig(padded, "npx", ["-y"], true, "mcp");
+    const elapsed = Date.now() - start;
+    assert.strictEqual(result, padded, "newline runs must pass through byte-identical");
+    assert.ok(elapsed < 2000, `newline run took ${elapsed}ms, expected well under 2s`);
+});
+
 // Regression: removing the last managed entry used to leave a bare `mcp_servers:`
 // header, which parses as a null value rather than an empty map. Clients that
 // distinguish null from absent reject the resulting config.
