@@ -266,12 +266,16 @@ server.stdout.on("data", (data) => {
                 }
             } else if (response.id === 9) {
                 const text = response.result?.messages?.[0]?.content?.text || "";
+                // The trailing "**Placeholders:**" appendix documents each token by
+                // name, so a literal [REVIEW_FILE] there is correct. Everywhere else
+                // the token must be substituted.
+                const body = text.split("**Placeholders:**")[0];
                 const checks = [
                     ["derived review file path", text.includes("/tmp/task-9-review.md")],
                     ["review-file report format", text.includes("## Report Format")],
                     ["short final message contract", text.includes("under 15 lines")],
                     ["output format is the review file", text.includes("## Output Format (the review file)")],
-                    ["no unresolved placeholder", !text.includes("[REVIEW_FILE]")]
+                    ["no unresolved placeholder", !body.includes("[REVIEW_FILE]")]
                 ];
                 const failed = checks.filter(([, ok]) => !ok).map(([label]) => label);
                 if (failed.length > 0) {
@@ -322,7 +326,8 @@ server.stdout.on("data", (data) => {
                 }
             } else if (response.id === 11) {
                 const text = response.result?.messages?.[0]?.content?.text || "";
-                if (text.includes("/tmp/where-the-review-goes.md") && !text.includes("[REVIEW_FILE]")) {
+                const body = text.split("**Placeholders:**")[0];
+                if (text.includes("/tmp/where-the-review-goes.md") && !body.includes("[REVIEW_FILE]")) {
                     console.log("✅ prompts/get sdd-task-reviewer honours an explicitly named review file");
 
                     // Test 12: a review file equal to the report file must be refused,
@@ -402,6 +407,58 @@ server.stdout.on("data", (data) => {
                 const target = (text.match(/Write your full report to ([^\s`]+)/) || [])[1] || "";
                 if (target === "/tmp/task-14-review.md") {
                     console.log("✅ prompts/get substitutes the derived review file for review_file == brief_file");
+                    // Test 15: the model argument must reach the dispatchable
+                    // `model:` line. Both reviewer templates once spelled that slot
+                    // `model: [MODEL — REQUIRED: ...]`, which carries no literal token,
+                    // so the value was dropped without any diagnostic.
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 21,
+                        method: "prompts/get",
+                        params: {
+                            name: "sdd-task-reviewer",
+                            arguments: {
+                                brief_file: "/tmp/task-21-brief.md",
+                                report_file: "/tmp/task-21-report.md",
+                                model: "task-reviewer-model-probe"
+                            }
+                        }
+                    });
+                    continue;
+                }
+                console.error("❌ prompts/get did not substitute review_file == brief_file (target:", target, ")");
+                process.exit(1);
+            } else if (response.id === 21) {
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                const body = text.split("**Placeholders:**")[0];
+                if (body.includes("model: task-reviewer-model-probe") && !body.includes("[MODEL")) {
+                    console.log("✅ prompts/get sdd-task-reviewer substitutes the model into the dispatch line");
+
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 22,
+                        method: "prompts/get",
+                        params: {
+                            name: "sdd-re-review",
+                            arguments: {
+                                brief_file: "/tmp/task-22-brief.md",
+                                report_file: "/tmp/task-22-report.md",
+                                fix_base_sha: "abc1234",
+                                head_sha: "def5678",
+                                previous_findings: "none",
+                                model: "re-review-model-probe"
+                            }
+                        }
+                    });
+                } else {
+                    console.error("❌ prompts/get sdd-task-reviewer dropped the model argument:", text.slice(0, 600));
+                    process.exit(1);
+                }
+            } else if (response.id === 22) {
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                const body = text.split("**Placeholders:**")[0];
+                if (body.includes("model: re-review-model-probe") && !body.includes("[MODEL")) {
+                    console.log("✅ prompts/get sdd-re-review substitutes the model into the dispatch line");
                     sendRequest({
                         jsonrpc: "2.0",
                         id: 15,
@@ -413,7 +470,7 @@ server.stdout.on("data", (data) => {
                     });
                     continue;
                 }
-                console.error("❌ prompts/get did not substitute review_file == brief_file (target:", target, ")");
+                console.error("❌ prompts/get sdd-re-review dropped the model argument:", text.slice(0, 600));
                 process.exit(1);
             } else if (response.id === 15) {
                 const text = response.result?.content?.[0]?.text || "";
@@ -441,18 +498,51 @@ server.stdout.on("data", (data) => {
                 // emitted twice on every request. The path must appear exactly once.
                 const text = response.result?.messages?.[0]?.content?.text || "";
                 const occurrences = text.split("/tmp/plan-16.md").length - 1;
-                if (occurrences === 1) {
-                    console.log("✅ prompts/get plan-reviewer emits the interpolated plan path exactly once");
-                    console.log("🎉 ALL ADVANCED COMPOSITIONS & SECURITY PROMPT TESTS PASSED 100%!");
-                    finished = true;
-                    server.kill();
-                    process.exit(0);
+                if (occurrences !== 1) {
+                    console.error(
+                        `❌ prompts/get plan-reviewer emitted the plan path ${occurrences} times (expected 1); ` +
+                            "alreadyApplied.has() must be tested with the placeholder name, not the value"
+                    );
+                    process.exit(1);
                 }
-                console.error(
-                    `❌ prompts/get plan-reviewer emitted the plan path ${occurrences} times (expected 1); ` +
-                        "alreadyApplied.has() must be tested with the placeholder name, not the value"
-                );
-                process.exit(1);
+                console.log("✅ prompts/get plan-reviewer emits the interpolated plan path exactly once");
+
+                // The leading `\b` on the feature branch rejects the common prefixed
+                // spellings ("rebuild the ui") because no word boundary precedes
+                // "build" inside them, so they matched no pipeline at all.
+                sendRequest({
+                    jsonrpc: "2.0",
+                    id: 17,
+                    method: "prompts/get",
+                    params: { name: "skill-composition", arguments: { scenario: "rebuild the checkout UI" } }
+                });
+            } else if (response.id === 17) {
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                if (text.includes("Pipeline 1 (New Feature Development)")) {
+                    console.log("✅ skill-composition routes a prefixed build scenario to Pipeline 1");
+                    sendRequest({
+                        jsonrpc: "2.0",
+                        id: 18,
+                        method: "prompts/get",
+                        params: { name: "skill-composition", arguments: { scenario: "renovate the kitchen" } }
+                    });
+                } else {
+                    console.error("❌ skill-composition did not route 'rebuild' to Pipeline 1:", text.slice(0, 400));
+                    process.exit(1);
+                }
+            } else if (response.id === 18) {
+                // Guard against the opposite regression: matching a keyword buried
+                // inside an unrelated longer word must stay rejected.
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                if (text.includes("Recommended Pipeline Focus:")) {
+                    console.error("❌ skill-composition matched a keyword inside an unrelated word:", text.slice(0, 400));
+                    process.exit(1);
+                }
+                console.log("✅ skill-composition rejects keywords buried inside unrelated words");
+                console.log("🎉 ALL ADVANCED COMPOSITIONS & SECURITY PROMPT TESTS PASSED 100%!");
+                finished = true;
+                server.kill();
+                process.exit(0);
             }
         } catch (err) {
             console.error("JSON parse error:", err, line);
