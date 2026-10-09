@@ -5,7 +5,7 @@
 
 # pi-subagents runtime
 .pi-subagents/
-
+.omo/
 # Node modules
 node_modules/
 toolpack/node_modules/
