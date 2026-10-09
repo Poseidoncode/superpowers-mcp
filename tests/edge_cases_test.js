@@ -389,10 +389,9 @@ async function runEdgeCaseTests() {
                 release();
 
                 const stale = await inFlight;
-                assert.strictEqual(
-                    stale.length,
-                    0,
-                    "a scan invalidated by clearCache() must not return its stale result"
+                assert.ok(
+                    stale.some((s) => s.name === "epoch-skill"),
+                    `an overtaken scan must still answer its caller with what it read (got ${stale.length} entries)`
                 );
                 assert.strictEqual(
                     epochManager.cachedSkills,
@@ -411,6 +410,59 @@ async function runEdgeCaseTests() {
             }
         }
         console.log("  ✅ Test 12 Passed!");
+
+        console.log("\nTest 13: a directory-name alias must never orphan a uniquely-named skill...");
+        {
+            const aliasDir = path.join(tmpSkillsDir, "alias-skills");
+            fs.mkdirSync(path.join(aliasDir, "alpha"), { recursive: true });
+            fs.writeFileSync(
+                path.join(aliasDir, "alpha", "SKILL.md"),
+                "---\nname: beta\ndescription: claims the beta alias\n---\nbody",
+                "utf-8"
+            );
+            fs.mkdirSync(path.join(aliasDir, "beta"), { recursive: true });
+            fs.writeFileSync(
+                path.join(aliasDir, "beta", "SKILL.md"),
+                "---\nname: gamma\ndescription: uniquely named\n---\nbody",
+                "utf-8"
+            );
+            const aliasManager = new SkillsManager(aliasDir);
+            const listed = await aliasManager.listSkills();
+            const names = listed.map((s) => s.name).sort();
+            assert.deepStrictEqual(
+                names,
+                ["beta", "gamma"],
+                `a unique skill name must stay reachable (dir alpha claims "beta", dir beta is named "gamma"): ${JSON.stringify(names)}`
+            );
+            const gamma = await aliasManager.findSkill("gamma");
+            assert.ok(gamma, 'a skill with a unique name must be reachable by that name');
+            const beta = await aliasManager.findSkill("beta");
+            assert.ok(beta, 'a directory-name alias must still resolve to the skill that owns it');
+            assert.strictEqual(path.basename(path.dirname(beta.skillPath)), "alpha", '"beta" belongs to dir alpha');
+            fs.rmSync(aliasDir, { recursive: true, force: true });
+        }
+        console.log("  ✅ Test 13 Passed!");
+
+        console.log("\nTest 14: a scan overtaken by clearCache must still answer its caller...");
+        {
+            const staleDir = path.join(tmpSkillsDir, "stale-skill");
+            fs.mkdirSync(path.join(staleDir, "stale-skill"), { recursive: true });
+            fs.writeFileSync(
+                path.join(staleDir, "stale-skill", "SKILL.md"),
+                "---\nname: stale-skill\ndescription: must still be returned\n---\nbody",
+                "utf-8"
+            );
+            const staleManager = new SkillsManager(staleDir);
+            const inFlight = staleManager.listSkills();
+            staleManager.clearCache();
+            const answered = await inFlight;
+            assert.ok(
+                answered.some((s) => s.name === "stale-skill"),
+                `an overtaken scan must return the list it read, not an empty array (got ${answered.length} entries)`
+            );
+            fs.rmSync(staleDir, { recursive: true, force: true });
+        }
+        console.log("  ✅ Test 14 Passed!");
 
         console.log("\n🎉 ALL EDGE CASE & SECURITY UNIT TESTS PASSED!");
     } finally {

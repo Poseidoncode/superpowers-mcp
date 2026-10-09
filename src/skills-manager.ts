@@ -308,20 +308,33 @@ export class SkillsManager {
                     }
                 })
             );
-            for (const result of loaded.filter((value) => value !== null).sort((a, b) =>
+            const ordered = loaded.filter((value) => value !== null).sort((a, b) =>
                 a!.directoryName < b!.directoryName ? -1 : a!.directoryName > b!.directoryName ? 1 : 0
-            )) {
-                const { item, body, realFilePath, directoryName, stat } = result!;
-                const keys = new Set([item.name.toLowerCase(), directoryName.toLowerCase()]);
-                const conflict = [...keys].find((key) => newSkillMap.has(key));
-                if (conflict) {
+            );
+            // Names are claimed first, then directory names are registered as
+            // best-effort aliases. A skill whose name is unique must never be
+            // dropped because some other skill already claimed its directory name
+            // as an alias — that alias is simply not resolvable.
+            const accepted: typeof ordered = [];
+            for (const result of ordered) {
+                const { item, directoryName } = result!;
+                const nameKey = item.name.toLowerCase();
+                if (newSkillMap.has(nameKey)) {
                     process.stderr.write(
-                        `Warning: Skipping skill directory "${directoryName}" because name or alias "${conflict}" is already registered\n`
+                        `Warning: Skipping skill directory "${directoryName}" because its name "${nameKey}" is already registered\n`
                     );
                     continue;
                 }
+                newSkillMap.set(nameKey, item);
+                accepted.push(result!);
+            }
+            for (const result of accepted) {
+                const { item, body, realFilePath, directoryName, stat } = result;
+                const dirKey = directoryName.toLowerCase();
+                if (dirKey !== item.name.toLowerCase() && !newSkillMap.has(dirKey)) {
+                    newSkillMap.set(dirKey, item);
+                }
                 skills.push(item);
-                for (const key of keys) newSkillMap.set(key, item);
 
                 const resolvedPath = path.resolve(item.skillPath);
                 newContentCache.set(realFilePath, body);
@@ -348,10 +361,15 @@ export class SkillsManager {
             this.contentCacheStat = newContentStat;
             this.canonicalPathMap = newCanonicalMap;
             this.skillSignature = signature;
-        } else if (!scanned) {
-            // 掃描失敗：丟棄指紋，讓下一次呼叫強制走完整重掃。
-            this.skillSignature = null;
+            return this.cachedSkills;
         }
+        if (scanned) {
+            // 被更新的 scan 取代：不快取，但仍要回傳實際讀到的清單，
+            // 否則等待中的呼叫端會拿到空陣列。
+            return skills.sort((a, b) => a.name.localeCompare(b.name));
+        }
+        // 掃描失敗：丟棄指紋，讓下一次呼叫強制走完整重掃。
+        this.skillSignature = null;
         return this.cachedSkills ?? [];
     }
 
