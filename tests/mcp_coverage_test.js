@@ -9,7 +9,7 @@
  * in one translation fails here.
  */
 
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const assert = require("assert");
@@ -239,7 +239,6 @@ async function main() {
 
     check("9 (unsafe SKILLS_PATH is rejected, user temp dirs are honored)", () => {
         const os = require("os");
-        const { spawnSync } = require("child_process");
 
         // Start a throwaway server with the given SKILLS_PATH and list what it exposes.
         const probe = (skillsPath) => {
@@ -294,6 +293,114 @@ async function main() {
         }
     });
 
+
+    check("10 (every advertised prompt argument reaches the rendered prompt)", () => {
+        const getPrompt = (name, args) => {
+            const child = spawnSync("node", [path.join(ROOT, "out", "server.js")], {
+                input: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "prompts/get", params: { name, arguments: args } }) + "\n",
+                encoding: "utf8",
+                timeout: 15000,
+            });
+            const line = (child.stdout || "").split("\n").find((l) => l.trim().startsWith("{") && l.includes('"id":1'));
+            if (!line) return "";
+            const parsed = JSON.parse(line);
+            if (parsed.error) return `ERROR: ${parsed.error.message}`;
+            return parsed.result?.messages?.[0]?.content?.text || "";
+        };
+
+        // Its template used to carry "[MODEL — REQUIRED: ...]" instead of a real "[MODEL]" token.
+        const implemented = getPrompt("sdd-implementer", { task_name: "TASK-PROBE", model: "probe-model-id" });
+        assert.ok(
+            implemented.includes("probe-model-id"),
+            `sdd-implementer must render the model argument (got: ${implemented.slice(0, 160)})`
+        );
+        assert.ok(
+            !/\[MODEL/.test(implemented),
+            `no un-substituted [MODEL…] token may reach the agent (got: ${(implemented.match(/\[MODEL[^\]]{0,40}/) || [""])[0]})`
+        );
+
+        // Each template ends with a "**Placeholders:**" appendix that names every
+        // token it accepts. Interpolating those lines replaces the token names with
+        // the caller's values, so the appendix stops documenting itself.
+        const appendix = getPrompt("sdd-re-review", { previous_findings: "FINDING-PROBE" });
+        assert.ok(
+            appendix.includes("- `[FINDINGS]` —"),
+            `the placeholder appendix must keep its literal token names (got: ${appendix.slice(-400)})`
+        );
+        assert.ok(
+            !appendix.includes("- `FINDING-PROBE` —"),
+            "the appendix line must not be rewritten with the caller's value"
+        );
+
+        // The classifier used plain substring matching, so "reNEWal" selected Pipeline 1.
+        // The word-anchored form then over-corrected: "rebuild" matched nothing at all,
+        // so a prefixed build request got no pipeline recommendation whatsoever.
+        const pipelineFor = (scenario) => {
+            const text = getPrompt("skill-composition", { scenario });
+            const m = text.match(/Recommended Pipeline Focus:\*\* Pipeline (\d)/);
+            return m ? m[1] : "none";
+        };
+        assert.strictEqual(pipelineFor("fix a bug"), "2", '"bug" -> Pipeline 2');
+        assert.strictEqual(pipelineFor("debugging"), "2", '"debugging" -> Pipeline 2');
+        assert.strictEqual(pipelineFor("refactor the parser"), "3", '"refactor" -> Pipeline 3');
+        assert.strictEqual(pipelineFor("upgrade deps"), "3", '"upgrade" -> Pipeline 3');
+        assert.strictEqual(pipelineFor("legacy code safety"), "4", '"legacy" -> Pipeline 4');
+        assert.strictEqual(pipelineFor("new feature"), "1", '"new feature" -> Pipeline 1');
+        assert.strictEqual(pipelineFor("build a dashboard"), "1", '"build" -> Pipeline 1');
+        assert.strictEqual(
+            pipelineFor("renewal of the lease"),
+            "none",
+            '"renewal" contains "new" but is not a new-feature request — must not select Pipeline 1'
+        );
+        assert.strictEqual(
+            pipelineFor("rebuild the parser"),
+            "1",
+            '"rebuild" is a prefixed build request — must select Pipeline 1'
+        );
+        assert.strictEqual(
+            pipelineFor("renovate the kitchen"),
+            "none",
+            '"renovate" must not match any pipeline keyword'
+        );
+    });
+
+    check("11 (skill name validation is identical for the tool and the resource)", () => {
+        const rpc = (method, params) => {
+            const child = spawnSync("node", [path.join(ROOT, "out", "server.js")], {
+                input: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) + "\n",
+                encoding: "utf8",
+                timeout: 15000,
+            });
+            const line = (child.stdout || "").split("\n").find((l) => l.trim().startsWith("{") && l.includes('"id":1'));
+            if (!line) return { code: null, message: "" };
+            const parsed = JSON.parse(line);
+            return { code: parsed.error?.code ?? 200, message: parsed.error?.message || "" };
+        };
+
+        // The resource reader rejected names containing ".." while the tool accepted them.
+        for (const name of ["a..b", "../etc", "a/b", "a\\b"]) {
+            const viaTool = rpc("tools/call", { name: "read_skill", arguments: { skill_name: name } });
+            const viaResource = rpc("resources/read", { uri: `skill://superpowers/${encodeURIComponent(name)}` });
+            assert.ok(
+                viaTool.code < 0,
+                `read_skill(${JSON.stringify(name)}) must be rejected, got code ${viaTool.code}`
+            );
+            assert.ok(
+                viaResource.code < 0,
+                `resources/read(${JSON.stringify(name)}) must be rejected, got code ${viaResource.code}`
+            );
+        }
+
+        // Each surface keeps its own error class: a bad URI is InvalidRequest,
+        // a bad argument is InvalidParams.
+        const badName = rpc("tools/call", { name: "read_skill", arguments: { skill_name: "a..b" } });
+        assert.strictEqual(badName.code, -32602, "read_skill must report InvalidParams");
+        const badUri = rpc("resources/read", { uri: "skill://superpowers/a..b" });
+        assert.strictEqual(badUri.code, -32600, "resources/read must report InvalidRequest");
+
+        const ok = rpc("tools/call", { name: "read_skill", arguments: { skill_name: "brainstorming" } });
+        assert.strictEqual(ok.code, 200, `brainstorming must still load (got: ${ok.message})`);
+    });
 
     finished = true;
     clearTimeout(watchdog); // success path must clear the ref'd timer (finding #1)

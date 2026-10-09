@@ -95,6 +95,23 @@ function normalizeSkillName(value: string): string {
     return value.trim().replace(/^superpowers:/i, "");
 }
 
+/**
+ * Rejects a skill name that could address something other than a scanned skill
+ * directory. Shared by the resource reader and the read_skill tool so both
+ * surfaces accept and refuse exactly the same names.
+ */
+function isUnsafeSkillName(name: string): boolean {
+    return (
+        name === "" ||
+        name === "." ||
+        name === ".." ||
+        name.includes("..") ||
+        name.includes("/") ||
+        name.includes("\\") ||
+        name.includes("\0")
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Server setup
 // ---------------------------------------------------------------------------
@@ -183,7 +200,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     }
     // Reject traversal / separator payloads after decoding: the URI matcher runs
     // before percent-decoding, so "%2F"/"%2E%2E" would otherwise slip through.
-    if (!skillName || skillName.includes("/") || skillName.includes("\\") || skillName.includes("..") || skillName.includes("\0")) {
+    if (isUnsafeSkillName(skillName)) {
         throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
     }
     const skill = await skillsManager.findSkill(normalizeSkillName(skillName));
@@ -309,17 +326,35 @@ function interpolateTemplate(template: string, replacements: Record<string, stri
     if (validKeys.length === 0) {
         return template;
     }
+    for (const key of validKeys) {
+        if (!template.includes(key)) {
+            process.stderr.write(
+                `[superpowers-mcp] Ignored prompt argument for missing placeholder "${key}" — the template does not contain it.\n`
+            );
+        }
+    }
     // Sort longer keys first to prevent prefix shadowing and escape regex characters
     const pattern = validKeys
         .sort((a, b) => b.length - a.length)
         .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
         .join("|");
     const regex = compilePlaceholderRegex(pattern);
-    regex.lastIndex = 0;
-    return template.replace(regex, (matched) => {
-        const val = replacements[matched];
-        return val !== undefined && val !== "" ? String(val) : matched;
-    });
+    const substitute = (text: string): string => {
+        regex.lastIndex = 0;
+        return text.replace(regex, (matched) => {
+            const val = replacements[matched];
+            return val !== undefined && val !== "" ? String(val) : matched;
+        });
+    };
+    // Templates close with a "**Placeholders:**" appendix whose bullets name each
+    // accepted token (`- `[FINDINGS]` — what it holds`); substituting there renames
+    // the token to the caller's value. A backticked token opening a list item occurs
+    // only in that appendix, so it is the discriminator.
+    const isAppendixEntry = (line: string): boolean => /^\s*-\s+`\[.+\]`\s+\S/.test(line);
+    return template
+        .split("\n")
+        .map((line) => (isAppendixEntry(line) ? line : substitute(line)))
+        .join("\n");
 }
 
 /**
@@ -764,7 +799,6 @@ ${skillContent}
             "[DIFF_FILE]": diffFile,
             "[REVIEW_FILE]": reviewFile,
             "[FINDINGS]": findings,
-            "[BASE_SHA]": baseSha,
             "[FIX_BASE_SHA]": fixBaseSha,
             "[HEAD_SHA]": headSha,
             "[MODEL]": model,
@@ -850,10 +884,12 @@ ${skillContent}
             );
         }
         const rawFeatureName = getStringArg("feature_name");
+        // A title must stay on one line; free-form prose keeps its line breaks but
+        // loses stray carriage returns, which would otherwise reach the agent raw.
         const featureName = rawFeatureName ? rawFeatureName.replace(/[\r\n]+/g, " ") : "(Unspecified feature)";
-        const rawRequirements = getStringArg("requirements");
+        const requirements = getStringArg("requirements").replace(/\r\n?/g, "\n");
 
-        const text = renderFeaturePipeline(featureName, rawRequirements);
+        const text = renderFeaturePipeline(featureName, requirements);
 
         return {
             description: FEATURE_PIPELINE.purpose,
@@ -895,13 +931,16 @@ ${skillContent}
         let scenarioFocus = "";
         if (rawScenario) {
             const lower = rawScenario.toLowerCase();
-            if (lower.includes("debug") || lower.includes("troubleshoot") || lower.includes("bug") || /\bfix(ing|ed)?\b/.test(lower)) {
+            // Word-anchored so a keyword buried inside an unrelated longer word
+            // ("reNEWal") does not select a pipeline. The build branch also accepts
+            // a prefix, since "rebuild" is a real request that anchoring alone drops.
+            if (/\b(debug\w*|troubleshoot\w*|bug|fix(?:ing|ed)?)\b/.test(lower)) {
                 scenarioFocus = "\n> **Recommended Pipeline Focus:** Pipeline 2 (Structured Debugging & Troubleshooting)\n";
-            } else if (lower.includes("refactor") || lower.includes("migrat") || lower.includes("upgrade")) {
+            } else if (/\b(refactor\w*|migrat\w*|upgrad\w*)/.test(lower)) {
                 scenarioFocus = "\n> **Recommended Pipeline Focus:** Pipeline 3 (Large Refactoring & System Migration)\n";
-            } else if (lower.includes("legacy") || lower.includes("safety")) {
+            } else if (/\b(legacy|safety)\b/.test(lower)) {
                 scenarioFocus = "\n> **Recommended Pipeline Focus:** Pipeline 4 (Legacy Codebase Safety Net)\n";
-            } else if (lower.includes("feature") || lower.includes("new") || lower.includes("build")) {
+            } else if (/\b(feature|new)\b|\b\w*build\w*\b/.test(lower)) {
                 scenarioFocus = "\n> **Recommended Pipeline Focus:** Pipeline 1 (New Feature Development)\n";
             }
         }
@@ -1008,6 +1047,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         if (!skillName) {
             throw new McpError(ErrorCode.InvalidParams, "skill_name is required");
+        }
+        if (isUnsafeSkillName(skillName)) {
+            throw new McpError(ErrorCode.InvalidParams, `Invalid skill name: "${skillName}"`);
         }
 
         const skill = await skillsManager.findSkill(skillName);
