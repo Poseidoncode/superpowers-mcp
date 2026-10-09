@@ -89,6 +89,26 @@ CWE classification and residual risk, is in [SECURITY.md](SECURITY.md).
 
 ### Fixed
 
+- **CodeQL `js/polynomial-redos` #9/#10 — the YAML managed-entry matcher was quadratic**
+  (CWE-1333, reproduced by execution, closed here). `managedEntryPattern`
+  (`src/setup-runner.ts:582`) placed an optional `{…}` group *between* two `\s*` runs, so any
+  line the pattern could not complete forced the engine to retry every way of splitting that
+  whitespace run — O(n²). No exotic payload is required: `superpowers:` + a long space run +
+  **one stray character** is an ordinary malformed config line. Measured on the release machine,
+  a single `superpowers:` + 100 000 spaces + `x` line cost **18.3 s** in one match (the
+  `… + "{" + <same padding>` shape reached 79 s at 160 000), with time quadrupling for every
+  doubling of input; a config file the user merely edited could stall `setup` indefinitely.
+  Replaced by `managedEntryIndent()`, a single-pass scanner that visits each index at most once:
+  the same 200 KB line now matches in **0.08 ms**. The three sibling patterns
+  (`rootHeaderPattern`, `rootKeyPattern`, `ownedKeyPattern`) were measured on the same payloads,
+  stay linear (≤0.6 ms at 100 000 chars), and are deliberately left as regexes. The whitespace
+  skipper is **sticky** (`/\s+/y`): with a plain `g` flag `exec` resumes scanning at the next
+  index after a miss, which would let the scanner step over the character it must inspect.
+  **No behavior change**: a differential fuzz of **300 030** lines (hand-picked edge cases plus
+  randomized indent/quote/brace/comment/`\r`/`\u2028` combinations) against the removed regex
+  produced **0** mismatches. Pinned by two new `tests/setup_test.js` cases — the timing guard
+  fails against the old matcher and passes against the new one, the semantics guard passes
+  against both, so it pins prior behavior rather than this implementation's assumptions.
 - **YAML install can emit duplicate keys** (CWE-407, pre-existing path). On a populated flow
   map it appends a second `superpowers:` beside the existing one — duplicate-key YAML resolves
   last-wins in permissive parsers, so the stale entry wins and the install silently no-ops,
@@ -132,8 +152,8 @@ Recorded so a later pass does not re-raise them:
 - `npm run build` ok (4 targets) · `npx tsc --noEmit` clean · `npm test` **10/10 suites** ·
   PowerShell suite **128/128** · `npm audit` **0** · `npm run drift` 0 drift (12 fork-only
   files) · `git diff --check` clean.
-- Regression floor re-measured on this tree: **396 assertions** (Node.js 236 + Bash 32 +
-  PowerShell 128), all passing — `setup_test.js` 94, `upstream_sync_test.js` 30,
+- Regression floor re-measured on this tree: **398 assertions** (Node.js 238 + Bash 32 +
+  PowerShell 128), all passing — `setup_test.js` 96, `upstream_sync_test.js` 30,
   `brainstorm_server_test.js` 35, `mcp_coverage_test.js` 25, `prompts_compositions_test.js` 20,
   `edge_cases_test.js` 14, `drift_test.js` 11, `run_test.js` 7; Bash `test-task-done.sh` 25 and
   `test-task-start.sh` 7. v6.4.6 documented 409 (Node.js 214 + Bash 67 + PowerShell 128); the

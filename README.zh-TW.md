@@ -185,8 +185,9 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 - **YAML `--remove` 可能刪除另一個父層的 `superpowers` 區塊**（CWE-459）：新的根層守衛涵蓋了空映射重寫，但未涵蓋項目刪除，因此位於其他頂層 key 底下的巢狀 `mcp_servers:` 會失去其 `superpowers` 子樹——包含 `env` 等使用者 key。
 - **`SKILLS_PATH` 的範圍限制是封鎖清單，而非允許清單**（CWE-22，既有問題）：`~/.ssh`、`~/.config/gh` 與 `/Users/Shared` 之所以被接受，是因為它們存在；而 `~/.aws` 被拒絕也只是因為不存在。在 **Linux** 上，文件中記載的 `SKILLS_PATH=$(mktemp -d)` 流程會解析到全域可寫的 `/tmp`，因此共用主機上的本機使用者可以植入技能內容，而 Agent 隨後會把它當作受信任的指令。
 - **`[MODEL]` 對 `sdd-task-reviewer` / `sdd-re-review` 不再被丟棄**（由本次掃描發現，並已於此修正）：這兩個範本原本都把該欄位寫成 `model: [MODEL — REQUIRED: …]`，其中不含任何字面 token，因此呼叫端的 `model` 值先前抵達渲染後 prompt 的次數為 **zero**，新的診斷訊息也無法看見它。兩者現皆改用 `model: [MODEL]` 加上一行 `#` 註解，與 `implementer-prompt.md` 一致，並由兩個「未帶入則失敗／帶入則通過」的斷言加以釘住。
+- **CodeQL `js/polynomial-redos` #9/#10 已關閉——YAML 的受管理項目匹配器是二次複雜度**（已以實際執行重現）：`managedEntryPattern` 把一個可選的 `{…}` 群組放在兩個 `\s*` 之間，因此任何它無法完成的行，都會讓引擎重試該空白 run 的每一種切分方式。不需要任何特殊的攻擊載 payload——`superpowers:` + 一段長空白 run + **一個多餘字元**就是一般的格式錯誤設定行，而 200 KB 的一行在單次比對中耗時 **18.3 s**，足以卡住 `setup`。現已改用 `managedEntryIndent()` 這個單趟掃描器：**18.3 s → 0.08 ms**。可被接受的行集合可證明未變（針對被移除的 regex 做了 **300 030** 行的差異模糊測試，**0** 處不符），那三個同類 pattern 經量測為線性故保持原樣，並新增兩個 `tests/setup_test.js` 用例同時釘住時間表現與可接受的行集合（已驗證在舊實作上失敗、在新實作上通過）。
 - **打包強化目標**：`npm pack` 不會重新建置（`prepublishOnly` 只在發佈時執行，且 `out/` 已被 gitignore，因此打包出的 tarball 會出貨未經審查的磁碟上 `out/*.js`——建置應該放在 `prepack`）；而 `files: ["scripts"]` 會連安裝程式一起出貨，它偏好同目錄的 `setup.js`。
-- 驗證：`npm test` 全綠（**10/10 套件**）、PowerShell 套件 **128/128**、`npx tsc --noEmit` 乾淨、`npm run build` 正常、`npm audit` **0** 漏洞、`npm run drift` 0（迴歸基準重新量測為 **396 斷言**：Node.js 236 + Bash 32 + PowerShell 128）。
+- 驗證：`npm test` 全綠（**10/10 套件**）、PowerShell 套件 **128/128**、`npx tsc --noEmit` 乾淨、`npm run build` 正常、`npm audit` **0** 漏洞、`npm run drift` 0（迴歸基準重新量測為 **398 斷言**：Node.js 238 + Bash 32 + PowerShell 128）。
 
 ### v6.4.6
 

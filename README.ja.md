@@ -187,8 +187,9 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 - **YAML の `--remove` は別親の `superpowers` ブロックを削除し得た**（CWE-459）：新しいルートレベルガードは空マップ書き換えはカバーするがエントリ削除はカバーしないため、別の最上位キーの下にネストした `mcp_servers:` が `superpowers` サブツリーを失った——`env` などのユーザーキーが含まれていた。
 - **`SKILLS_PATH` の封じ込めは許可リストではなくブロックリストである**（CWE-22、既存の設計）：`~/.ssh`、`~/.config/gh`、`/Users/Shared` は存在するという理由で受理され、`~/.aws` は存在しないという理由でのみ拒否される。**Linux** では、文書化された `SKILLS_PATH=$(mktemp -d)` フローはワールドライタブルな `/tmp` に解決されるため、共有ホスト上のローカルユーザーがスキルの内容を仕込め、エージェントがそれを信頼された指示として扱ってしまう。
 - **`[MODEL]` は `sdd-task-reviewer` / `sdd-re-review` で破棄されなくなった**（このスキャンで発見、ここでは修正済み）：両テンプレートはそのスロットを `model: [MODEL — REQUIRED: …]` と綴っていたためリテラルのトークンがなく、呼び出し側の `model` 値はレンダリング済みプロンプトに **zero** 回しか到達せず、新しい診断もそれを把握できなかった。両方とも `model: [MODEL]` と `#` コメントを使うようになり、`implementer-prompt.md` と一致したうえで、トークンがなければ失敗・あれば成功となる 2 つのアサーションで固定されている。
+- **CodeQL `js/polynomial-redos` #9/#10 を解消——YAML の管理エントリ判定は二次複雑度だった**（実行による再現）：`managedEntryPattern` はオプショナルな `{…}` グループを 2 つの `\s*` の間に置いていたため、パターンが完了できない行ではエンジンがその空白ランの分割をすべて再試行していた。特殊なペイロードは不要で、`superpowers:` + 長い空白ラン + **余分な 1 文字**は通常の不正な設定行であり、200 KB の 1 行が 1 回の照合に **18.3 s** を要し、`setup` を停止させた。単一パスのスキャナ `managedEntryIndent()` に置き換え、**18.3 s → 0.08 ms** になった。受理される行の集合が変わっていないことは証明されている（削除した regex に対する **300 030** 行の differential fuzz で **0** 件の不一致）。姉妹となる 3 つのパターンは同じペイロードで測定して線形であり、そのままとした。新たな `tests/setup_test.js` の 2 つのケースが時間と受理される行の集合の両方を固定している（脆弱な実装では失敗し、修正済みの実装では成功することを確認済み）。
 - **パッケージング強化の対象**：`npm pack` は再ビルドしない（`prepublishOnly` は公開専用で、`out/` は gitignore 対象のため、パックされた tarball はレビューされていないディスク上の `out/*.js` を同梱する——ビルドは `prepack` に属する）；また `files: ["scripts"]` はインストーラーを同梱するが、そのインストーラーは同じ場所に置かれた `setup.js` を優先する。
-- 検証：`npm test` グリーン **10/10 スイート**、PowerShell スイート **128/128**、`npx tsc --noEmit` クリーン、`npm run build` ok、`npm audit` **0** 脆弱性、`npm run drift` 0（回帰下限を再測定：**396 アサーション**：Node.js 236 + Bash 32 + PowerShell 128）。
+- 検証：`npm test` グリーン **10/10 スイート**、PowerShell スイート **128/128**、`npx tsc --noEmit` クリーン、`npm run build` ok、`npm audit` **0** 脆弱性、`npm run drift` 0（回帰下限を再測定：**398 アサーション**：Node.js 238 + Bash 32 + PowerShell 128）。
 
 ### v6.4.6
 
