@@ -543,13 +543,16 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             // name is create-only default ("Superpowers"): user renames are preserved
             // on update via keptChildren, same as enabled/timeout/envs.
             ownedKeys: ["cmd", "args", "type"],
+            // Owned keys first: an update replays them ahead of the user's
+            // preserved keys, so emitting them in this order makes a re-run
+            // byte-identical (create -> update -> update, not create -> reorder).
             freshEntry: (indent: string, c: string, a: string[]): string[] => [
                 `${indent}superpowers:`,
-                `${indent}${indent}name: "Superpowers"`,
                 `${indent}${indent}cmd: ${JSON.stringify(c)}`,
                 `${indent}${indent}args: ${JSON.stringify(a)}`,
-                `${indent}${indent}enabled: true`,
                 `${indent}${indent}type: stdio`,
+                `${indent}${indent}name: "Superpowers"`,
+                `${indent}${indent}enabled: true`,
                 `${indent}${indent}timeout: 300`,
             ],
         }
@@ -573,6 +576,10 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
     const rootKeyPattern = new RegExp(`^(\\s*)["']?${spec.rootKey}["']?\\s*:`);
     const rootHeaderPattern = new RegExp(`^(\\s*)["']?${spec.rootKey}["']?\\s*:\\s*(?:#.*)?$`);
     const ownedKeyPattern = new RegExp(`^\\s*["']?(?:${spec.ownedKeys.join("|")})["']?\\s*:`);
+    // The empty flow mapping is load-bearing: without it `superpowers: {}` is
+    // invisible here, and install then appends a second `superpowers:` beside it —
+    // a duplicate key YAML resolves last-wins, silently dropping the new entry.
+    const managedEntryPattern = /^(\s*)["']?superpowers["']?\s*:\s*(?:\{[ \t]*\})?\s*(?:#.*)?$/;
     const lines = existingContent ? existingContent.split(/\r?\n/) : [];
     // Line edits are newline-agnostic (lines are split on /\r?\n/), so every
     // reassembly must restore the file's original convention. CRLF configs are
@@ -624,9 +631,18 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
     if (rootDecls.length > 1) {
         throw new Error(`Cannot safely update YAML with duplicate ${spec.rootKey} keys`);
     }
+    // The value a root declaration carries, with any trailing inline comment
+    // removed. `--remove` writes `rootKey: {}` and re-attaches the user's comment,
+    // so the value must be judged without it — otherwise the state the tool itself
+    // produces is rejected on the next install.
+    const rootValue = (tail: string): string =>
+        (extractInlineComment(` ${tail}`) ? tail.slice(0, tail.length - extractInlineComment(` ${tail}`).length) : tail).trim();
+
     if (rootDecls.length === 1) {
         const declaration = rootDecls[0];
-        if (declaration.tail !== "" && !declaration.tail.startsWith("#")) {
+        const value = rootValue(declaration.tail);
+        const isEmptyFlowMap = value === "{}" || value === "{ }";
+        if (declaration.tail !== "" && !declaration.tail.startsWith("#") && !isEmptyFlowMap) {
             throw new Error(`Cannot safely update YAML unless ${spec.rootKey} is a root-level block mapping`);
         }
     } else if (mcpDeclarations.length > 0) {
@@ -664,7 +680,9 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             if (mcpMatch) {
                 inMcpServers = true;
                 mcpIndent = mcpMatch[1].length;
-                headerIndex = newLines.length;
+                // Only the root-level header owns the empty-map rewrite; a nested
+                // header of the same name belongs to a different parent.
+                if (mcpIndent === 0) headerIndex = newLines.length;
                 newLines.push(line);
                 continue;
             }
@@ -679,7 +697,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
                     inMcpServers = false;
                     inSuperpowers = false;
                 } else {
-                    const spMatch = line.match(/^(\s*)["']?superpowers["']?\s*:\s*(?:#.*)?$/);
+                    const spMatch = line.match(managedEntryPattern);
                     if (spMatch && spMatch[1] === indent) {
                         inSuperpowers = true;
                         superpowersIndent = spMatch[1].length;
@@ -704,14 +722,20 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             const header = newLines[headerIndex];
             const headerMatch = header.match(rootHeaderPattern);
             if (headerMatch) {
-                const rest = newLines.slice(headerIndex + 1).some(
-                    (l) => l.trim() !== "" && !l.trimStart().startsWith("#") && /^\s/.test(l)
-                );
-                if (!rest) {
-                    newLines[headerIndex] = header.replace(
-                        rootHeaderPattern,
-                        `${headerMatch[1]}${spec.rootKey}: {}`
-                    );
+                const headerIndent = headerMatch[1].length;
+                let survivingChild = false;
+                for (let i = headerIndex + 1; i < newLines.length; i++) {
+                    const candidate = newLines[i];
+                    if (candidate.trim() === "" || candidate.trimStart().startsWith("#")) continue;
+                    const candidateIndent = candidate.match(/^(\s*)/)?.[1].length ?? 0;
+                    if (candidateIndent <= headerIndent) break;
+                    survivingChild = true;
+                    break;
+                }
+                if (!survivingChild) {
+                    newLines[headerIndex] =
+                        header.replace(rootHeaderPattern, `${headerMatch[1]}${spec.rootKey}: {}`) +
+                        extractInlineComment(header);
                 }
             }
         }
@@ -731,6 +755,17 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
         );
     }
 
+    const rootValueText = rootDecls.length === 1 ? rootValue(rootDecls[0].tail) : "";
+    if (rootValueText === "{}" || rootValueText === "{ }") {
+        // Strip only the flow value, keeping any inline comment: an indented child
+        // appended after a flow value would not parse as YAML.
+        const header = lines[mcpServersIndex];
+        const keyEnd = header.match(rootKeyPattern)?.[0].length ?? 0;
+        const afterKey = header.slice(keyEnd);
+        lines[mcpServersIndex] = (header.slice(0, keyEnd) +
+            afterKey.slice(afterKey.indexOf(rootValueText) + rootValueText.length)).trimEnd();
+    }
+
     let superpowersIndex = -1;
     for (let i = mcpServersIndex + 1; i < lines.length; i++) {
         const line = lines[i];
@@ -738,7 +773,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             break;
         }
         const leadingWhitespace = line.match(/^(\s*)/)?.[1] || "";
-        if (leadingWhitespace === indent && /^\s+["']?superpowers["']?\s*:\s*(?:#.*)?$/.test(line)) {
+        if (leadingWhitespace === indent && managedEntryPattern.test(line)) {
             superpowersIndex = i;
             break;
         }
@@ -867,6 +902,13 @@ function isTomlTableHeader(line: string): boolean {
 const TOML_SUPERPOWERS_SUBTABLE = /^\s*\[\s*mcp_servers\s*\.\s*superpowers\s*\./;
 
 /**
+ * `[[mcp_servers.superpowers]]` — an array-of-tables form that declares the same
+ * name as our managed table and so can neither be updated in place nor left in
+ * place by a removal that reported success.
+ */
+const TOML_SUPERPOWERS_ARRAY_HEADER = /^\s*\[\[\s*mcp_servers\s*\.\s*superpowers\s*\]\]/;
+
+/**
  * Quoted table-name variants we cannot reason about safely — fail closed on sight.
  *
  * Linear scan (no backtracking): the previous
@@ -921,6 +963,36 @@ function parseTomlManagedAssignment(code: string): { key: "command" | "args"; va
 const TOML_MANAGED_KEY = /^\s*(command|args)\s*=/;
 
 /**
+ * True when a managed TOML value is still open at end-of-line (unclosed `[`/`{`
+ * or quote), i.e. it continues on the next line. The updater rewrites only the
+ * physical line carrying `command =` / `args =`, so it must refuse such a value
+ * rather than leave the continuation lines behind as invalid TOML.
+ * Linear scan, no backtracking (same discipline as the scanners above).
+ */
+function tomlValueContinuesOnNextLine(value: string): boolean {
+    let depth = 0;
+    let quote: string | null = null;
+    for (let i = 0; i < value.length; i++) {
+        const ch = value[i];
+        if (quote) {
+            if (quote === '"' && ch === "\\" && i + 1 < value.length) {
+                i++;
+                continue;
+            }
+            if (ch === quote) quote = null;
+            continue;
+        }
+        if (ch === '"' || ch === "'") {
+            quote = ch;
+            continue;
+        }
+        if (ch === "[" || ch === "{") depth++;
+        else if (ch === "]" || ch === "}") depth--;
+    }
+    return depth > 0 || quote !== null;
+}
+
+/**
  * Parses Codex `config.toml` to locate/inject `[mcp_servers.superpowers]` safely without
  * external dependencies (runtime dependencies must stay empty per SECURITY.md).
  *
@@ -942,14 +1014,46 @@ export function updateTomlConfig(existingContent: string, cmd: string, args: str
     }
 
     const headerIndexes: number[] = [];
+    let arrayHeaderIndex = -1;
     for (let i = 0; i < lines.length; i++) {
         if (isQuotedManagedTableHeader(lines[i])) {
             throw new Error("Cannot safely update TOML with quoted mcp_servers.superpowers table names");
         }
+        if (TOML_SUPERPOWERS_ARRAY_HEADER.test(lines[i])) arrayHeaderIndex = i;
         if (TOML_SUPERPOWERS_HEADER.test(lines[i])) headerIndexes.push(i);
     }
     if (headerIndexes.length > 1) {
         throw new Error("Cannot safely update TOML with duplicate mcp_servers.superpowers tables");
+    }
+
+    // Our managed section runs to the next foreign table header (or EOF);
+    // `[mcp_servers.superpowers.*]` sub-tables belong to us and are preserved on
+    // update, removed together with the parent on remove.
+    const blockEnd = (start: number): number => {
+        let end = start + 1;
+        while (end < lines.length) {
+            if (isTomlTableHeader(lines[end]) && !TOML_SUPERPOWERS_SUBTABLE.test(lines[end])) break;
+            end++;
+        }
+        return end;
+    };
+
+    if (remove) {
+        const ranges = [...headerIndexes, ...(arrayHeaderIndex === -1 ? [] : [arrayHeaderIndex])]
+            .map((start) => [start, blockEnd(start)] as const)
+            .sort((a, b) => a[0] - b[0]);
+        if (ranges.length === 0) return existingContent;
+        const dropped = new Set<number>();
+        for (const [start, end] of ranges) {
+            for (let i = start; i < end; i++) dropped.add(i);
+        }
+        return lines.filter((_, i) => !dropped.has(i)).join("\n");
+    }
+
+    if (arrayHeaderIndex !== -1) {
+        throw new Error(
+            "Cannot safely update TOML: [[mcp_servers.superpowers]] is an array-of-tables, which cannot coexist with a [mcp_servers.superpowers] table. Remove it first."
+        );
     }
 
     const expectedCommand = `command = ${JSON.stringify(cmd)}`;
@@ -959,21 +1063,13 @@ export function updateTomlConfig(existingContent: string, cmd: string, args: str
     const normTomlValue = (value: string): string => value.replace(/'/g, '"').replace(/\s+/g, "");
 
     if (headerIndexes.length === 0) {
-        if (remove) return existingContent;
         const block = `[mcp_servers.superpowers]\n${expectedCommand}\n${expectedArgs}\n`;
         if (!existingContent || existingContent.trim() === "") return block;
         return `${existingContent.trimEnd()}\n\n${block}`;
     }
 
     const header = headerIndexes[0];
-    // Our section runs to the next foreign table header (or EOF); sub-tables of
-    // `[mcp_servers.superpowers.…]` belong to us and are preserved on update,
-    // removed together with the parent on remove.
-    let end = header + 1;
-    while (end < lines.length) {
-        if (isTomlTableHeader(lines[end]) && !TOML_SUPERPOWERS_SUBTABLE.test(lines[end])) break;
-        end++;
-    }
+    const end = blockEnd(header);
     // Direct children end at the first sub-table header.
     let childrenEnd = end;
     for (let i = header + 1; i < end; i++) {
@@ -983,10 +1079,6 @@ export function updateTomlConfig(existingContent: string, cmd: string, args: str
         }
     }
 
-    if (remove) {
-        return lines.slice(0, header).concat(lines.slice(end)).join("\n");
-    }
-
     let currentCommand: string | null = null;
     let currentArgs: string | null = null;
     const comments: Record<string, string> = {};
@@ -994,6 +1086,11 @@ export function updateTomlConfig(existingContent: string, cmd: string, args: str
         const [code, comment] = splitTomlComment(lines[i]);
         const m = parseTomlManagedAssignment(code);
         if (!m) continue;
+        if (tomlValueContinuesOnNextLine(m.value)) {
+            throw new Error(
+                `Cannot safely update TOML: ${m.key} under [mcp_servers.superpowers] spans multiple lines. Put it on a single line and re-run.`
+            );
+        }
         if (m.key === "command") {
             if (currentCommand === null) currentCommand = normTomlValue(m.value);
         } else {
@@ -1069,6 +1166,13 @@ export function updateJsonConfig(
 ): string {
     let json: Record<string, unknown> = {};
     let hadJsoncSyntax = false;
+    // U+FEFF is not JSON whitespace, so JSON.parse rejects a BOM-prefixed file and
+    // Windows editors write them routinely. U+FEFF *is* trimmed by String#trim, so
+    // the runSetup up-to-date comparison below is unaffected by dropping it.
+    if (existingContent.charCodeAt(0) === 0xfeff) {
+        existingContent = existingContent.slice(1);
+    }
+    let parsedSnapshot: string | null = null;
     if (existingContent && existingContent.trim() !== "") {
         try {
             // First attempt standard native JSON.parse to preserve string literals containing '//'
@@ -1093,6 +1197,7 @@ export function updateJsonConfig(
                 throw new Error(`Failed to parse existing JSON: ${err} (raw JSON error: ${native})`);
             }
         }
+        parsedSnapshot = JSON.stringify(json);
     }
 
     const conventionalRootKey =
@@ -1139,13 +1244,18 @@ export function updateJsonConfig(
             container = container[segment] as Record<string, unknown>;
         }
         if (remove) {
+            const had = container["superpowers"] !== undefined;
             delete container["superpowers"];
+            if (!had) return existingContent;
         } else {
             const desired = customConfig ? { ...customConfig } : { command: cmd, args: args };
             container["superpowers"] = mergeServerEntry(container["superpowers"], desired, formatType);
         }
-        const updatedNested = JSON.stringify(json, null, 2) + "\n";
-        if (hadJsoncSyntax && updatedNested !== existingContent) {
+    const updatedNested = JSON.stringify(json, null, 2) + "\n";
+    if (parsedSnapshot !== null && JSON.stringify(json) === parsedSnapshot) {
+        return existingContent;
+    }
+    if (hadJsoncSyntax && updatedNested !== existingContent) {
             process.stderr.write(
                 "[superpowers-mcp] Warning: JSONC comments/trailing commas in the existing config were removed while updating it (the file is rewritten as plain JSON).\n"
             );
@@ -1172,7 +1282,9 @@ export function updateJsonConfig(
     const targetServers = json[rootKey] as Record<string, unknown>;
 
     if (remove) {
+        const had = targetServers["superpowers"] !== undefined;
         delete targetServers["superpowers"];
+        if (!had) return existingContent;
     } else {
         let desired: Record<string, unknown>;
         if (customConfig) {
@@ -1202,6 +1314,9 @@ export function updateJsonConfig(
     }
 
     const updated = JSON.stringify(json, null, 2) + "\n";
+    if (parsedSnapshot !== null && JSON.stringify(json) === parsedSnapshot) {
+        return existingContent;
+    }
     if (hadJsoncSyntax && updated !== existingContent) {
         process.stderr.write(
             "[superpowers-mcp] Warning: JSONC comments/trailing commas in the existing config were removed while updating it (the file is rewritten as plain JSON).\n"
@@ -1264,9 +1379,11 @@ export function safeWriteConfig(
         throw new Error("safeWriteConfig requires at least one allowed destination root");
     }
     let targetFilePath = configPath;
+    let sawSymlink = false;
     try {
         const stat = fs.lstatSync(configPath, { throwIfNoEntry: false });
         if (stat && stat.isSymbolicLink()) {
+            sawSymlink = true;
             try {
                 targetFilePath = fs.realpathSync(configPath);
             } catch (_err) {
@@ -1293,6 +1410,12 @@ export function safeWriteConfig(
     } catch (_lstatErr) {
         if (_lstatErr instanceof Error && _lstatErr.message.includes("Refusing to write to unsafe symlink target")) {
             throw _lstatErr;
+        }
+        if (sawSymlink) {
+            // Falling back to configPath here would make renameSync replace the
+            // user's symlink with a regular file, silently destroying it.
+            const msg = _lstatErr instanceof Error ? _lstatErr.message : String(_lstatErr);
+            throw new Error(`Cannot safely resolve symlink target for ${configPath}: ${msg}`);
         }
         // Fall back to original configPath if stat fails
     }
@@ -1332,23 +1455,12 @@ export function safeWriteConfig(
     }
 
     let fileMode = 0o600;
-    if (fs.existsSync(targetFilePath)) {
+    const targetExists = fs.existsSync(targetFilePath);
+    if (targetExists) {
         try {
             fileMode = fs.statSync(targetFilePath).mode;
         } catch (_statErr) {
             // Keep default fileMode 0o600
-        }
-
-        if (backup) {
-            const original = fs.readFileSync(targetFilePath, "utf8");
-            const backupPath = `${targetFilePath}.${Date.now()}.bak`;
-            try {
-                fs.writeFileSync(backupPath, original, { encoding: "utf8", mode: fileMode });
-            } catch (bakErr: unknown) {
-                const msg = bakErr instanceof Error ? bakErr.message : String(bakErr);
-                throw new Error(`Failed to create safe backup before write: ${msg}`);
-            }
-            pruneOldBackups(targetFilePath);
         }
     }
 
@@ -1374,6 +1486,19 @@ export function safeWriteConfig(
             confirmedDirStat.ino !== canonicalDirStat.ino
         ) {
             throw new Error("Configuration directory changed while writing");
+        }
+        // Backed up only once every check has passed, so a refused write neither
+        // leaves a .bak behind nor prunes the existing backup history.
+        if (backup && targetExists) {
+            const original = fs.readFileSync(targetFilePath, "utf8");
+            const backupPath = `${targetFilePath}.${Date.now()}.bak`;
+            try {
+                fs.writeFileSync(backupPath, original, { encoding: "utf8", mode: fileMode });
+            } catch (bakErr: unknown) {
+                const msg = bakErr instanceof Error ? bakErr.message : String(bakErr);
+                throw new Error(`Failed to create safe backup before write: ${msg}`);
+            }
+            pruneOldBackups(targetFilePath);
         }
         fs.renameSync(tmpPath, targetFilePath);
     } catch (writeErr) {
@@ -1555,11 +1680,21 @@ export async function runSetupCli(argv = process.argv.slice(2)): Promise<void> {
                 process.exitCode = 1;
                 return;
             }
+            if (options.target !== null) {
+                console.error("❌ Error: --target was specified more than once. Configure one client per invocation.\n");
+                process.exitCode = 1;
+                return;
+            }
             options.target = argv[++i];
         } else if (arg.startsWith("--target=")) {
             const val = arg.split("=")[1];
             if (!val) {
                 console.error("❌ Error: Missing value for --target flag.\n");
+                process.exitCode = 1;
+                return;
+            }
+            if (options.target !== null) {
+                console.error("❌ Error: --target was specified more than once. Configure one client per invocation.\n");
                 process.exitCode = 1;
                 return;
             }

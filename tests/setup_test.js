@@ -324,10 +324,9 @@ it("should reject YAML shapes the updater cannot preserve safely", () => {
         () => updateYamlConfig("profile:\n  mcp_servers:\n    existing:\n      command: old\n", "npx", []),
         /root-level block mapping/
     );
-    assert.throws(
-        () => updateYamlConfig("mcp_servers: {}\nother: true\n", "npx", []),
-        /root-level block mapping/
-    );
+    // An empty flow mapping is now expanded in place instead of rejected, so a
+    // config left as `rootKey: {}` by a previous --remove stays installable.
+    assert.doesNotThrow(() => updateYamlConfig("mcp_servers: {}\nother: true\n", "npx", []));
     assert.throws(
         () => updateYamlConfig("mcp_servers:\n  one: {}\nmcp_servers:\n  two: {}\n", "npx", []),
         /duplicate mcp_servers keys/
@@ -1562,6 +1561,273 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
         const extraArg = spawnSync("node", [entry, "setup", "copilot", "cursor"], { encoding: "utf8" });
         assert.strictEqual(extraArg.status, 1, "unexpected positional argument must exit non-zero");
         assert.match(extraArg.stderr, /Unexpected argument "cursor"/);
+    });
+
+    it("should refuse a multi-line TOML value instead of corrupting config.toml", () => {
+        const multiLine = [
+            "[mcp_servers.superpowers]",
+            'command = "npx"',
+            "args = [",
+            '  "-y",',
+            '  "superpowers-mcp",',
+            "]",
+            "",
+        ].join("\n");
+
+        let err = null;
+        try {
+            updateTomlConfig(multiLine, "npx", ["-y", "superpowers-mcp"]);
+        } catch (e) {
+            err = e;
+        }
+        assert.ok(err, "a multi-line managed TOML value must be refused, not rewritten");
+        assert.match(err.message, /single line|multiple lines/i, `error must be actionable, got: ${err.message}`);
+
+        const removed = updateTomlConfig(multiLine, "npx", [], true);
+        assert.ok(!removed.includes("superpowers"), "remove must delete the whole managed table");
+        assert.ok(!removed.includes('  "-y",'), "remove must delete continuation lines too");
+        assert.ok(!removed.includes("]"), "remove must not leave a dangling bracket");
+    });
+
+    it("should parse and update a UTF-8 BOM-prefixed JSON config", () => {
+        const withBom = "\uFEFF{\n  \"mcpServers\": {}\n}\n";
+        let out;
+        try {
+            out = updateJsonConfig(withBom, "json-mcpServers", "npx", ["-y", "superpowers-mcp"]);
+        } catch (e) {
+            assert.fail(`a BOM-prefixed config must not break setup: ${e.message}`);
+        }
+        const parsed = JSON.parse(out);
+        assert.strictEqual(parsed.mcpServers.superpowers.command, "npx");
+        assert.deepStrictEqual(parsed.mcpServers.superpowers.args, ["-y", "superpowers-mcp"]);
+    });
+
+    it("should leave a JSONC config byte-identical when --remove has nothing to remove", () => {
+        const jsonc = '{\n  // my servers\n  "mcpServers": {\n    "other": { "command": "foo" },\n  },\n}\n';
+        const out = updateJsonConfig(jsonc, "json-mcpServers", "npx", [], true);
+        assert.strictEqual(out, jsonc, "a no-op removal must not rewrite the user's file");
+        assert.ok(out.includes("my servers"), "user comments must survive a no-op removal");
+
+        const nested = '{\n  // keep me\n  "mcp": {\n    "servers": { "other": {} },\n  },\n}\n';
+        const nestedOut = updateJsonConfig(nested, "json-mcpServers", "npx", [], true, undefined, ["mcp", "servers"]);
+        assert.strictEqual(nestedOut, nested, "a no-op nested removal must not rewrite the user's file");
+    });
+
+    it("should keep the YAML root key's inline comment when the last entry is removed", () => {
+        const yaml = 'mcp_servers: # my servers\n  superpowers:\n    command: npx\n    args: []\n';
+        const out = updateYamlConfig(yaml, "npx", [], true, "mcp");
+        assert.ok(out.includes("# my servers"), `root-key inline comment was dropped: ${JSON.stringify(out)}`);
+        assert.match(out, /^mcp_servers: \{\}/m, `expected an explicit empty map, got: ${JSON.stringify(out)}`);
+    });
+
+    it("should not emit a null YAML map when a nested same-named key follows the root block", () => {
+        const yaml = [
+            "mcp_servers:",
+            "  superpowers:",
+            "    command: npx",
+            "    args: []",
+            "something:",
+            "  mcp_servers:",
+            "    keep: 1",
+            "",
+        ].join("\n");
+        const out = updateYamlConfig(yaml, "npx", [], true, "mcp");
+        assert.ok(
+            !/^mcp_servers:\s*$/m.test(out),
+            `root key was left as a null value (the exact state the empty-map guard exists to prevent): ${JSON.stringify(out)}`
+        );
+        assert.match(out, /^mcp_servers: \{\}/m, `expected an explicit empty map, got: ${JSON.stringify(out)}`);
+        assert.ok(out.includes("keep: 1"), "the nested mapping under another parent must be preserved");
+    });
+
+    it("should handle a YAML root key written as an empty flow mapping on install", () => {
+        // `--remove` leaves `mcp_servers: {}`; a later install must expand it into
+        // a block mapping rather than appending an indented child after a value.
+        const out = updateYamlConfig("mcp_servers: {}\nother: 1\n", "npx", ["-y"], false, "mcp");
+        assert.match(out, /^mcp_servers:\s*$/m, `expected a block mapping, got: ${JSON.stringify(out)}`);
+        assert.ok(!/^mcp_servers: \{\}/m.test(out), "the flow mapping must be replaced, not left beside a child");
+        assert.ok(out.includes("  superpowers:"), "the entry must be installed");
+        assert.ok(out.includes("other: 1"), "sibling keys must be preserved");
+
+        const lines = out.split("\n").filter(Boolean);
+        const superpowersIdx = lines.findIndex((l) => /^\s*superpowers:/.test(l));
+        assert.ok(superpowersIdx > 0, "entry must be present");
+        assert.strictEqual(/^\s*/.exec(lines[superpowersIdx])[0].length, 2, "entry must be indented one level");
+        const otherIdx = lines.findIndex((l) => l.startsWith("other:"));
+        assert.ok(otherIdx > 0 && !/^\s/.test(lines[otherIdx]), "sibling must remain at column 0");
+    });
+
+    it("should be idempotent when --remove runs twice on a YAML target", async () => {
+        const mockHome = fs.mkdtempSync(path.join(os.tmpdir(), "sp-rm-twice-"));
+        try {
+            for (const target of ["hermes", "goose"]) {
+                const first = await runSetup({ platform: "darwin", homeDir: mockHome, target });
+                assert.strictEqual(first[0].status, "created", `${target}: first install must succeed`);
+
+                const rm1 = await runSetup({ platform: "darwin", homeDir: mockHome, target, remove: true });
+                assert.strictEqual(rm1[0].status, "removed", `${target}: first remove must succeed`);
+
+                // The tool wrote `rootKey: {}` itself; it must be able to read it back.
+                const rm2 = await runSetup({ platform: "darwin", homeDir: mockHome, target, remove: true });
+                assert.strictEqual(
+                    rm2[0].status,
+                    "up-to-date",
+                    `${target}: a second --remove must be idempotent, got: ${rm2[0].status} (${rm2[0].message})`
+                );
+            }
+        } finally {
+            fs.rmSync(mockHome, { recursive: true, force: true });
+        }
+    });
+
+    it("should refuse a TOML array-of-tables and still remove it cleanly", () => {
+        const arrayOfTables = '[[mcp_servers.superpowers]]\ncommand = "npx"\nargs = ["-y"]\n\n[other]\nB = "2"\n';
+
+        assert.throws(
+            () => updateTomlConfig(arrayOfTables, "npx", ["-y"]),
+            /array-of-tables|\[\[|Cannot safely update TOML/i,
+            "install must refuse an existing array-of-tables definition"
+        );
+
+        const removed = updateTomlConfig(arrayOfTables, "npx", [], true);
+        assert.ok(!removed.includes("superpowers"), `remove must clear the array-of-tables, got: ${JSON.stringify(removed)}`);
+        assert.ok(removed.includes('B = "2"'), "unrelated tables must be preserved");
+    });
+
+    it("should report up-to-date for goose on a second run (key order must be stable)", async () => {
+        const mockHome = fs.mkdtempSync(path.join(os.tmpdir(), "sp-goose-idem-"));
+        try {
+            const first = await runSetup({ platform: "darwin", homeDir: mockHome, target: "goose" });
+            assert.strictEqual(first[0].status, "created");
+            const cfgPath = first[0].path;
+            const afterFirst = fs.readFileSync(cfgPath, "utf-8");
+
+            const second = await runSetup({ platform: "darwin", homeDir: mockHome, target: "goose" });
+            const afterSecond = fs.readFileSync(cfgPath, "utf-8");
+            assert.strictEqual(
+                second[0].status,
+                "up-to-date",
+                `goose must be idempotent, got: ${second[0].status}`
+            );
+            assert.strictEqual(afterSecond, afterFirst, "a no-op re-install must not rewrite the file");
+        } finally {
+            fs.rmSync(mockHome, { recursive: true, force: true });
+        }
+    });
+
+    it("should reject a repeated --target instead of silently keeping the last one", () => {
+        const { spawnSync } = require("child_process");
+        const entry = path.join(__dirname, "..", "out", "server.js");
+        if (!fs.existsSync(entry)) {
+            console.log("  ⏭️  SKIP: out/server.js not built — duplicate --target contract NOT verified");
+            skipped++;
+            return;
+        }
+        const res = spawnSync("node", [entry, "setup", "--target", "cursor", "--target", "claude"], { encoding: "utf8" });
+        assert.strictEqual(res.status, 1, "a repeated --target must exit non-zero");
+        assert.match(res.stderr, /--target.*(more than once|specified)/i);
+    });
+
+    it("should not create a backup when a concurrent change refuses the write", () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-bak-"));
+        try {
+            const target = path.join(dir, "cfg.json");
+            fs.writeFileSync(target, '{"a":1}');
+
+            assert.throws(
+                () => safeWriteConfig(target, '{"a":2}', true, [dir], '{"STALE":true}'),
+                /changed concurrently/i,
+                "a stale expectedContent must refuse the write"
+            );
+            assert.deepStrictEqual(
+                fs.readdirSync(dir).filter((f) => f.includes(".bak")),
+                [],
+                "a refused write must not leave a backup behind"
+            );
+            assert.strictEqual(fs.readFileSync(target, "utf-8"), '{"a":1}', "target content must be untouched");
+            assert.deepStrictEqual(
+                fs.readdirSync(dir).filter((f) => f.startsWith(".tmp.")),
+                [],
+                "no temp file may be left behind"
+            );
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("should replace, not duplicate, a YAML child entry written as an empty flow mapping", () => {
+        // A `superpowers: {}` child used to be invisible to the child matcher, so
+        // install appended a second `superpowers:` beside it; YAML resolves duplicate
+        // keys last-wins, so the new entry was silently discarded while the CLI
+        // still reported success.
+        const out = updateYamlConfig(
+            "mcp_servers:\n  superpowers: {}\n  other:\n    command: o\n",
+            "npx",
+            ["-y", "superpowers-mcp"],
+            false,
+            "mcp"
+        );
+        const childKeys = out.split("\n").filter((l) => /^\s+superpowers\s*:/.test(l));
+        assert.strictEqual(
+            childKeys.length,
+            1,
+            `install must not leave a duplicate superpowers key: ${JSON.stringify(out)}`
+        );
+        assert.ok(!/^\s+superpowers:\s*\{\}\s*$/m.test(out), `the flow mapping must be replaced: ${JSON.stringify(out)}`);
+        assert.ok(out.includes('command: "npx"'), `the entry must be installed: ${JSON.stringify(out)}`);
+        assert.ok(out.includes("other:"), "sibling entries must be preserved");
+    });
+
+    it("should round-trip install, remove and reinstall when the root key has an inline comment", () => {
+        // `--remove` leaves `mcp_servers: {} # <inline comment>`, a state the
+        // install path rejected — leaving the user unable to ever reinstall.
+        const start = 'mcp_servers: # my MCP servers\n  superpowers:\n    command: "npx"\n    args: ["-y","superpowers-mcp"]\n';
+        const removed = updateYamlConfig(start, "npx", ["-y", "superpowers-mcp"], true, "mcp");
+        assert.match(removed, /^mcp_servers: \{\}/m, `expected an empty map, got: ${JSON.stringify(removed)}`);
+        assert.ok(removed.includes("# my MCP servers"), "the inline comment must survive the removal");
+
+        let reinstalled;
+        try {
+            reinstalled = updateYamlConfig(removed, "npx", ["-y", "superpowers-mcp"], false, "mcp");
+        } catch (e) {
+            assert.fail(`reinstall after --remove must not fail, got: ${e.message}`);
+        }
+        assert.ok(reinstalled.includes("# my MCP servers"), "the inline comment must survive the reinstall");
+        assert.ok(reinstalled.includes('command: "npx"'), `the entry must be installed: ${JSON.stringify(reinstalled)}`);
+    });
+
+    it("should clear a YAML `superpowers: {}` child on --remove", () => {
+        const start = "mcp_servers:\n  superpowers: {}\n  other:\n    command: o\n";
+        const out = updateYamlConfig(start, "npx", ["-y", "superpowers-mcp"], true, "mcp");
+        assert.ok(
+            !/^\s+superpowers\s*:/m.test(out),
+            `--remove must clear the flow-mapping child too: ${JSON.stringify(out)}`
+        );
+        assert.ok(out.includes("other:"), "sibling entries must be preserved");
+    });
+
+    it("should never replace an unresolvable symlink with a regular file", () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-symlink-"));
+        try {
+            // A symlink loop makes realpathSync fail with ELOOP.
+            const a = path.join(dir, "a.json");
+            const b = path.join(dir, "b.json");
+            fs.symlinkSync(b, a);
+            fs.symlinkSync(a, b);
+
+            try {
+                safeWriteConfig(a, '{"x":1}', false, [dir]);
+            } catch (e) {
+                assert.match(e.message, /symlink|Cannot safely|ELOOP|ENOENT/i, `unexpected error: ${e.message}`);
+            }
+
+            assert.ok(
+                fs.lstatSync(a).isSymbolicLink(),
+                "the symlink was replaced by a regular file — a user's link must never be destroyed"
+            );
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
     });
 
     console.log("==================================================");
