@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![संस्करण](https://img.shields.io/badge/version-6.4.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![संस्करण](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![लाइसेंस](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 यह दस्तावेज़ Superpowers skills लाइब्रेरी और स्वायत्त वर्कफ़्लो सिस्टम को एक स्वतंत्र, उच्च-प्रदर्शन और सुरक्षित **Model Context Protocol (MCP)** सर्वर के रूप में पैकेज करने की जानकारी और उपयोग निर्देशों का सारांश है।
@@ -179,7 +179,17 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 हाल के अपडेट
 
-### v6.4.6 (नवीनतम)
+### v6.4.7 (नवीनतम)
+
+- **पूर्ण प्रोजेक्ट सुरक्षा स्कैन (2026-10-09)**: `src/*.ts`, brainstorming companion सर्वर, `scripts/`, `esbuild.js`, npm पैकेजिंग व लॉकफ़ाइल अखंडता, रहस्य/अनुमति स्वच्छता, और हर स्वचालित सूट। आधार नियंत्रण पुनः सत्यापित और स्वच्छ — शिप किए गए स्रोत में `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` 0, `child_process` केवल argv द्वारा, 0 हार्डकोडेड रहस्य, 0 world-writable ट्रैक की गई फ़ाइलें (विवरण [SECURITY.md](SECURITY.md) में)।
+- **`--remove` सफलता की सूचना दे सकता था जबकि एक सक्रिय MCP प्रविष्टि बची रहती थी** (CWE-459, निष्पादन द्वारा पुनरुत्पादित): TOML अंतिम `[[mcp_servers.superpowers]]` array table को छोड़कर बाकी सभी रखता है और `[[mcp_servers.superpowers.env]]` को अनाथ कर देता है; JSON केवल पहली root key को साफ़ करता है जिसमें `superpowers` प्रविष्टि हो; भरे हुए flow map `superpowers: {…}` पर YAML हटाना no-op रहता है। इसलिए कॉलर-चयनित `command` सफलता की सूचना देने वाली अनइंस्टॉल के बाद भी स्वतः लॉन्च होता रह सकता है।
+- **YAML `--remove` किसी अन्य पैरेंट का `superpowers` ब्लॉक मिटा सकता था** (CWE-459): नया root-स्तरीय रक्षक खाली-मैप पुनः लेखन को तो कवर करता है पर प्रविष्टि हटाने को नहीं, इसलिए किसी भिन्न top-level key के अधीन नेस्टेड `mcp_servers:` अपना `superpowers` सबट्री खो देता था — `env` जैसे user keys सहित।
+- **`SKILLS_PATH` निहितता blocklist पर आधारित है, allowlist पर नहीं** (CWE-22, पहले से मौजूद): `~/.ssh`, `~/.config/gh` और `/Users/Shared` स्वीकृत होते हैं क्योंकि वे मौजूद हैं, जबकि `~/.aws` केवल गैर-अस्तित्व के कारण अस्वीकृत होता है। **Linux** पर दस्तावेज़बद्ध `SKILLS_PATH=$(mktemp -d)` प्रवाह world-writable `/tmp` पर पहुंचता है, इसलिए साझा होस्ट पर एक स्थानीय उपयोगकर्ता ऐसी skill सामग्री रोप सकता है जिसे एजेंट फिर विश्वसनीय निर्देश मानता है।
+- **`[MODEL]` अब `sdd-task-reviewer` / `sdd-re-review` के लिए गिराया नहीं जाता** (इसी स्कैन में मिला, यहाँ ठीक किया गया): दोनों टेम्पलेट उस स्लॉट को `model: [MODEL — REQUIRED: …]` इस तरह लिखते थे कि उसमें कोई शाब्दिक टोकन न था, इसलिए कॉलर का `model` मान रेंडर किए गए प्रॉम्प्ट में **zero** बार पहुंचता था और नया डायग्नोस्टिक उसे नहीं देख सका। अब दोनों `model: [MODEL]` के साथ एक `#` टिप्पणी लगाते हैं, जो `implementer-prompt.md` से मेल खाती है, और दो अभिकथन — बिना उसके विफल, उसके साथ सफल — इसे बाँधे हुए हैं।
+- **पैकेजिंग कठोरता के लक्ष्य**: `npm pack` पुनर्निर्माण नहीं करता (`prepublishOnly` केवल publish-हेतु है और `out/` gitignored है, इसलिए पैक किया गया टारबॉल डिस्क पर मौजूद `out/*.js` बिना समीक्षा के शिप करता है — बिल्ड को `prepack` में होना चाहिए); और `files: ["scripts"]` इंस्टॉलर शिप करता है, जो सह-स्थित `setup.js` को प्राथमिकता देता है।
+- सत्यापन: `npm test` हरा **10/10 सूट**, PowerShell सूट **128/128**, `npx tsc --noEmit` स्वच्छ, `npm run build` ठीक, `npm audit` **0** कमज़ोरियाँ, `npm run drift` 0 (रिग्रेशन फ़्लोर पुनः मापा गया **396 अभिकथन**: Node.js 236 + Bash 32 + PowerShell 128)।
+
+### v6.4.6
 
 - **पूर्ण सुरक्षा स्कैन (2026-10-06)**: `src/*.ts`, brainstorming companion सर्वर, `scripts/` और बिल्ड पाइपलाइन में कोई नई खोज नहीं — वितरित कोड में `eval` / `new Function` / `innerHTML` / `shell: true` 0, चाइल्ड प्रोसेस केवल argv द्वारा, `crypto.randomBytes` अस्थायी nonce, 0 हार्डकोडेड रहस्य, 0 world-writable फ़ाइलें (विवरण [SECURITY.md](SECURITY.md) में)।
 - **निर्भरता परामर्श ठीक (`npm audit` 2 → 0)**: GHSA-6qxp-vccf-f47h (उच्च, MCP SDK OAuth क्रेडेंशियल लीक) `@modelcontextprotocol/sdk` को `^1.32.1` पर बढ़ाकर ठीक; GHSA-jqcg-44mw-7w3h (गंभीर, `express` के माध्यम से `proxy-addr` IP स्पूफिंग) नए `overrides.proxy-addr ^2.0.8` फ्लोर से ठीक। दोनों केवल बिल्ड-समय में हैं और stdio-only पैकेज से अप्राप्य।

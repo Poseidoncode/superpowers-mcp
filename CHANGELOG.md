@@ -5,6 +5,154 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.4.7] - 2026-10-09
+
+Full-project security scan of this release tree, run as a five-role parallel audit
+(attack surface, auth/data trust, runtime & supply chain) followed by an independent
+falsification pass. Every finding below was **reproduced by execution** before being written
+down; candidates that did not survive are listed rather than dropped. Full detail, including
+CWE classification and residual risk, is in [SECURITY.md](SECURITY.md).
+
+### Security
+
+- **`--remove` can report success while a live MCP entry survives** (CWE-459). Verified by
+  executing the exported config writers against the current tree:
+  - **TOML** — two `[[mcp_servers.superpowers]]` array tables: only the last is removed,
+    because `arrayHeaderIndex` is a single index overwritten inside the loop
+    (`src/setup-runner.ts:1022`) while the plain-table path accumulates and rejects
+    duplicates.
+  - **TOML** — `[[mcp_servers.superpowers.env]]` is orphaned, leaving `TOKEN = "…"` in the
+    file: `TOML_SUPERPOWERS_SUBTABLE` cannot match a double bracket.
+  - **JSON** — with `superpowers` present under two root keys, only the first is cleared
+    (`updateJsonConfig` picks one `rootKey` and deletes from that key alone).
+  - **YAML** — removal is a **complete no-op** on a populated flow map
+    `superpowers: {command: …}`; the new `managedEntryPattern` matches only the *empty* flow
+    map, so the entry is never located.
+
+  Impact: a caller-chosen `command` keeps auto-launching on every session after an uninstall
+  that reported success. The uncommitted `TOML_SUPERPOWERS_ARRAY_HEADER` guard narrows this
+  case without closing it.
+- **YAML `--remove` deletes a `superpowers:` entry owned by a different parent** (CWE-459).
+  The new root-level guard `if (mcpIndent === 0)` (`:685`) covers only the empty-map rewrite;
+  the entry deletion (`:700-706`) still keys off the *root* declaration's first-child indent.
+  Verified: a nested `mcp_servers:` under another top-level key loses its `superpowers`
+  subtree, including user keys such as `env`. The comment at `:683-684` describes this case
+  as handled; only the rewrite is.
+- **`SKILLS_PATH` containment is a blocklist plus an existence check, not an allowlist**
+  (CWE-22 / CWE-668, pre-existing). Verified: `~/.ssh`, `~/.config/gh` and `/Users/Shared` are
+  **accepted**; `~/.aws` is rejected only because it does not exist (`realpathSync` throws →
+  `canonicalized = false`). The temp-root allowance documented in the source comment
+  (`:51-54`, which names `SKILLS_PATH=$(mktemp -d)` as a supported flow) resolves on macOS to
+  a per-user `0700` directory but on **Linux to `/tmp` (mode `1777`, world-writable +
+  sticky)** — a local unprivileged user on a shared Linux host can pre-create
+  `<dir>/<skill>/SKILL.md` and have it served to the agent as trusted skill instructions.
+- **`[MODEL]` was silently dropped for `sdd-task-reviewer` and `sdd-re-review`** (CWE-20, fixed in
+  this release). Both templates wrote
+  `model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; …]`, which does not contain
+  the literal token `[MODEL]`; the only literal occurrence was the `**Placeholders:**` appendix
+  bullet, which the new appendix guard (`isAppendixEntry`, `:353`) skips. Executed proof: with
+  `model = "sonnet"` the value appeared **0 times** in the rendered prompt, and the new stderr
+  diagnostic could not see it because it tests the *unfiltered* template
+  (`template.includes("[MODEL]")` is true via the appendix). This change fixed the exact
+  anti-pattern in `implementer-prompt.md` but left the two reviewer templates. Both now use the
+  same `model: [MODEL]` + `#` comment form, pinned by two new assertions in
+  `tests/prompts_compositions_test.js` that require the supplied value to reach the
+  dispatchable `model:` line and forbid a surviving `[MODEL` in the prompt body; both were
+  verified fail-without / pass-with.
+- **Prompt arguments are interpolated into agent instructions unescaped** (CWE-1427, accepted
+  as a same-principal data-trust property rather than a server-side vulnerability). The only
+  sanitisation is `.trim()` plus a 32 KiB cap (`:619-637`); newlines survive and
+  `renderFeaturePipeline` splices the raw value into the prompt body. This change hardened
+  `feature_name` (collapses CR/LF) and `requirements` (strips CR only); ~13 other free-text
+  arguments are unchanged. The confused-deputy path is documented by the templates
+  themselves — `[GLOBAL_CONSTRAINTS]` is "copied verbatim from the plan's Global Constraints
+  section", `[FINDINGS]` "copied verbatim, one per bullet".
+- **`npm pack` does not rebuild** (CWE-494). `prepublishOnly` runs only on `npm publish`, and
+  `out/` is gitignored and untracked, so its contents are invisible to code review. Any
+  `npm pack`-based release path ships whatever `out/*.js` sits on disk, unrebuilt and
+  unverified. The build belongs in `prepack`, which fires for both `npm pack` and
+  `npm publish`.
+- **`files: ["scripts"]` ships the installer with no review surface** (CWE-829). The allowlist
+  is path-based, so `scripts/install.sh` / `install.ps1` — which prefer a co-located
+  `setup.js` and `exec` it — and the untracked `scripts/run-tests.js` all ship. Nothing in the
+  shipped runtime needs `scripts/`; both `bin` entries point at `out/`.
+- **Installer quickstart is pinned to a mutable ref** (CWE-494, accepted and documented).
+  `README.md:83,88` pipe `install.sh` / `install.ps1` from `.../main/scripts/…` — `curl | bash`
+  with no tag, SHA-256 or signature — and `npx -y superpowers-mcp setup` then resolves from the
+  registry at execution time.
+- **`overrides.fast-uri: ^4.2.1` crosses a major boundary** over `ajv@8.18.0`'s declared
+  `^3.0.1` (CWE-1327, latent). Verified **not** a live breakage: the `uri`, `uri-reference`,
+  `email` and `hostname` formats and relative, absolute and sibling `$ref` resolution all pass
+  under 4.2.1, and `ajv` is never `require`d at runtime by the stdio-only bundle. It remains a
+  supply-chain hazard because `npm audit` reports 0 for both majors, so nothing structurally
+  watches this edge.
+
+### Fixed
+
+- **YAML install can emit duplicate keys** (CWE-407, pre-existing path). On a populated flow
+  map it appends a second `superpowers:` beside the existing one — duplicate-key YAML resolves
+  last-wins in permissive parsers, so the stale entry wins and the install silently no-ops,
+  while strict parsers reject the file. When the entry's child indent differs from the root's
+  first-child indent, `directChildIndent = spIndent + indent.length` (`:800`) emits a second
+  `command:` / `args:` pair. Recorded here with reproduction steps rather than patched, to keep
+  this release's security notes to verified findings.
+- **Test harness no longer short-circuits.** The new `scripts/run-tests.js` runs all ten suites
+  and reports every failure instead of chaining them with `&&`, where a failure in an early
+  suite skipped every later one and a single regression could hide most of the suite. The
+  PowerShell suite remains outside `npm test` and runs via `tests/powershell/run-tests.sh`.
+
+### Rejected or downgraded
+
+Recorded so a later pass does not re-raise them:
+
+- **`ajv-formats` `TypeError: uri is not a function`** — falsified; it was the auditing
+  harness's own bad `addFormats` interop call.
+- **`overrides` absent from `package-lock.json`** — structurally true
+  (`packages[""].overrides` is `undefined`) but with no security consequence: the lock's
+  `packages` map already pins `proxy-addr 2.0.8`, `qs 6.16.0`, `hono 4.13.7`,
+  `fast-uri 4.2.1` and `@hono/node-server 2.1.1`, and an isolated `npm ci --dry-run` installs
+  exactly those.
+- **Dangling `[BASE_SHA]`** after its removal from the `sdd-re-review` map — clean;
+  `re-review-prompt.md` contains no bare `[BASE_SHA]` and it is not a substring of
+  `[FIX_BASE_SHA]`.
+- **Appendix-guard bypass** — the guard is sound as written; it runs on template lines only and
+  substitution is a single non-recursive pass, so no caller value can flip the discriminator.
+- **`isUnsafeSkillName` bypasses** — ten classes evaluated; all are either blocked or inert,
+  because the only consumer is a `Map.get` over `readdir`-minted keys and no caller-supplied
+  string is ever joined onto a filesystem path.
+- **SSRF in `upstream-drift.js --fetch`** — the host is pinned to `api.github.com`; `--repo`
+  and `--ref` are operator CLI args, percent-encoded per segment.
+- **stdout / JSON-RPC corruption** — zero `process.stdout` writes in `src/`; the setup CLI path
+  returns before `new StdioServerTransport()`.
+- **Dependency advisories** — `npm audit` reports **0** for both the production and the
+  development tree.
+
+### Testing
+
+- `npm run build` ok (4 targets) · `npx tsc --noEmit` clean · `npm test` **10/10 suites** ·
+  PowerShell suite **128/128** · `npm audit` **0** · `npm run drift` 0 drift (12 fork-only
+  files) · `git diff --check` clean.
+- Regression floor re-measured on this tree: **396 assertions** (Node.js 236 + Bash 32 +
+  PowerShell 128), all passing — `setup_test.js` 94, `upstream_sync_test.js` 30,
+  `brainstorm_server_test.js` 35, `mcp_coverage_test.js` 25, `prompts_compositions_test.js` 20,
+  `edge_cases_test.js` 14, `drift_test.js` 11, `run_test.js` 7; Bash `test-task-done.sh` 25 and
+  `test-task-start.sh` 7. v6.4.6 documented 409 (Node.js 214 + Bash 67 + PowerShell 128); the
+  Node.js and PowerShell tiers grew while the earlier Bash figure is not reproducible from the
+  current two Bash suites, so it is recorded here as measured rather than restated.
+
+### Known issues
+
+- **`\bbug\b` narrows the pipeline classifier** (correctness, not a vulnerability). The
+  word-anchored pattern introduced in this change no longer matches `bugs`, `buggy` or
+  `bugfix`, so `"there are bugs in the parser"` selects no pipeline where
+  `lower.includes("bug")` did; `"reNEWal"` and `"newest"` are correctly no longer Pipeline 1.
+  `/\b(refactor\w*|migrat\w*|upgrad\w*)/` also omits the trailing `\b` the other branches use.
+  ReDoS was measured and is clean — all four patterns run in ≤0.3 ms on 32 768-char adversarial
+  inputs, and the 32 KiB argument cap bounds them regardless.
+- `skills/diagnosing-superpowers/` (19 files — local transcript reads and GitHub issue
+  drafting) was **not** covered by this pass.
+- The PowerShell suite is not part of `npm test`; it skips cleanly when `pwsh` is absent.
+
 ## [6.4.6] - 2026-10-06
 
 ### Security

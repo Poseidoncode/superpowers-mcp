@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -179,7 +179,17 @@ To help you choose the right skill, we have structured all 15 skills across the 
 
 ## 🆕 Recent Updates
 
-### v6.4.6 (Latest)
+### v6.4.7 (Latest)
+
+- **Full project security scan (2026-10-09)**: `src/*.ts`, the brainstorming companion server, `scripts/`, `esbuild.js`, npm packaging and lockfile integrity, secret/permission hygiene, and every automated suite. Baseline controls re-verified clean — 0 `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` in shipped source, `child_process` argv-only, 0 hardcoded secrets, 0 world-writable tracked files (details in [SECURITY.md](SECURITY.md)).
+- **`--remove` could report success while a live MCP entry survived** (CWE-459, reproduced by execution): TOML keeps all but the last `[[mcp_servers.superpowers]]` array table and orphans `[[mcp_servers.superpowers.env]]`; JSON clears only the first root key holding a `superpowers` entry; YAML removal is a no-op on a populated flow map `superpowers: {…}`. A caller-chosen `command` therefore keeps auto-launching after an uninstall that reported success.
+- **YAML `--remove` could delete another parent's `superpowers` block** (CWE-459): the new root-level guard covers the empty-map rewrite but not the entry deletion, so a nested `mcp_servers:` under a different top-level key lost its `superpowers` subtree — including user keys such as `env`.
+- **`SKILLS_PATH` containment is a blocklist, not an allowlist** (CWE-22, pre-existing): `~/.ssh`, `~/.config/gh` and `/Users/Shared` are accepted because they exist, while `~/.aws` is rejected only for non-existence. On **Linux** the documented `SKILLS_PATH=$(mktemp -d)` flow resolves to world-writable `/tmp`, so a local user on a shared host can plant skill content the agent then treats as trusted instructions.
+- **`[MODEL]` is no longer dropped for `sdd-task-reviewer` / `sdd-re-review`** (found by this scan, fixed here): both templates spelled that slot `model: [MODEL — REQUIRED: …]`, which carries no literal token, so the caller's `model` value reached the rendered prompt **zero** times and the new diagnostic could not see it. Both now use `model: [MODEL]` plus a `#` comment, matching `implementer-prompt.md`, and are pinned by two fail-without / pass-with assertions.
+- **Packaging hardening targets**: `npm pack` does not rebuild (`prepublishOnly` is publish-only and `out/` is gitignored, so a packed tarball ships on-disk `out/*.js` unreviewed — the build belongs in `prepack`); and `files: ["scripts"]` ships the installer, which prefers a co-located `setup.js`.
+- Verification: `npm test` green **10/10 suites**, PowerShell suite **128/128**, `npx tsc --noEmit` clean, `npm run build` ok, `npm audit` **0** vulnerabilities, `npm run drift` 0 (regression floor re-measured at **396 assertions**: Node.js 236 + Bash 32 + PowerShell 128).
+
+### v6.4.6
 
 - **Full security scan (2026-10-06)**: no new findings across `src/*.ts`, the brainstorming companion server, `scripts/`, and the build pipeline — 0 `eval` / `new Function` / `innerHTML` / `shell: true` in shipped code, argv-only child processes, `crypto.randomBytes` temp nonces, 0 hardcoded secrets, 0 world-writable files (details in [SECURITY.md](SECURITY.md)).
 - **Dependency advisories remediated (`npm audit` 2 → 0)**: GHSA-6qxp-vccf-f47h (high, MCP SDK OAuth credential leak) fixed by raising `@modelcontextprotocol/sdk` to `^1.32.1`; GHSA-jqcg-44mw-7w3h (critical, `proxy-addr` IP spoofing via `express`) fixed with a new `overrides.proxy-addr ^2.0.8` floor. Both are build-time-only and unreachable from the stdio-only shipped bundle.
@@ -217,7 +227,7 @@ To help you choose the right skill, we have structured all 15 skills across the 
 - **v6.4.2 security audit & code review (2026-09-24)**: closed the audit findings across the MCP server, setup scripts, build pipeline, and test harness (details in [SECURITY.md](SECURITY.md)).
   - **Traversal & error hygiene**: skill names are decoded *before* allowlist validation, so double-encoded `..%2f` / `%2e%2e` payloads are rejected with `InvalidParams`; unknown tools and prompts now return actionable `InvalidParams` errors instead of `MethodNotFound`.
   - **TOCTOU & destructive-path defense**: canonical paths are re-verified after symlink checks, cache cleanup is gated by the copy manifest (fork-specific skills can never be deleted), and drift/coverage records are written atomically via temp file + rename.
-  - **Race-free builds & fail-soft sync**: `out/setup.js` builds take an exclusive lock with an mtime staleness re-check, watch-mode output is chmod-ed executable, and missing upstream sources exit cleanly instead of raising false drift.
+  - **Fail-soft sync & always-executable builds**: the four esbuild targets build concurrently, watch-mode output is chmod-ed executable on every rebuild, and missing upstream sources exit cleanly instead of raising false drift.
   - **Honest test harness**: a ref'd watchdog plus server `exit`/`close` handlers end silent hangs, drift tests run behind a network guard, and privilege-limited skips can no longer count as passes — regression floor holds at **365/365** assertions.
 
 ### v6.4.1

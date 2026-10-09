@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.4.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -180,7 +180,17 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.4.6（最新）
+### v6.4.7（最新）
+
+- **プロジェクト全体のセキュリティスキャン（2026-10-09）**：`src/*.ts`、brainstorming コンパニオンサーバー、`scripts/`、`esbuild.js`、npm パッケージングとロックファイルの完全性、秘密情報／パーミッションの衛生、およびすべての自動テストスイートを対象。ベースラインの統制を再検証しクリーン——出荷ソース中の `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` は 0、`child_process` は argv のみ、ハードコードされた秘密情報 0、追跡対象のワールドライタブルファイル 0（詳細は [SECURITY.md](SECURITY.md)）。
+- **`--remove` は有効な MCP エントリが残ったまま成功を報告し得た**（CWE-459、実行による再現）：TOML は最後の `[[mcp_servers.superpowers]]` 配列テーブル以外のすべてを残し、`[[mcp_servers.superpowers.env]]` を孤立させる；JSON は `superpowers` エントリを保持する最初のルートキーだけを消去する；YAML の削除は、内容のあるフローマップ `superpowers: {…}` では no-op に留まる。呼び出し側が指定した `command` はしたがって、成功を報告したアンインストールの後も自動起動し続ける。
+- **YAML の `--remove` は別親の `superpowers` ブロックを削除し得た**（CWE-459）：新しいルートレベルガードは空マップ書き換えはカバーするがエントリ削除はカバーしないため、別の最上位キーの下にネストした `mcp_servers:` が `superpowers` サブツリーを失った——`env` などのユーザーキーが含まれていた。
+- **`SKILLS_PATH` の封じ込めは許可リストではなくブロックリストである**（CWE-22、既存の設計）：`~/.ssh`、`~/.config/gh`、`/Users/Shared` は存在するという理由で受理され、`~/.aws` は存在しないという理由でのみ拒否される。**Linux** では、文書化された `SKILLS_PATH=$(mktemp -d)` フローはワールドライタブルな `/tmp` に解決されるため、共有ホスト上のローカルユーザーがスキルの内容を仕込め、エージェントがそれを信頼された指示として扱ってしまう。
+- **`[MODEL]` は `sdd-task-reviewer` / `sdd-re-review` で破棄されなくなった**（このスキャンで発見、ここでは修正済み）：両テンプレートはそのスロットを `model: [MODEL — REQUIRED: …]` と綴っていたためリテラルのトークンがなく、呼び出し側の `model` 値はレンダリング済みプロンプトに **zero** 回しか到達せず、新しい診断もそれを把握できなかった。両方とも `model: [MODEL]` と `#` コメントを使うようになり、`implementer-prompt.md` と一致したうえで、トークンがなければ失敗・あれば成功となる 2 つのアサーションで固定されている。
+- **パッケージング強化の対象**：`npm pack` は再ビルドしない（`prepublishOnly` は公開専用で、`out/` は gitignore 対象のため、パックされた tarball はレビューされていないディスク上の `out/*.js` を同梱する——ビルドは `prepack` に属する）；また `files: ["scripts"]` はインストーラーを同梱するが、そのインストーラーは同じ場所に置かれた `setup.js` を優先する。
+- 検証：`npm test` グリーン **10/10 スイート**、PowerShell スイート **128/128**、`npx tsc --noEmit` クリーン、`npm run build` ok、`npm audit` **0** 脆弱性、`npm run drift` 0（回帰下限を再測定：**396 アサーション**：Node.js 236 + Bash 32 + PowerShell 128）。
+
+### v6.4.6
 
 - **フルセキュリティスキャン（2026-10-06）**：`src/*.ts`、brainstorming コンパニオンサーバー、`scripts/`、ビルドパイプラインに新たな所見なし——出荷コード中の `eval` / `new Function` / `innerHTML` / `shell: true` は 0、子プロセスは argv のみ、`crypto.randomBytes` による一時ファイル nonce、ハードコードされた秘密情報 0、ワールドライタブルファイル 0（詳細は [SECURITY.md](SECURITY.md)）。
 - **依存関係アドバイザリを解消（`npm audit` 2 → 0）**：GHSA-6qxp-vccf-f47h（高、MCP SDK の OAuth 認証情報漏洩）は `@modelcontextprotocol/sdk` を `^1.32.1` に引き上げて修正；GHSA-jqcg-44mw-7w3h（重大、`express` 経由の `proxy-addr` IP 偽装）は新規 `overrides.proxy-addr ^2.0.8` 下限で修正。いずれもビルド時のみで、stdio 専用の出荷バンドルからは到達不能。

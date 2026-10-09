@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versão](https://img.shields.io/badge/version-6.4.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versão](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licença](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume as informações e instruções de uso para empacotar as skills do Superpowers e o sistema de fluxos de trabalho autônomos em um servidor **Model Context Protocol (MCP)** independente, de alta performance e seguro.
@@ -179,7 +179,17 @@ Para ajudar você a escolher a skill certa, estruturamos as 15 skills ao longo d
 
 ## 🆕 Novidades recentes
 
-### v6.4.6 (atual)
+### v6.4.7 (atual)
+
+- **Varredura completa de segurança do projeto (2026-10-09)**: `src/*.ts`, o servidor companion de brainstorming, `scripts/`, `esbuild.js`, integridade do empacotamento npm e do lockfile, higiene de segredos/permissões e todas as suítes automatizadas. Controles de base reverificados limpos — 0 `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` no código distribuído, `child_process` somente por argv, 0 segredos hardcodados, 0 arquivos rastreados world-writable (detalhes em [SECURITY.md](SECURITY.md)).
+- **`--remove` poderia reportar sucesso enquanto uma entrada MCP viva sobrevivia** (CWE-459, reproduzido por execução): o TOML mantém todas as tabelas de array `[[mcp_servers.superpowers]]` exceto a última e deixa órfã `[[mcp_servers.superpowers.env]]`; o JSON limpa apenas a primeira chave raiz que contém uma entrada `superpowers`; a remoção em YAML é um no-op sobre um mapa de fluxo populado `superpowers: {…}`. Assim, um `command` escolhido pelo chamador continua sendo iniciado automaticamente após uma desinstalação que reportou sucesso.
+- **A remoção em YAML via `--remove` poderia apagar o bloco `superpowers` de outro pai** (CWE-459): a nova guarda em nível de raiz cobre a reescrita do mapa vazio, mas não a exclusão da entrada, de modo que um `mcp_servers:` aninhado sob outra chave de nível superior perdeu sua subárvore `superpowers` — incluindo chaves do usuário como `env`.
+- **O confinamento de `SKILLS_PATH` é uma blocklist, não uma allowlist** (CWE-22, preexistente): `~/.ssh`, `~/.config/gh` e `/Users/Shared` são aceitos porque existem, enquanto `~/.aws` é rejeitado apenas por não existir. No **Linux**, o fluxo documentado `SKILLS_PATH=$(mktemp -d)` resolve para `/tmp` world-writable, de modo que um usuário local em um host compartilhado pode plantar conteúdo de skills que o agente passa a tratar como instruções confiáveis.
+- **O `[MODEL]` não é mais descartado para `sdd-task-reviewer` / `sdd-re-review`** (encontrado por esta varredura, corrigido aqui): ambos os templates escreviam esse slot como `model: [MODEL — REQUIRED: …]`, que não carrega nenhum token literal, então o valor `model` do chamador chegava ao prompt renderizado **zero** vezes e o novo diagnóstico não conseguia enxergá-lo. Agora ambos usam `model: [MODEL]` mais um comentário `#`, alinhados a `implementer-prompt.md`, e ficam fixados por duas asserções que falham sem e passam com.
+- **Alvos de endurecimento do empacotamento**: `npm pack` não reconstrói (`prepublishOnly` é apenas para publicação e `out/` está no gitignore, então um tarball empacotado distribui `out/*.js` em disco sem revisão — o build pertence ao `prepack`); e `files: ["scripts"]` distribui o instalador, que prefere um `setup.js` colocalizado.
+- Verificação: `npm test` verde **10/10 suítes**, suíte PowerShell **128/128**, `npx tsc --noEmit` limpo, `npm run build` ok, `npm audit` **0** vulnerabilidades, `npm run drift` 0 (piso de regressão remedido em **396 asserções**: Node.js 236 + Bash 32 + PowerShell 128).
+
+### v6.4.6
 
 - **Varredura completa de segurança (2026-10-06)**: nenhuma nova descoberta em `src/*.ts`, no servidor companion de brainstorming, em `scripts/` e no pipeline de build — 0 `eval` / `new Function` / `innerHTML` / `shell: true` no código distribuído, processos filho somente por argv, nonces temporários com `crypto.randomBytes`, 0 segredos hardcodados, 0 arquivos world-writable (detalhes em [SECURITY.md](SECURITY.md)).
 - **Avisos de dependências corrigidos (`npm audit` 2 → 0)**: GHSA-6qxp-vccf-f47h (alta, vazamento de credenciais OAuth do SDK MCP) corrigido elevando `@modelcontextprotocol/sdk` a `^1.32.1`; GHSA-jqcg-44mw-7w3h (crítica, falsificação de IP em `proxy-addr` via `express`) corrigido com o novo piso `overrides.proxy-addr ^2.0.8`. Ambos existem só em tempo de compilação e são inalcançáveis a partir do pacote stdio-only.

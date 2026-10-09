@@ -2,7 +2,7 @@
   "name": "superpowers-mcp",
   "displayName": "Superpowers MCP",
   "description": "Superpowers skills library (TDD, debugging, collaboration workflows) as an MCP server for VSCode and Antigravity",
-  "version": "6.4.6",
+  "version": "6.4.7",
   "engines": {
     "node": ">=18"
   },
@@ -48,7 +48,7 @@
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "pretest": "npm run build",
-        "test": "node scripts/run-tests.js",
+    "test": "node scripts/run-tests.js",
     "drift": "node scripts/upstream-drift.js --fetch",
     "drift:record": "node scripts/upstream-drift.js --record",
     "prepublishOnly": "npm run build"

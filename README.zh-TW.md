@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![版本](https://img.shields.io/badge/version-6.4.6-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -178,7 +178,17 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.4.6（最新版）
+### v6.4.7（最新版）
+
+- **完整專案安全性掃描（2026-10-09）**：`src/*.ts`、brainstorming companion server、`scripts/`、`esbuild.js`、npm 打包與 lockfile 完整性、密鑰／權限衛生，以及所有自動化測試套件。基準控管重新驗證為乾淨——發佈程式碼中 `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` 為 0、`child_process` 僅用 argv、0 硬編碼密鑰、0 全域可寫的受追蹤檔案（詳見 [SECURITY.md](SECURITY.md)）。
+- **`--remove` 可能在仍有存活的 MCP 項目時回報成功**（CWE-459，已以實際執行重現）：TOML 會保留除最後一個 `[[mcp_servers.superpowers]]` 陣列表之外的所有項目，並使 `[[mcp_servers.superpowers.env]]` 淪為孤兒；JSON 只清除第一個含有 `superpowers` 項目的根層 key；YAML 移除對已填滿的 flow map `superpowers: {…}` 是無動作。因此呼叫端自選的 `command` 在回報成功的解除安裝之後，仍會持續自動啟動。
+- **YAML `--remove` 可能刪除另一個父層的 `superpowers` 區塊**（CWE-459）：新的根層守衛涵蓋了空映射重寫，但未涵蓋項目刪除，因此位於其他頂層 key 底下的巢狀 `mcp_servers:` 會失去其 `superpowers` 子樹——包含 `env` 等使用者 key。
+- **`SKILLS_PATH` 的範圍限制是封鎖清單，而非允許清單**（CWE-22，既有問題）：`~/.ssh`、`~/.config/gh` 與 `/Users/Shared` 之所以被接受，是因為它們存在；而 `~/.aws` 被拒絕也只是因為不存在。在 **Linux** 上，文件中記載的 `SKILLS_PATH=$(mktemp -d)` 流程會解析到全域可寫的 `/tmp`，因此共用主機上的本機使用者可以植入技能內容，而 Agent 隨後會把它當作受信任的指令。
+- **`[MODEL]` 對 `sdd-task-reviewer` / `sdd-re-review` 不再被丟棄**（由本次掃描發現，並已於此修正）：這兩個範本原本都把該欄位寫成 `model: [MODEL — REQUIRED: …]`，其中不含任何字面 token，因此呼叫端的 `model` 值先前抵達渲染後 prompt 的次數為 **zero**，新的診斷訊息也無法看見它。兩者現皆改用 `model: [MODEL]` 加上一行 `#` 註解，與 `implementer-prompt.md` 一致，並由兩個「未帶入則失敗／帶入則通過」的斷言加以釘住。
+- **打包強化目標**：`npm pack` 不會重新建置（`prepublishOnly` 只在發佈時執行，且 `out/` 已被 gitignore，因此打包出的 tarball 會出貨未經審查的磁碟上 `out/*.js`——建置應該放在 `prepack`）；而 `files: ["scripts"]` 會連安裝程式一起出貨，它偏好同目錄的 `setup.js`。
+- 驗證：`npm test` 全綠（**10/10 套件**）、PowerShell 套件 **128/128**、`npx tsc --noEmit` 乾淨、`npm run build` 正常、`npm audit` **0** 漏洞、`npm run drift` 0（迴歸基準重新量測為 **396 斷言**：Node.js 236 + Bash 32 + PowerShell 128）。
+
+### v6.4.6
 
 - **完整安全性掃描（2026-10-06）**：`src/*.ts`、brainstorming companion server、`scripts/` 與建置流程皆無新增發現——發佈程式碼中 `eval` / `new Function` / `innerHTML` / `shell: true` 為 0、子程序僅用 argv、`crypto.randomBytes` 暫存檔隨機值、0 硬編碼密鑰、0 全域可寫檔案（詳見 [SECURITY.md](SECURITY.md)）。
 - **依賴安全諮詢已修復（`npm audit` 2 → 0）**：GHSA-6qxp-vccf-f47h（高危，MCP SDK OAuth 憑證外洩）透過升級 `@modelcontextprotocol/sdk` 至 `^1.32.1` 修復；GHSA-jqcg-44mw-7w3h（嚴重，經由 `express` 的 `proxy-addr` IP 偽造）以新增 `overrides.proxy-addr ^2.0.8` 下限修復。兩者皆僅存在於建置期，stdio-only 的發佈包無法觸及。
