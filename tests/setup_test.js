@@ -232,6 +232,82 @@ it("should stay linear on YAML padded with long whitespace runs", () => {
     assert.ok(elapsed < 5000, `Padded YAML handling must stay linear (took ${elapsed}ms)`);
 });
 
+it("should scan the managed YAML entry in linear time (CodeQL js/polynomial-redos #9/#10)", () => {
+    // The managed-entry matcher used to be
+    // /^(\s*)["']?superpowers["']?\s*:\s*(?:\{[ \t]*\})?\s*(?:#.*)?$/ — an optional
+    // `{…}` group sat between two `\s*` runs, so any line the pattern could not
+    // complete (`superpowers:`, a long space run, one stray character) forced the
+    // engine to retry every split of that run: O(n²). Measured 18 s for a 200 KB
+    // malformed line, which stalls the whole setup. Both flagged call sites are
+    // covered: the --remove scan and the install scan.
+    const padding = " ".repeat(40000);
+    const payload = `mcp_servers:\n  superpowers:${padding}{${padding}\n  other:\n    command: o\n`;
+
+    const start = Date.now();
+    const removed = updateYamlConfig(payload, "npx", ["-y", "superpowers-mcp"], true);
+    const installed = updateYamlConfig(payload, "npx", ["-y", "superpowers-mcp"], false);
+    const elapsed = Date.now() - start;
+
+    assert.ok(
+        removed.includes(`  superpowers:${padding}`),
+        `an unparsable entry must survive --remove verbatim: ${JSON.stringify(removed.slice(0, 120))}`
+    );
+    assert.ok(removed.includes("  other:"), "sibling servers must survive --remove");
+    assert.ok(installed.includes('command: "npx"'), "install must still write the entry");
+    assert.ok(installed.includes("  other:"), "install must preserve sibling servers");
+
+    // Relaxed threshold (#6): only guards against super-linear blowups; the
+    // absolute value is dominated by CI jitter, not by the algorithm.
+    assert.ok(elapsed < 500, `Padded unparsable entry must stay linear (took ${elapsed}ms)`);
+});
+
+it("should treat exactly the YAML entry shapes the old matcher accepted", () => {
+    // Pins the semantics of the linear scanner that replaced `managedEntryPattern`.
+    // Every expectation below was taken from the removed regex itself, so a
+    // mismatch means the ReDoS fix changed which lines --remove deletes or
+    // install replaces. The tab-indented line is matched by the pattern but
+    // survives --remove because its indentation differs from the block's.
+    const recognized = [
+        "  superpowers:",
+        "  superpowers: {}",
+        "  superpowers: {  }",
+        "  superpowers: {  }  # note",
+        "  superpowers: # note",
+        '  "superpowers":',
+        '  "superpowers": {}',
+        "  'superpowers' :",
+        "  superpowers :",
+        "  superpowers:{ }",
+    ];
+    const preserved = [
+        "  superpowers: garbage",
+        "  superpowers: {",
+        "  superpowers: {} extra",
+        "  superpowersOther:",
+        "  superpowersX: {}",
+        "  superpowers",
+        "\tsuperpowers:",
+    ];
+    const treatedAsManaged = (line) => {
+        // Sibling first: --remove takes the block indentation from the first
+        // child, so the line under test must not be the one that defines it.
+        const out = updateYamlConfig(
+            `mcp_servers:\n  other:\n    command: o\n${line}\n`,
+            "npx",
+            ["-y", "superpowers-mcp"],
+            true
+        );
+        return !out.includes(line);
+    };
+
+    for (const line of recognized) {
+        assert.ok(treatedAsManaged(line), `--remove must clear a managed entry: ${JSON.stringify(line)}`);
+    }
+    for (const line of preserved) {
+        assert.ok(!treatedAsManaged(line), `--remove must leave a non-entry line alone: ${JSON.stringify(line)}`);
+    }
+});
+
 it("should emit clean desktop import JSON without modifying client files", () => {
     const { execFileSync, spawnSync } = require("child_process");
     const cli = path.join(__dirname, "../out/setup.js");

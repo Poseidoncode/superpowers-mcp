@@ -529,6 +529,65 @@ function extractInlineComment(line: string): string {
 }
 
 /**
+ * Single pass over a whitespace run for the managed-entry scanner below.
+ * Sticky (`y`) so `exec` only ever matches at `lastIndex`: with plain `g` a miss
+ * resumes scanning at the next index, which would let the scanner jump straight
+ * over the very character it was asked to inspect. A lone `\s+` has nothing
+ * after it, so it cannot backtrack either.
+ */
+const YAML_SPACE_RUN = /\s+/y;
+
+function skipYamlSpaces(text: string, from: number): number {
+    YAML_SPACE_RUN.lastIndex = from;
+    const run = YAML_SPACE_RUN.exec(text);
+    return run === null ? from : from + run[0].length;
+}
+
+// A lone `\r` or Unicode line separator can survive the /\r?\n/ split that
+// produced a line, and the old `.*` comment tail could not cross one either.
+const LINE_BREAK = /[\n\r\u2028\u2029]/;
+
+/**
+ * Matches one managed `superpowers:` child entry and returns its indentation
+ * ("" at column 0), or null when the line is not such an entry.
+ *
+ * Replaces the `managedEntryPattern` regex (CodeQL js/polynomial-redos #9/#10).
+ * `/^(\s*)["']?superpowers["']?\s*:\s*(?:\{[ \t]*\})?\s*(?:#.*)?$/` put an
+ * optional `{…}` group between two `\s*` runs, so a line that could not be
+ * completed — an ordinary `superpowers:` followed by a long space run and one
+ * stray character — forced the engine to retry every possible split of that
+ * run: O(n²). Measured 44 s for a single 320 KB line, i.e. a config file the
+ * user edited could hang the setup. Each index below is visited at most once,
+ * so matching is O(n) and backtrack-free, keeping the anchored-pattern
+ * discipline the rest of this file documents.
+ */
+function managedEntryIndent(line: string): string | null {
+    const indentEnd = skipYamlSpaces(line, 0);
+    let pos = indentEnd;
+    if (line[pos] === '"' || line[pos] === "'") pos++;
+    if (!line.startsWith("superpowers", pos)) return null;
+    pos += "superpowers".length;
+    if (line[pos] === '"' || line[pos] === "'") pos++;
+    pos = skipYamlSpaces(line, pos);
+    if (line[pos] !== ":") return null;
+    pos = skipYamlSpaces(line, pos + 1);
+    // Empty flow mapping: without recognizing `superpowers: {}` the updater is
+    // blind to it and install appends a second `superpowers:` beside it — a
+    // duplicate key that YAML resolves last-wins, silently dropping the entry.
+    if (line[pos] === "{") {
+        let end = pos + 1;
+        while (line[end] === " " || line[end] === "\t") end++;
+        if (line[end] !== "}") return null;
+        pos = skipYamlSpaces(line, end + 1);
+    }
+    // Only an inline comment may follow; the rest of the line must be consumed.
+    if (pos !== line.length) {
+        if (line[pos] !== "#" || LINE_BREAK.test(line.slice(pos + 1))) return null;
+    }
+    return line.slice(0, indentEnd);
+}
+
+/**
  * Parses simple YAML to locate/inject mcp_servers.superpowers safely without external dependencies.
  */
 export function updateYamlConfig(existingContent: string, cmd: string, args: string[], remove = false, yamlProfile: "mcp" | "goose" = "mcp"): string {
@@ -576,10 +635,6 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
     const rootKeyPattern = new RegExp(`^(\\s*)["']?${spec.rootKey}["']?\\s*:`);
     const rootHeaderPattern = new RegExp(`^(\\s*)["']?${spec.rootKey}["']?\\s*:\\s*(?:#.*)?$`);
     const ownedKeyPattern = new RegExp(`^\\s*["']?(?:${spec.ownedKeys.join("|")})["']?\\s*:`);
-    // The empty flow mapping is load-bearing: without it `superpowers: {}` is
-    // invisible here, and install then appends a second `superpowers:` beside it —
-    // a duplicate key YAML resolves last-wins, silently dropping the new entry.
-    const managedEntryPattern = /^(\s*)["']?superpowers["']?\s*:\s*(?:\{[ \t]*\})?\s*(?:#.*)?$/;
     const lines = existingContent ? existingContent.split(/\r?\n/) : [];
     // Line edits are newline-agnostic (lines are split on /\r?\n/), so every
     // reassembly must restore the file's original convention. CRLF configs are
@@ -697,10 +752,10 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
                     inMcpServers = false;
                     inSuperpowers = false;
                 } else {
-                    const spMatch = line.match(managedEntryPattern);
-                    if (spMatch && spMatch[1] === indent) {
+                    const managedIndent = managedEntryIndent(line);
+                    if (managedIndent !== null && managedIndent === indent) {
                         inSuperpowers = true;
-                        superpowersIndent = spMatch[1].length;
+                        superpowersIndent = managedIndent.length;
                         removedEntry = true;
                         continue;
                     }
@@ -773,7 +828,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             break;
         }
         const leadingWhitespace = line.match(/^(\s*)/)?.[1] || "";
-        if (leadingWhitespace === indent && managedEntryPattern.test(line)) {
+        if (leadingWhitespace === indent && managedEntryIndent(line) !== null) {
             superpowersIndex = i;
             break;
         }
