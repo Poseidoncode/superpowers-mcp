@@ -18,6 +18,10 @@ if ($args.Count -lt 4) {
 $plan = $args[0]
 $n = $args[1]
 $base = $args[2]
+if ($n -notmatch '^[0-9]+$') {
+    [Console]::Error.WriteLine("usage: task-done.ps1 PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND [ARGS...]")
+    exit 2
+}
 # PowerShell consumes an unquoted `--` as its own end-of-parameters marker,
 # so the documented `... BASE -- CMD` arrives here WITHOUT the separator; a
 # quoted "--" survives and is skipped below. Unlike the sh twin, this port
@@ -32,7 +36,7 @@ if ($cmdArgs[0] -eq "--") {
 }
 $sdd = Join-Path $PSScriptRoot "../../subagent-driven-development/scripts"
 
-& git rev-parse --verify --quiet $base >$null 2>&1
+& git rev-parse --verify --quiet "$base" >$null 2>&1
 if ($LASTEXITCODE -ne 0) {
     [Console]::Error.WriteLine("bad BASE: $base")
     exit 2
@@ -76,7 +80,7 @@ $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 if (-not (Test-Path -LiteralPath $ledger -PathType Leaf)) {
     [System.IO.File]::WriteAllText($ledger, "# SDD ledger — plan: $plan" + [Environment]::NewLine, $utf8NoBom)
 }
-$base7 = (& git rev-parse --short=7 $base).Trim()
+$base7 = (& git rev-parse --short=7 "$base").Trim()
 $head7 = (& git rev-parse --short=7 HEAD).Trim()
 $line = "Task ${n}: complete (commits $base7..$head7, tests: $cmd → $last)"
 [System.IO.File]::AppendAllText($ledger, $line + [Environment]::NewLine, $utf8NoBom)

@@ -185,7 +185,7 @@ flowchart LR
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD 태스크 구현 서브에이전트 프롬프트. |
 | **`sdd-task-reviewer`** | `brief_file`, `report_file`, `review_file`, ... | SDD 단일 태스크 검토 서브에이전트 프롬프트. |
 | **`sdd-re-review`** | `brief_file`, `review_file`, `previous_findings`, ... | SDD 수정 라운드 차분 검토 프롬프트. |
-| **`spec-reviewer`** | `spec_file` | 설계 스펙 검토 프롬프트. |
+| **`builder-check`** | `design_file, domain` | 승인된 설계를 빌더 관점에서 검증하고 계획 전 남은 질문을 정리하는 프롬프트. |
 | **`plan-reviewer`** | `plan_file`, `spec_file` | 구현 계획 검토 프롬프트. |
 
 ---

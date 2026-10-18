@@ -182,7 +182,7 @@ Cuando el agente controlador despacha un subagente de tarea:
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | Plantilla de prompt de subagente implementador de tareas SDD. |
 | **`sdd-task-reviewer`** | `brief_file`, `report_file`, `review_file`, ... | Plantilla de prompt revisor de spec y calidad por tarea SDD. |
 | **`sdd-re-review`** | `brief_file`, `review_file`, `previous_findings`, ... | Plantilla de re-revisor SDD de alcance de ronda de corrección. |
-| **`spec-reviewer`** | `spec_file` | Plantilla de prompt revisor adversarial de specs de diseño. |
+| **`builder-check`** | `design_file, domain` | Prompt de verificación del diseño aprobado desde la óptica del constructor. |
 | **`plan-reviewer`** | `plan_file`, `spec_file` | Plantilla de prompt revisor adversarial de planes de implementación. |
 
 ---

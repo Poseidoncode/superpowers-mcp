@@ -12,7 +12,9 @@ param (
     [switch]$Bun,
     [switch]$Remove,
     [switch]$Backup,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$ExtraArgs
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,6 +31,7 @@ if ($Bun) { $argsList += "--bun" }
 if ($Remove) { $argsList += "--remove" }
 if ($Backup) { $argsList += "--backup" }
 if ($DryRun) { $argsList += "--dry-run" }
+if ($ExtraArgs) { $argsList += $ExtraArgs }
 
 # Check for local setup.js
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path -ErrorAction SilentlyContinue
@@ -37,7 +40,7 @@ $localSetup = if ($scriptDir) { Join-Path $scriptDir "setup.js" } else { "" }
 if ($localSetup -and (Test-Path $localSetup) -and (Get-Command node -ErrorAction SilentlyContinue)) {
     Write-Host "📦 Using local setup engine..." -ForegroundColor Green
     & node $localSetup @argsList
-    exit $LASTEXITCODE
+    return $LASTEXITCODE
 }
 
 # Check for bunx or npx
@@ -51,9 +54,9 @@ if (Get-Command bunx -ErrorAction SilentlyContinue) {
 if ($runner) {
     Write-Host "🚀 Running global setup via $runner..." -ForegroundColor Green
     & $runner -y superpowers-mcp setup @argsList
-    exit $LASTEXITCODE
+    return $LASTEXITCODE
 }
 
 Write-Host "❌ Error: Node.js (npx) or Bun (bunx) is required to run Superpowers MCP." -ForegroundColor Red
 Write-Host "Please install Node.js from https://nodejs.org or Bun from https://bun.sh and try again." -ForegroundColor Yellow
-exit 1
+return 1

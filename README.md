@@ -22,7 +22,7 @@ This document summarizes the information and usage instructions for packaging th
 | Protocol Feature | Items / Count | Description |
 | :--- | :--- | :--- |
 | **Tools** | `list_skills`, `read_skill` | Discover, search, and load full skill instructions and checklists on demand. |
-| **Prompts** | 9 Native Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
+| **Prompts** | 9 Native Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `builder-check`, `plan-reviewer` |
 | **Resources** | 15 Skill URIs + 1 Guide | `skill://superpowers/<skill-name>` plus `guide://superpowers/skill-compositions` |
 
 ### Chatting with the AI Agent (Basic Usage)
@@ -188,7 +188,7 @@ To help you choose the right skill, we have structured all 15 skills across the 
 - **`[MODEL]` is no longer dropped for `sdd-task-reviewer` / `sdd-re-review`** (found by this scan, fixed here): both templates spelled that slot `model: [MODEL — REQUIRED: …]`, which carries no literal token, so the caller's `model` value reached the rendered prompt **zero** times and the new diagnostic could not see it. Both now use `model: [MODEL]` plus a `#` comment, matching `implementer-prompt.md`, and are pinned by two fail-without / pass-with assertions.
 - **CodeQL `js/polynomial-redos` #9/#10 closed — the YAML managed-entry matcher was quadratic** (reproduced by execution): `managedEntryPattern` put an optional `{…}` group between two `\s*` runs, so any line it could not complete made the engine retry every split of that whitespace run. No exotic payload is needed — `superpowers:` + a long space run + **one stray character** is an ordinary malformed config line, and a 200 KB line cost **18.3 s** in a single match, stalling `setup`. Replaced by `managedEntryIndent()`, a single-pass scanner: **18.3 s → 0.08 ms**. The accepted-line set is provably unchanged (a **300 030**-line differential fuzz against the removed regex found **0** mismatches), the three sibling patterns were measured linear and left alone, and two new `tests/setup_test.js` cases pin both the timing and the exact accepted set (verified fail-on-vulnerable / pass-on-fixed).
 - **Packaging hardening targets**: `npm pack` does not rebuild (`prepublishOnly` is publish-only and `out/` is gitignored, so a packed tarball ships on-disk `out/*.js` unreviewed — the build belongs in `prepack`); and `files: ["scripts"]` ships the installer, which prefers a co-located `setup.js`.
-- Verification: `npm test` green **10/10 suites**, PowerShell suite **128/128**, `npx tsc --noEmit` clean, `npm run build` ok, `npm audit` **0** vulnerabilities, `npm run drift` 0 (regression floor re-measured at **398 assertions**: Node.js 238 + Bash 32 + PowerShell 128).
+- Verification: `npm test` green **13/13 suites** (on Windows, symlink-dependent cases need Developer Mode / `SeCreateSymbolicLinkPrivilege` or they report as skips), PowerShell suite **128/128**, `npx tsc --noEmit` clean, `npm run build` ok, `npm audit` **0** vulnerabilities, `npm run drift` 0 (regression floor re-measured at **398 assertions**: Node.js 238 + Bash 32 + PowerShell 128).
 
 ### v6.4.6
 

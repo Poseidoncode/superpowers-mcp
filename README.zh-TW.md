@@ -22,7 +22,7 @@
 | 協議功能 | 包含項目 / 數量 | 說明 |
 | :--- | :--- | :--- |
 | **Tools (工具)** | `list_skills`, `read_skill` | 依需求隨時探索、搜尋並載入技能完整內容與操作規範。 |
-| **Prompts (提示詞)** | 9 個原生 Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
+| **Prompts (提示詞)** | 9 個原生 Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `builder-check`, `plan-reviewer` |
 | **Resources (資源)** | 15 項技能 URI + 1 項指南 | `skill://superpowers/<skill-name>`，以及 `guide://superpowers/skill-compositions` |
 
 ### 與 AI Agent 對話（基礎操作）

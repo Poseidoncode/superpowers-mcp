@@ -22,7 +22,7 @@
 | 프로토콜 기능 | 포함 항목 / 수량 | 설명 |
 | :--- | :--- | :--- |
 | **Tools** | `list_skills`, `read_skill` | 전체 스킬 지침과 체크리스트를 온디맨드로 탐색, 검색 및 로드합니다. |
-| **Prompts** | 9개의 네이티브 Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
+| **Prompts** | 9개의 네이티브 Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `builder-check`, `plan-reviewer` |
 | **Resources** | 15개 Skill URI + 1개 가이드 | `skill://superpowers/<skill-name>` 및 `guide://superpowers/skill-compositions` |
 
 ### AI 에이전트와 대화하기 (기본 사용법)

@@ -12,6 +12,10 @@ if ($args.Count -lt 2 -or $args.Count -gt 3) {
 
 $plan = $args[0]
 $taskNumber = $args[1]
+if ($taskNumber -notmatch '^[0-9]+$') {
+    [Console]::Error.WriteLine("usage: task-brief.ps1 PLAN_FILE TASK_NUMBER [OUTFILE]")
+    exit 2
+}
 if (-not (Test-Path -LiteralPath $plan -PathType Leaf)) {
     [Console]::Error.WriteLine("no such plan file: $plan")
     exit 2
@@ -42,7 +46,8 @@ foreach ($line in [System.IO.File]::ReadLines((Resolve-Path -LiteralPath $plan).
     }
 }
 
-Set-Content -LiteralPath $out -Value $selected -Encoding utf8
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+[System.IO.File]::WriteAllLines($out, $selected, $utf8NoBom)
 if ((-not (Test-Path -LiteralPath $out)) -or ((Get-Item -LiteralPath $out).Length -eq 0)) {
     [Console]::Error.WriteLine("task $taskNumber not found in $plan (no heading matching 'Task $taskNumber')")
     exit 3

@@ -177,7 +177,13 @@ check("9 (parseArgs)", () => {
     expectThrows(() => parseArgs(["--nope"]), "Unknown argument");
     expectThrows(() => parseArgs(["--ref"]), "Missing value");
     expectThrows(() => parseArgs(["--ignore"]), "Missing value");
-    assert.doesNotThrow(() => requireCompleteTreeForRecord({ truncated: false }));
+    assert.doesNotThrow(() =>
+        requireCompleteTreeForRecord({ truncated: false, commit: "abc123", files: { "a.md": "x" } })
+    );
+    expectThrows(
+        () => requireCompleteTreeForRecord({ truncated: false, commit: "", files: {} }),
+        "Refusing to record an empty upstream tree"
+    );
     expectThrows(
         () => requireCompleteTreeForRecord({ truncated: true }),
         "Refusing to record a truncated upstream tree"

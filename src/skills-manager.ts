@@ -218,6 +218,17 @@ export class SkillsManager {
                 return "-";
             }
         };
+        // SKILL.md 本體用 stat（跟隨符號連結）：lstat 只會看到連結本身的
+        // inode/size/mtime，檔案內容被就地覆寫時指紋完全不變，快取永遠命中
+        // 舊內容。連結身分的偵測仍由上面的 lstat 版 describe 負責。
+        const describeFollow = async (target: string): Promise<string> => {
+            try {
+                const stat = await fs.stat(target);
+                return `${stat.mode}\u0000${stat.ino}\u0000${stat.size}\u0000${stat.mtimeMs}`;
+            } catch {
+                return "-";
+            }
+        };
 
         try {
             const entries = await fs.readdir(this.skillsPath, { withFileTypes: true });
@@ -234,7 +245,7 @@ export class SkillsManager {
                     // 替換，因此每個技能僅需一次 lstat。符號連結額外比對連結本身的
                     // inode，以便偵測「連結被重新指向」。
                     const linkInfo = kind === "l" ? await describe(skillDir) : "-";
-                    const fileInfo = await describe(path.join(skillDir, "SKILL.md"));
+                    const fileInfo = await describeFollow(path.join(skillDir, "SKILL.md"));
                     return `${entry.name}\u0000${kind}\u0000${linkInfo}\u0000${fileInfo}`;
                 })
             );
@@ -302,7 +313,7 @@ export class SkillsManager {
                             "code" in err &&
                             (err as { code?: string }).code === "ENOENT";
                         if (!isEnoent) {
-                            process.stderr.write(`Warning: Failed to read skill file in directory "${entry.name}"\n`);
+                            process.stderr.write(`Warning: Failed to read skill file in directory "${entry.name}": ${err instanceof Error ? err.message : String(err)}\n`);
                         }
                         return null;
                     }
@@ -355,7 +366,7 @@ export class SkillsManager {
         // 只在掃描成功且本輪次依然是最新的 scan 時更新快取，防止舊 scan 覆寫新快取
         if (scanned && epoch === this.scanEpoch) {
             this.skillMap = newSkillMap;
-            this.cachedSkills = skills.sort((a, b) => a.name.localeCompare(b.name));
+            this.cachedSkills = skills.sort((a, b) => a.name.localeCompare(b.name, "en"));
             this.lastSuccessfulScanAt = Date.now();
             this.contentCache = newContentCache;
             this.contentCacheStat = newContentStat;
@@ -366,7 +377,7 @@ export class SkillsManager {
         if (scanned) {
             // 被更新的 scan 取代：不快取，但仍要回傳實際讀到的清單，
             // 否則等待中的呼叫端會拿到空陣列。
-            return skills.sort((a, b) => a.name.localeCompare(b.name));
+            return skills.sort((a, b) => a.name.localeCompare(b.name, "en"));
         }
         // 掃描失敗：丟棄指紋，讓下一次呼叫強制走完整重掃。
         this.skillSignature = null;
@@ -446,6 +457,15 @@ export class SkillsManager {
             ) {
                 throw new Error("File changed while opening");
             }
+            // Windows 沒有 O_NOFOLLOW，reparse point 可能在 pre-open stat 與 open
+            // 之間被替換：開檔後立即比對 size/mtimeMs，若與開檔前快照不符就丟棄。
+            // dev/ino 在 Windows 上不足以識別同一檔案，此檢查補上 TOCTOU 缺口。
+            if (
+                process.platform === "win32" &&
+                (actual.size !== stat.size || actual.mtimeMs !== stat.mtimeMs)
+            ) {
+                throw new Error("File changed while opening");
+            }
 
             const fileSize = actual.size;
             let fileBuffer: Buffer;
@@ -491,7 +511,13 @@ export class SkillsManager {
             }
             return { content: fileBuffer.toString("utf-8"), realFilePath, stat: after };
         } finally {
-            await fd.close();
+            // close 本身的錯誤不可蓋掉 try 區塊的原始錯誤（例如讀取中失敗後
+            // close 又失敗時，呼叫端應看到讀取錯誤而非 close 錯誤）。
+            try {
+                await fd.close();
+            } catch {
+                // 忽略：原始錯誤（若有）優先傳遞。
+            }
         }
     }
 
@@ -533,7 +559,13 @@ export class SkillsManager {
             this.canonicalPathMap.set(realFilePath, realFilePath);
             return body;
         } catch (err) {
-            throw new Error(`Failed to read skill content: ${err instanceof Error ? err.message : String(err)}`);
+            // 保留原始錯誤碼（如 ENOENT），讓呼叫端能區分「檔案不存在」與
+            // 其他讀取失敗，對應映射到 InvalidRequest/InvalidParams 而非 InternalError。
+            const wrapped = new Error(`Failed to read skill content: ${err instanceof Error ? err.message : String(err)}`);
+            if (err && typeof err === "object" && "code" in err) {
+                (wrapped as { code?: unknown }).code = (err as { code?: unknown }).code;
+            }
+            throw wrapped;
         }
     }
 

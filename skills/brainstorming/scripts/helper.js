@@ -27,7 +27,8 @@
   }
 
   function reloadAfterRecovery() {
-    window.location.replace('/');
+    const href = window.location.href;
+    window.location.replace(href && href.indexOf('key=') !== -1 ? href : '/');
   }
 
   // Reflect connection state in the frame's status pill (absent on full-doc screens).

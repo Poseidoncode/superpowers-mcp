@@ -22,7 +22,7 @@ Este documento resume la información y las instrucciones de uso para empaquetar
 | Función del protocolo | Elementos / Cantidad | Descripción |
 | :--- | :--- | :--- |
 | **Tools** | `list_skills`, `read_skill` | Descubre, busca y carga las instrucciones completas y listas de verificación de cada skill bajo demanda. |
-| **Prompts** | 9 Native Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
+| **Prompts** | 9 Native Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `builder-check`, `plan-reviewer` |
 | **Resources** | 15 Skill URIs + 1 Guide | `skill://superpowers/<skill-name>` además de `guide://superpowers/skill-compositions` |
 
 ### Conversar con el agente de IA (uso básico)

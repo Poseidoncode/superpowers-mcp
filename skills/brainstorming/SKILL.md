@@ -135,7 +135,8 @@ your path and complete them in order.
 6. **Write design doc** — save to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` and commit
 7. **Planning-handoff review** — simulate the next planning stage, rate and inventory its burdens, and take the required bounded branch (see below)
 8. **User reviews written spec** — ask user to review the spec file before proceeding
-9. **Transition to implementation** — invoke writing-plans skill to create implementation plan
+9. **Builder check** — a fresh subagent reads the design as its builder and lists what they'd still need to ask; answer what's answered, decide the minor calls, bring the user only what changes the build (see below)
+10. **Transition to implementation** — invoke writing-plans skill to create implementation plan
 
 ## Process Flow
 
@@ -156,6 +157,7 @@ digraph brainstorming {
     "Write design doc" [shape=box];
     "Planning-handoff review\n(rate; burden ledger; bounded branch)" [shape=box];
     "User reviews spec?" [shape=diamond];
+    "Builder check\n(fresh subagent; one round)" [shape=box];
     "Invoke writing-plans skill" [shape=doublecircle];
     "Hidden complexity? Upgrade path" [shape=box];
 
@@ -177,7 +179,8 @@ digraph brainstorming {
     "Write design doc" -> "Planning-handoff review\n(rate; burden ledger; bounded branch)";
     "Planning-handoff review\n(rate; burden ledger; bounded branch)" -> "User reviews spec?";
     "User reviews spec?" -> "Write design doc" [label="changes requested"];
-    "User reviews spec?" -> "Invoke writing-plans skill" [label="approved"];
+    "User reviews spec?" -> "Builder check\n(fresh subagent; one round)" [label="approved"];
+    "Builder check\n(fresh subagent; one round)" -> "Invoke writing-plans skill";
 }
 ```
 
@@ -325,6 +328,25 @@ After the spec review loop passes, ask the user to review the written spec befor
 > "Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan."
 
 Wait for the user's response. If they request changes, make them and re-run the spec review loop. Only proceed once the user approves.
+
+**Builder Check:**
+After the user approves the spec, dispatch a fresh subagent with
+`builder-check-prompt.md` in this directory (fill in the domain and the
+design document path) before handing anything to planning. When telling
+the user the design is written up, say a reviewer will read it first and
+you may come back once with a few questions. Sort what the builder asks
+into three piles:
+
+- **Answered already** by the conversation or the repository: put the answer in the document.
+- **Minor:** a sensible builder could settle it without changing what gets built. Settle it yourself and mark it in the document as your call.
+- **Theirs:** only the human partner can answer it, and the answer changes what gets built.
+
+Bring the "theirs" pile in one message, most important first. Update the
+document with the answers, then hand it over with a short list of the
+calls you made so they can check those while reading. That's the only
+round of questions the check produces. Without a subagent tool, read the
+document as that builder yourself. Do not begin planning until this round
+closes.
 
 **Implementation:**
 

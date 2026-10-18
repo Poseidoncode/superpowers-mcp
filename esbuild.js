@@ -22,7 +22,7 @@ const chmodPlugin = {
             for (const execPath of ["out/server.js", "out/setup.js"]) {
                 if (fs.existsSync(execPath)) {
                     try {
-                        fs.chmodSync(execPath, "755");
+                        fs.chmodSync(execPath, 0o755);
                     } catch (chmodErr) {
                         console.warn(`Warning: Failed to set executable permissions on ${execPath}:`, chmodErr);
                     }

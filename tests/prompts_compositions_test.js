@@ -539,6 +539,33 @@ server.stdout.on("data", (data) => {
                     process.exit(1);
                 }
                 console.log("✅ skill-composition rejects keywords buried inside unrelated words");
+                sendRequest({
+                    jsonrpc: "2.0",
+                    id: 19,
+                    method: "prompts/get",
+                    params: {
+                        name: "builder-check",
+                        arguments: { design_file: "/tmp/design-19.md", domain: "embedded systems engineer" }
+                    }
+                });
+            } else if (response.id === 19) {
+                // builder-check (replaces spec-reviewer in the v7 sync): the bare
+                // [DOCUMENT_PATH] placeholder must interpolate exactly once, and
+                // the explicit domain — which the template only names inside
+                // guidance text — must land once in the legacy append. Neither
+                // value may leak in a second time.
+                const text = response.result?.messages?.[0]?.content?.text || "";
+                const docCount = text.split("/tmp/design-19.md").length - 1;
+                const domainCount = text.split("embedded systems engineer").length - 1;
+                if (docCount !== 1 || domainCount !== 1) {
+                    console.error(`❌ prompts/get builder-check interpolation wrong (doc x${docCount}, domain x${domainCount}):`, text.slice(0, 400));
+                    process.exit(1);
+                }
+                if (text.includes("[DOCUMENT_PATH]")) {
+                    console.error("❌ prompts/get builder-check left [DOCUMENT_PATH] uninterpolated:", text.slice(0, 400));
+                    process.exit(1);
+                }
+                console.log("✅ prompts/get builder-check interpolates document and domain exactly once");
                 console.log("🎉 ALL ADVANCED COMPOSITIONS & SECURITY PROMPT TESTS PASSED 100%!");
                 finished = true;
                 server.kill();

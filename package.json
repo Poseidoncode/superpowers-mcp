@@ -51,6 +51,7 @@
     "test": "node scripts/run-tests.js",
     "drift": "node scripts/upstream-drift.js --fetch",
     "drift:record": "node scripts/upstream-drift.js --record",
+    "prepack": "npm run build",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

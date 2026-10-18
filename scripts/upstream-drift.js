@@ -66,6 +66,9 @@ function parseArgs(argv) {
             throw new Error(`Unknown argument: ${arg}`);
         }
     }
+    if (opts.repo && !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(opts.repo)) {
+        throw new Error(`Invalid --repo "${opts.repo}" (expected owner/name)`);
+    }
     return opts;
 }
 
@@ -239,6 +242,9 @@ function reportDrift(drift) {
 function requireCompleteTreeForRecord(tree) {
     if (tree.truncated) {
         throw new Error("Refusing to record a truncated upstream tree; the existing baseline was left unchanged");
+    }
+    if (!tree.commit || Object.keys(tree.files || {}).length === 0) {
+        throw new Error("Refusing to record an empty upstream tree; the existing baseline was left unchanged");
     }
 }
 

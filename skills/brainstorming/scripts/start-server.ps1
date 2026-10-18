@@ -121,7 +121,7 @@ if ($urlHost -eq "") {
 function Test-LoopbackHost {
     param([string]$HostValue)
     $normalized = $HostValue.Trim().TrimStart('[').TrimEnd(']').ToLowerInvariant()
-    if ($normalized -eq "localhost" -or $normalized -eq "::1" -or $normalized.StartsWith("127.")) {
+    if ($normalized -eq "localhost" -or $normalized -eq "::1") {
         return $true
     }
     $address = $null

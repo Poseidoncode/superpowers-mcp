@@ -48,6 +48,31 @@ function needsBuild() {
     }
 }
 
+// PID of the process holding the build lock, or null when unreadable.
+function lockOwnerPid() {
+    try {
+        const pid = Number.parseInt(fs.readFileSync(lockPath, "utf8").trim(), 10);
+        return Number.isSafeInteger(pid) && pid > 0 ? pid : null;
+    } catch {
+        return null;
+    }
+}
+
+// True when the lock holder might still be running. Fail closed: an unreadable
+// owner counts as alive so its lock is never stolen.
+function lockOwnerAlive() {
+    const pid = lockOwnerPid();
+    if (pid === null) return true;
+    if (pid === process.pid) return false; // Our own leftover lock: reclaim it.
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (err) {
+        // ESRCH means no such process; anything else (e.g. EPERM) assumes alive.
+        return err && err.code !== "ESRCH";
+    }
+}
+
 function acquireLock() {
     fs.mkdirSync(path.dirname(lockPath), { recursive: true });
     try {
@@ -55,7 +80,21 @@ function acquireLock() {
         return true;
     } catch (err) {
         if (err && err.code === "EEXIST") {
-            return false; // another build holds the lock
+            // Only steal the lock when its holder is dead; a live holder keeps it.
+            if (!lockOwnerAlive()) {
+                try {
+                    fs.unlinkSync(lockPath);
+                } catch {
+                    return false;
+                }
+                try {
+                    fs.writeFileSync(lockPath, String(process.pid), { flag: "wx" });
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+            return false; // another (live) build holds the lock
         }
         // Unexpected lock error (e.g. permissions) — proceed without exclusion; the
         // build itself will surface any real failure.
@@ -65,9 +104,14 @@ function acquireLock() {
 
 function releaseLock() {
     try {
+        // Only remove the lock when we still own it; another builder may have
+        // taken over since (e.g. after stealing our dead-holder lock).
+        if (fs.readFileSync(lockPath, "utf8").trim() !== String(process.pid)) {
+            return;
+        }
         fs.unlinkSync(lockPath);
     } catch {
-        // Ignore: we may not own it.
+        // Ignore: already gone or unreadable.
     }
 }
 
@@ -79,7 +123,11 @@ function lockIsStale() {
     }
 }
 
-if (needsBuild()) {
+// Help and dry-run never execute the runner, so they must not trigger a build.
+const cliArgs = process.argv.slice(2);
+const skipBuild = cliArgs.includes("--help") || cliArgs.includes("-h") || cliArgs.includes("--dry-run");
+
+if (!skipBuild && needsBuild()) {
     const { execSync } = require("child_process");
 
     const deadline = Date.now() + 60000;
@@ -89,9 +137,10 @@ if (needsBuild()) {
     // so two invocations never run esbuild at once and interleave writes to out/*.
     while (!owned && needsBuild() && Date.now() < deadline) {
         if (lockIsStale()) {
-            releaseLock();
+            // acquireLock steals only a dead holder's lock; a live holder keeps
+            // it and we keep waiting for it to finish.
             owned = acquireLock();
-            break;
+            if (owned) break;
         }
         sleepSync(250);
     }

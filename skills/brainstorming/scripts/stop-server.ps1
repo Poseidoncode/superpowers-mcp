@@ -17,10 +17,11 @@ $serverIdFile = Join-Path $stateDir "server-instance-id"
 function Mark-Stopped {
     param([string]$Reason)
     Remove-Item -LiteralPath (Join-Path $stateDir "server-info") -Force -ErrorAction SilentlyContinue
-    [pscustomobject]@{
+    $stoppedJson = ([pscustomobject]@{
         reason = $Reason
         timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-    } | ConvertTo-Json -Compress | Set-Content -Path (Join-Path $stateDir "server-stopped") -Encoding utf8
+    } | ConvertTo-Json -Compress)
+    [System.IO.File]::WriteAllText((Join-Path $stateDir "server-stopped"), $stoppedJson + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
 }
 
 function Read-ExpectedServerId {
@@ -94,8 +95,13 @@ if (Test-Path -LiteralPath $pidFile) {
         Start-Sleep -Milliseconds 100
     }
     if (Get-Process -Id $serverPid -ErrorAction SilentlyContinue) {
-        Stop-Process -Id $serverPid -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Milliseconds 100
+        # Re-verify identity immediately before -Force escalation so a PID
+        # reuse between the graceful stop and now cannot kill an unrelated
+        # process. Skip on mismatch.
+        if ((Test-BrainstormServer -ProcessId $serverPid) -and ((Get-ProcessStartToken -ProcessId $serverPid) -eq $startToken)) {
+            Stop-Process -Id $serverPid -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Milliseconds 100
+        }
     }
     if (Get-Process -Id $serverPid -ErrorAction SilentlyContinue) {
         [pscustomobject]@{ status = "failed"; error = "process still running" } | ConvertTo-Json -Compress

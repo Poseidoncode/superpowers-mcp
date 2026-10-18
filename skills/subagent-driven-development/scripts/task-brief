@@ -16,6 +16,10 @@ fi
 
 plan=$1
 n=$2
+if ! [[ "$n" =~ ^[0-9]+$ ]]; then
+  echo "usage: task-brief PLAN_FILE TASK_NUMBER [OUTFILE]" >&2
+  exit 2
+fi
 [ -f "$plan" ] || { echo "no such plan file: $plan" >&2; exit 2; }
 
 if [ $# -eq 3 ]; then

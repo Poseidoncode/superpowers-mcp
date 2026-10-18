@@ -182,7 +182,7 @@ flowchart LR
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD कार्य कार्यान्वयनकर्ता subagent prompt टेम्पलेट। |
 | **`sdd-task-reviewer`** | `brief_file`, `report_file`, `review_file`, ... | SDD प्रति-कार्य spec व गुणवत्ता समीक्षक prompt टेम्पलेट। |
 | **`sdd-re-review`** | `brief_file`, `review_file`, `previous_findings`, ... | SDD सुधार-राउंड सीमित पुनः-समीक्षक prompt टेम्पलेट। |
-| **`spec-reviewer`** | `spec_file` | प्रतिकूल डिज़ाइन spec समीक्षक prompt टेम्पलेट। |
+| **`builder-check`** | `design_file, domain` | स्वीकृत डिज़ाइन की बिल्डर-दृष्टि जाँच prompt: योजना से पहले बचे प्रश्नों की सूची। |
 | **`plan-reviewer`** | `plan_file`, `spec_file` | प्रतिकूल कार्यान्वयन योजना समीक्षक prompt टेम्पलेट। |
 
 ---

@@ -610,9 +610,10 @@ function parseCookies(header) {
 // A request is authorized if it carries the session key as ?key= or as the
 // session cookie. Both are compared in constant time.
 function isAuthorized(req) {
-  const q = req.url.indexOf('?');
+  const url = req.url || '/';
+  const q = url.indexOf('?');
   if (q >= 0) {
-    const params = new URLSearchParams(req.url.slice(q + 1));
+    const params = new URLSearchParams(url.slice(q + 1));
     if (params.has('key')) {
       const key = params.get('key');
       return Boolean(key && timingSafeEqualStr(key, TOKEN));
@@ -658,6 +659,7 @@ function isAllowedWebSocketOrigin(req) {
 // ========== HTTP Request Handler ==========
 
 function handleRequest(req, res) {
+  const url = req.url || '/';
   if (!isAuthorized(req)) {
     res.writeHead(403, securityHeaders({ 'Content-Type': 'text/html; charset=utf-8' }));
     res.end(FORBIDDEN_PAGE);
@@ -671,8 +673,8 @@ function handleRequest(req, res) {
   res.setHeader('Set-Cookie',
     COOKIE_NAME + '=' + TOKEN + '; HttpOnly; SameSite=Strict; Path=/');
 
-  const pathname = pathnameOf(req.url);
-  const keyFromQuery = queryKey(req.url);
+  const pathname = pathnameOf(url);
+  const keyFromQuery = queryKey(url);
   if (req.method === 'GET' && pathname === '/' && keyFromQuery && timingSafeEqualStr(keyFromQuery, TOKEN)) {
     res.writeHead(303, securityHeaders({ Location: '/' }));
     res.end();
@@ -747,10 +749,11 @@ function isWebSocketUpgradeRequest(req) {
 }
 
 function handleUpgrade(req, socket) {
+  const url = req.url || '/';
   if (!isAuthorized(req) || !isAllowedWebSocketOrigin(req)) { socket.destroy(); return; }
   if (!isWebSocketUpgradeRequest(req)) { socket.destroy(); return; }
   // The companion's WebSocket lives at '/' only (helper.js connects there).
-  if (pathnameOf(req.url) !== '/') { socket.destroy(); return; }
+  if (pathnameOf(url) !== '/') { socket.destroy(); return; }
 
   const key = req.headers['sec-websocket-key'];
   if (!key) { socket.destroy(); return; }
@@ -905,7 +908,7 @@ function appendEvent(event) {
     return;
   }
 
-  const fd = openPrivateAppendFile(eventsFile);
+  let fd = openPrivateAppendFile(eventsFile);
   if (fd === null) {
     console.error('Failed to append user event: events path is not a private regular file');
     return;
@@ -921,8 +924,25 @@ function appendEvent(event) {
         const firstNewline = retained.indexOf(0x0a);
         retained = firstNewline >= 0 ? retained.subarray(firstNewline + 1) : Buffer.alloc(0);
       }
-      fs.ftruncateSync(fd, 0);
-      if (retained.length > 0) fs.writeSync(fd, retained);
+      try {
+        fs.ftruncateSync(fd, 0);
+        if (retained.length > 0) fs.writeSync(fd, retained);
+      } catch (truncateErr) {
+        // Windows refuses ftruncate on an O_APPEND descriptor (EPERM), so
+        // rewrite the compacted tail through a fresh truncate-open instead.
+        // The new line is still appended below; the size cap still holds.
+        if (truncateErr.code !== 'EPERM' && truncateErr.code !== 'EACCES') throw truncateErr;
+        try { fs.closeSync(fd); } catch (e) { /* already closed */ }
+        let compacted = false;
+        if (writePrivateFile(eventsFile, retained)) {
+          const reopened = openPrivateAppendFile(eventsFile);
+          if (reopened !== null) {
+            fd = reopened;
+            compacted = true;
+          }
+        }
+        if (!compacted) throw truncateErr;
+      }
     }
     fs.writeSync(fd, line);
   } catch (e) {
@@ -951,7 +971,7 @@ function handleMessage(text) {
     : JSON.stringify({ source: 'user-event', truncated: true });
   console.log(logOutput);
   if (event && typeof event === 'object') {
-    if (event.choice) {
+    if (event && typeof event === 'object' && ('choice' in event) && event.choice != null) {
       appendEvent(event);
     } else if (event.type === 'choice' && event.value) {
       appendEvent({ ...event, choice: event.value });

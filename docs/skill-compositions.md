@@ -182,7 +182,7 @@ When the controller agent dispatches a task subagent:
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD task implementer subagent prompt template. |
 | **`sdd-task-reviewer`** | `brief_file`, `report_file`, `review_file`, ... | SDD per-task spec & quality reviewer prompt template. |
 | **`sdd-re-review`** | `brief_file`, `review_file`, `previous_findings`, ... | SDD fix-round scoped re-reviewer prompt template. |
-| **`spec-reviewer`** | `spec_file` | Adversarial design specification reviewer prompt template. |
+| **`builder-check`** | `design_file, domain` | Fresh-eyes builder check prompt: a builder reads the approved design and lists what they'd still need to ask. |
 | **`plan-reviewer`** | `plan_file`, `spec_file` | Adversarial implementation plan reviewer prompt template. |
 
 ---

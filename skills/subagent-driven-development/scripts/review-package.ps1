@@ -26,13 +26,13 @@ if ($LASTEXITCODE -ne 0) {
     exit 2
 }
 
-& git rev-parse --verify --quiet $base *> $null
+& git rev-parse --verify --quiet "$base" *> $null
 if ($LASTEXITCODE -ne 0) {
     [Console]::Error.WriteLine("bad BASE: $base")
     exit 2
 }
 
-& git rev-parse --verify --quiet $head *> $null
+& git rev-parse --verify --quiet "$head" *> $null
 if ($LASTEXITCODE -ne 0) {
     [Console]::Error.WriteLine("bad HEAD: $head")
     exit 2
@@ -40,7 +40,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Range guards (exit 3): a wrong-branch HEAD yields a range that is empty or
 # not rooted at BASE; either would silently produce a bogus review package.
-& git merge-base --is-ancestor $base $head *> $null
+& git merge-base --is-ancestor "$base" "$head" *> $null
 if ($LASTEXITCODE -ne 0) {
     [Console]::Error.WriteLine("HEAD ($head) is not a descendant of BASE ($base)")
     exit 3
@@ -57,8 +57,8 @@ if ($args.Count -eq 4) {
 } else {
     $scriptDir = Split-Path -Parent $PSCommandPath
     $dir = (& (Join-Path $scriptDir "sdd-workspace.ps1") $plan | Select-Object -First 1).Trim()
-    $baseShort = (& git rev-parse --short $base).Trim()
-    $headShort = (& git rev-parse --short $head).Trim()
+    $baseShort = (& git rev-parse --short "$base").Trim()
+    $headShort = (& git rev-parse --short "$head").Trim()
     $out = Join-Path $dir "review-$baseShort..$headShort.diff"
 }
 
@@ -74,7 +74,8 @@ $content.Add("")
 $content.Add("## Diff")
 (& git diff -U10 "${base}..${head}") | ForEach-Object { $content.Add($_) }
 
-Set-Content -LiteralPath $out -Value $content -Encoding utf8
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+[System.IO.File]::WriteAllLines($out, $content, $utf8NoBom)
 $commits = (& git rev-list --count "${base}..${head}").Trim()
 $bytes = (Get-Item -LiteralPath $out).Length
 Write-Output "wrote ${out}: $commits commit(s), $bytes bytes"

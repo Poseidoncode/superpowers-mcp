@@ -22,7 +22,7 @@
 | प्रोटोकॉल सुविधा | आइटम / संख्या | विवरण |
 | :--- | :--- | :--- |
 | **Tools** | `list_skills`, `read_skill` | माँग पर हर skill के पूर्ण निर्देश और चेकलिस्ट खोजें, पढ़ें और लोड करें। |
-| **Prompts** | 9 Native Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
+| **Prompts** | 9 Native Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `builder-check`, `plan-reviewer` |
 | **Resources** | 15 Skill URIs + 1 Guide | `skill://superpowers/<skill-name>` तथा `guide://superpowers/skill-compositions` |
 
 ### AI एजेंट से बातचीत (बुनियादी उपयोग)

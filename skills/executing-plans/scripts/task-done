@@ -17,6 +17,10 @@ fi
 plan=$1
 n=$2
 base=$3
+if ! [[ "$n" =~ ^[0-9]+$ ]]; then
+  echo "usage: task-done PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND [ARGS...]" >&2
+  exit 2
+fi
 shift 4
 sdd="$(cd "$(dirname "$0")/../../subagent-driven-development/scripts" && pwd)"
 
@@ -32,7 +36,7 @@ ledger="$dir/progress.md"
 cmd=""
 for a in "$@"; do
   case "$a" in
-    *[[:space:]\"\;\|\&]*) cmd="$cmd '$a'" ;;
+    *[[:space:]\"\;\|\&\']*) esc=$(printf '%s' "$a" | sed "s/'/'\\\\''/g"); cmd="$cmd '$esc'" ;;
     *) cmd="$cmd $a" ;;
   esac
 done

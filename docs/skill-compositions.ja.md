@@ -185,7 +185,7 @@ flowchart LR
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD タスク実装サブエージェント用プロンプト。 |
 | **`sdd-task-reviewer`** | `brief_file`, `report_file`, `review_file`, ... | SDD 単一タスクレビュー用プロンプト。 |
 | **`sdd-re-review`** | `brief_file`, `review_file`, `previous_findings`, ... | SDD 修正ラウンド差分レビュー用プロンプト。 |
-| **`spec-reviewer`** | `spec_file` | 設計仕様書レビュー用プロンプト。 |
+| **`builder-check`** | `design_file, domain` | 承認済み設計をビルダー視点で検証し、計画前に残る質問を洗い出すプロンプト。 |
 | **`plan-reviewer`** | `plan_file`, `spec_file` | 実装計画書レビュー用プロンプト。 |
 
 ---

@@ -29,18 +29,22 @@ IDLE_TIMEOUT_MINUTES=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --project-dir)
+      if [[ -z "${2:-}" || "$2" == --* ]]; then echo '{"error": "Missing value for --project-dir"}'; exit 1; fi
       PROJECT_DIR="$2"
       shift 2
       ;;
     --host)
+      if [[ -z "${2:-}" || "$2" == --* ]]; then echo '{"error": "Missing value for --host"}'; exit 1; fi
       BIND_HOST="$2"
       shift 2
       ;;
     --url-host)
+      if [[ -z "${2:-}" || "$2" == --* ]]; then echo '{"error": "Missing value for --url-host"}'; exit 1; fi
       URL_HOST="$2"
       shift 2
       ;;
     --idle-timeout-minutes)
+      if [[ -z "${2:-}" || "$2" == --* ]]; then echo '{"error": "Missing value for --idle-timeout-minutes"}'; exit 1; fi
       IDLE_TIMEOUT_MINUTES="$2"
       shift 2
       ;;
@@ -57,7 +61,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      echo "{\"error\": \"Unknown argument: $1\"}"
+      echo '{"error": "Unknown argument"}'
       exit 1
       ;;
   esac
@@ -130,18 +134,38 @@ fi
 # everything this script and the server create owner-only.
 umask 077
 
-# Generate unique session directory
-SESSION_ID="$$-$(date +%s)"
+# Generate unique session directory. $PID plus seconds collide when two starts
+# share a second from one shell, so take the next free directory (mirror
+# start-server.ps1) using atomic mkdir without -p plus a suffix retry loop.
+BASE_SESSION_ID="$$-$(date +%s)"
+SESSION_ID="$BASE_SESSION_ID"
+SESSION_SUFFIX=2
 
 if [[ -n "$PROJECT_DIR" ]]; then
-  SESSION_DIR="${PROJECT_DIR}/.superpowers/brainstorm/${SESSION_ID}"
   # Reuse the last bound port and session key so a restart keeps an
   # already-open browser tab connected to the same URL with a valid cookie.
   export BRAINSTORM_PORT_FILE="${PROJECT_DIR}/.superpowers/brainstorm/.last-port"
   export BRAINSTORM_TOKEN_FILE="${PROJECT_DIR}/.superpowers/brainstorm/.last-token"
-else
-  SESSION_DIR="/tmp/brainstorm-${SESSION_ID}"
+  mkdir -p "${PROJECT_DIR}/.superpowers/brainstorm" || { echo '{"error": "Failed to create brainstorm session directory"}'; exit 1; }
 fi
+
+while true; do
+  if [[ -n "$PROJECT_DIR" ]]; then
+    SESSION_DIR="${PROJECT_DIR}/.superpowers/brainstorm/${SESSION_ID}"
+  else
+    SESSION_DIR="/tmp/brainstorm-${SESSION_ID}"
+  fi
+  if mkdir "$SESSION_DIR" 2>/dev/null; then
+    break
+  fi
+  # mkdir failed for another reason (e.g. permission) — not a collision.
+  if [[ ! -e "$SESSION_DIR" ]]; then
+    echo '{"error": "Failed to create brainstorm session directory"}'
+    exit 1
+  fi
+  SESSION_ID="${BASE_SESSION_ID}-${SESSION_SUFFIX}"
+  SESSION_SUFFIX=$((SESSION_SUFFIX + 1))
+done
 
 STATE_DIR="${SESSION_DIR}/state"
 PID_FILE="${STATE_DIR}/server.pid"

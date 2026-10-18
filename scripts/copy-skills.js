@@ -47,10 +47,22 @@ function sameFile(a, b) {
     try {
         const sa = fs.statSync(a);
         const sb = fs.statSync(b);
-        return sa.size === sb.size && Math.floor(sa.mtimeMs) === Math.floor(sb.mtimeMs);
+        return sa.size === sb.size && sa.mtimeMs === sb.mtimeMs;
     } catch {
         return false;
     }
+}
+
+// Manifest entries are data, not trusted paths: a crafted rel such as
+// "../../evil" would otherwise make the stale cleanup below delete outside
+// the skills directory. Skip absolute paths, parent traversals, and anything
+// that normalizes outside the destination.
+function isSafeRel(rel) {
+    if (typeof rel !== "string" || rel.length === 0) return false;
+    if (path.isAbsolute(rel)) return false;
+    if (rel.includes("..")) return false;
+    const target = path.join(dest, rel);
+    return target === dest || target.startsWith(dest + path.sep);
 }
 
 function loadManifest() {
@@ -86,7 +98,7 @@ for (const rel of srcFiles) {
 // Remove only files THIS script copied previously that no longer exist upstream.
 // Fork-specific skills (never in the manifest) are left untouched.
 const currentSet = new Set(srcFiles);
-const stale = previousCopied.filter((rel) => !currentSet.has(rel));
+const stale = previousCopied.filter((rel) => isSafeRel(rel) && !currentSet.has(rel));
 for (const rel of stale) {
     const target = path.join(dest, rel);
     try {

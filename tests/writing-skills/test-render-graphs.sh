@@ -80,6 +80,15 @@ fi
 assert_contains "$missing_dot_output" "Error: graphviz (dot) not found." "missing Graphviz reports install guidance"
 assert_not_contains "$missing_dot_output" "ReferenceError: require is not defined" "script runs as an ES module"
 
+# Rendering requires Graphviz; skip the render assertions (exit 0) when `dot`
+# is unavailable instead of failing the suite on machines without it.
+if ! command -v dot >/dev/null 2>&1; then
+  echo "SKIP: graphviz (dot) not installed — skipping render assertions"
+  echo
+  echo "Results: $PASSES passed, $FAILURES failed"
+  exit 0
+fi
+
 render_output="$("$NODE_BIN" "$SCRIPT_UNDER_TEST" "$fixture" 2>&1)"
 render_status=$?
 

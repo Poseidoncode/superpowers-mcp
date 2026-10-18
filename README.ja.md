@@ -22,7 +22,7 @@
 | プロトコル機能 | 項目 / 数量 | 説明 |
 | :--- | :--- | :--- |
 | **Tools** | `list_skills`, `read_skill` | 全スキルの指示書とチェックリストをオンデマンドで探索・検索・読み込み。 |
-| **Prompts** | 9 個のネイティブ Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `spec-reviewer`, `plan-reviewer` |
+| **Prompts** | 9 個のネイティブ Prompts | `session-start`, `feature-pipeline`, `structured-debug`, `skill-composition`, `sdd-implementer`, `sdd-task-reviewer`, `sdd-re-review`, `builder-check`, `plan-reviewer` |
 | **Resources** | 15 個の Skill URI + 1 ガイド | `skill://superpowers/<skill-name>` と `guide://superpowers/skill-compositions` |
 
 ### AI エージェントとの対話（基本操作）

@@ -119,12 +119,16 @@ if [[ -f "$PID_FILE" ]]; then
     sleep 0.1
   done
 
-  # If still running, escalate to SIGKILL
+  # If still running, escalate to SIGKILL — but re-verify identity
+  # immediately before signalling so a PID reuse between the graceful kill
+  # and now cannot SIGKILL an unrelated process. Skip on mismatch.
   if kill -0 "$pid" 2>/dev/null; then
-    kill -9 "$pid" 2>/dev/null || true
+    if is_brainstorm_server "$pid" && [[ "$(process_start_token "$pid")" == "$start_token" ]]; then
+      kill -9 "$pid" 2>/dev/null || true
 
-    # Give SIGKILL a moment to take effect
-    sleep 0.1
+      # Give SIGKILL a moment to take effect
+      sleep 0.1
+    fi
   fi
 
   if kill -0 "$pid" 2>/dev/null; then

@@ -185,7 +185,7 @@ flowchart LR
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | SDD 任務實作子代理 Prompt |
 | **`sdd-task-reviewer`** | `brief_file`, `report_file`, `review_file`, ... | SDD 單一任務審查子代理 Prompt |
 | **`sdd-re-review`** | `brief_file`, `review_file`, `previous_findings`, ... | SDD 修復輪次局部覆審子代理 Prompt |
-| **`spec-reviewer`** | `spec_file` | 對抗式設計規格審查子代理 Prompt |
+| **`builder-check`** | `design_file, domain` | 以建造者視角審查已核准設計的 Prompt：列出規劃前仍需釐清的問題 |
 | **`plan-reviewer`** | `plan_file`, `spec_file` | 對抗式實作計畫審查子代理 Prompt |
 
 ---

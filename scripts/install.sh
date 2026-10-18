@@ -35,7 +35,7 @@ fi
 
 if [ -n "$RUNNER" ]; then
     echo "🚀 Running global setup via $RUNNER..."
-    $RUNNER -y superpowers-mcp setup "$@"
+    "$RUNNER" -y superpowers-mcp setup "$@"
     exit $?
 fi
 

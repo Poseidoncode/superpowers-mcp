@@ -182,7 +182,7 @@ Quando o agente controlador despacha um subagente de tarefa:
 | **`sdd-implementer`** | `brief_file`, `task_name`, ... | Template de prompt de subagente implementador de tarefas SDD. |
 | **`sdd-task-reviewer`** | `brief_file`, `report_file`, `review_file`, ... | Template de prompt revisor de spec e qualidade por tarefa SDD. |
 | **`sdd-re-review`** | `brief_file`, `review_file`, `previous_findings`, ... | Template de re-revisor SDD de escopo da rodada de correção. |
-| **`spec-reviewer`** | `spec_file` | Template de prompt revisor adversarial de specs de design. |
+| **`builder-check`** | `design_file, domain` | Prompt de verificação do design aprovado pela ótica do construtor. |
 | **`plan-reviewer`** | `plan_file`, `spec_file` | Template de prompt revisor adversarial de planos de implementação. |
 
 ---

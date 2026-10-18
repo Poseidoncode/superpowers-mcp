@@ -1473,18 +1473,33 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
         }
 
         // A symlinked parent must not redirect a targeted setup write outside
-        // the selected home/configuration roots.
+        // the selected home/configuration roots. Symlink creation needs
+        // privilege on Windows (Developer Mode / SeCreateSymbolicLinkPrivilege);
+        // without it the case is skipped, like the brainstorm suite does.
         const boundedHome = path.join(tmpDir, "bounded-home");
         const redirectedDir = path.join(tmpDir, "redirected-config");
         fs.mkdirSync(boundedHome);
         fs.mkdirSync(redirectedDir);
-        fs.symlinkSync(redirectedDir, path.join(boundedHome, ".cursor"));
-        const redirectedResult = await runSetup({ platform: "darwin", homeDir: boundedHome, target: "cursor" });
-        assert.strictEqual(redirectedResult[0].status, "error");
-        assert.match(redirectedResult[0].message, /outside allowed roots/);
-        assert.ok(!fs.existsSync(path.join(redirectedDir, "mcp.json")), "must not write through a parent symlink outside home");
-        console.log("  ✅ PASS: parent-directory symlink cannot redirect setup outside allowed roots");
-        passed++;
+        let parentSymlinkCreated = true;
+        try {
+            fs.symlinkSync(redirectedDir, path.join(boundedHome, ".cursor"));
+        } catch (symlinkErr) {
+            if (symlinkErr.code === "EPERM" || symlinkErr.code === "EACCES") {
+                parentSymlinkCreated = false;
+                skipped++;
+                console.log("  ⏭️ SKIP: parent-directory symlink test skipped (no symlink privilege)");
+            } else {
+                throw symlinkErr;
+            }
+        }
+        if (parentSymlinkCreated) {
+            const redirectedResult = await runSetup({ platform: "darwin", homeDir: boundedHome, target: "cursor" });
+            assert.strictEqual(redirectedResult[0].status, "error");
+            assert.match(redirectedResult[0].message, /outside allowed roots/);
+            assert.ok(!fs.existsSync(path.join(redirectedDir, "mcp.json")), "must not write through a parent symlink outside home");
+            console.log("  ✅ PASS: parent-directory symlink cannot redirect setup outside allowed roots");
+            passed++;
+        }
 
         // Expected-content verification detects a stale read before rename.
         const racedConfig = path.join(tmpDir, "raced.json");
@@ -1885,11 +1900,22 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
     it("should never replace an unresolvable symlink with a regular file", () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-symlink-"));
         try {
-            // A symlink loop makes realpathSync fail with ELOOP.
+            // A symlink loop makes realpathSync fail with ELOOP. Symlink
+            // creation needs privilege on Windows; without it skip like the
+            // brainstorm suite does (record the skip, don't fail).
             const a = path.join(dir, "a.json");
             const b = path.join(dir, "b.json");
-            fs.symlinkSync(b, a);
-            fs.symlinkSync(a, b);
+            try {
+                fs.symlinkSync(b, a);
+                fs.symlinkSync(a, b);
+            } catch (symlinkErr) {
+                if (symlinkErr.code === "EPERM" || symlinkErr.code === "EACCES") {
+                    skipped++;
+                    console.log("  ⏭️  SKIP: symlink-loop test skipped (no symlink privilege)");
+                    return;
+                }
+                throw symlinkErr;
+            }
 
             try {
                 safeWriteConfig(a, '{"x":1}', false, [dir]);

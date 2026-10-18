@@ -108,6 +108,7 @@ server.stdout.on("data", (data) => {
                     ? response.result.prompts.map((p) => p.name).sort()
                     : null;
                 const expected = [
+                    "builder-check",
                     "feature-pipeline",
                     "plan-reviewer",
                     "sdd-implementer",
@@ -115,7 +116,6 @@ server.stdout.on("data", (data) => {
                     "sdd-task-reviewer",
                     "session-start",
                     "skill-composition",
-                    "spec-reviewer",
                     "structured-debug",
                 ];
                 if (got !== null && JSON.stringify(got) === JSON.stringify(expected)) {

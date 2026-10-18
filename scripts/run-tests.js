@@ -21,6 +21,12 @@ const SUITES = [
     "tests/setup_test.js",
     "tests/executing-plans/test-task-start.sh",
     "tests/executing-plans/test-task-done.sh",
+    "tests/sdd/test-sdd-workspace.sh",
+    "tests/writing-skills/test-render-graphs.sh",
+    "tests/brainstorming/test-start-server-env-hosts.sh",
+    // Intentionally excluded: tests/perf_benchmark.js (timing benchmark, not a
+    // pass/fail suite), tests/block_network.cjs (helper required by drift_test,
+    // not standalone), tests/powershell/*.ps1 (Windows-only, run under pwsh).
 ];
 
 const results = [];
@@ -33,6 +39,9 @@ for (const suite of SUITES) {
     const ms = Number(process.hrtime.bigint() - started) / 1e6;
     const code = run.status === null ? 1 : run.status;
     results.push({ suite, code, ms });
+    if (run.error) {
+        console.error(`\n✗ ${suite} failed to spawn: ${run.error.message}\n`);
+    }
     if (code !== 0) {
         console.error(`\n✗ ${suite} exited ${code} — continuing so every suite still runs\n`);
     }

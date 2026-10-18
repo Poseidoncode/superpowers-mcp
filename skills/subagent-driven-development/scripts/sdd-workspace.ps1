@@ -129,5 +129,9 @@ if (-not (Test-And-Claim-Workspace $dir $planId)) {
     }
 }
 
-Set-Content -LiteralPath (Join-Path $base ".gitignore") -Value "*" -NoNewline -Encoding ascii
+# Create-only: a repo may commit its own .gitignore here (e.g. to version
+# progress.md ledgers); overwriting it would revert that on every run.
+if (-not (Test-Path -LiteralPath (Join-Path $base ".gitignore"))) {
+    Set-Content -LiteralPath (Join-Path $base ".gitignore") -Value "*" -NoNewline -Encoding ascii
+}
 (Resolve-Path -LiteralPath $dir).Path
