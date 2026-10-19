@@ -17,6 +17,10 @@
  *   node scripts/upstream-drift.js --fetch      # compare the baseline against upstream
  *   node scripts/upstream-drift.js --record     # refresh the baseline from upstream
  *
+ * Auth: unauthenticated GitHub API calls are rate-limited (60/hr). Set GH_TOKEN
+ * (or GITHUB_TOKEN) to a personal access token to raise the limit; `gh api`
+ * uses its own auth when the GitHub CLI is logged in.
+ *
  * Options:
  *   --ref <ref>          upstream ref to read (default: the baseline ref, else "dev")
  *   --repo <owner/name>  upstream repository (default: obra/superpowers)
@@ -36,6 +40,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { execFileSync } = require("child_process");
 
 const REPO_ROOT = path.join(__dirname, "..");
@@ -193,8 +198,14 @@ async function fetchUpstreamTree(repo, ref) {
     }
     if (!raw) {
         source = "api.github.com";
+        // Authenticated requests get a far higher rate limit; without a token
+        // an unauthenticated fetch can 403/429 on shared CI IPs. `gh api`
+        // above already uses the CLI's own auth when available.
+        const headers = { accept: "application/vnd.github+json", "user-agent": "superpowers-mcp-drift" };
+        const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+        if (token) headers.authorization = `Bearer ${token}`;
         const response = await fetch(`https://api.github.com/${endpoint}`, {
-            headers: { accept: "application/vnd.github+json", "user-agent": "superpowers-mcp-drift" },
+            headers,
             signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),
         });
         if (!response.ok) {
@@ -285,9 +296,12 @@ async function main() {
         const recorded = { repo, ref, commit: tree.commit, capturedAt: new Date().toISOString().slice(0, 10), files, upstreamSkills, ignoredUpstreamSkills: ignored };
         // Atomic write: temp file + rename so an interrupted --record can never
         // truncate/corrupt the baseline (which a later run would then silently rebuild).
-        const tmpPath = `${BASELINE_PATH}.${process.pid}.tmp`;
+        // The suffix mixes pid and crypto randomness so concurrent --record runs
+        // never share a tmp path, and the wx flag makes a (near-impossible)
+        // collision fail instead of silently overwriting the other writer.
+        const tmpPath = `${BASELINE_PATH}.${process.pid}.${crypto.randomBytes(8).toString("hex")}.tmp`;
         try {
-            fs.writeFileSync(tmpPath, JSON.stringify(recorded, null, 2) + "\n", "utf-8");
+            fs.writeFileSync(tmpPath, JSON.stringify(recorded, null, 2) + "\n", { encoding: "utf-8", flag: "wx" });
             fs.renameSync(tmpPath, BASELINE_PATH);
         } catch (writeErr) {
             try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
@@ -346,12 +360,15 @@ async function main() {
 
     const tree = await fetchUpstreamTree(repo, ref);
     const drift = classifyDrift(baseline.files, tree.files, ignored);
-    // A truncated upstream tree has files missing from the listing; those baseline
-    // files would be misclassified as "removed". Suppress the unreliable removals so
-    // the report does not invent drift (changed/added only cover files that ARE listed
-    // and remain trustworthy).
+    // A truncated upstream tree has files missing from the listing; the added
+    // and changed entries below cover only the files that ARE listed, so they
+    // are a partial view, and missing baseline files would be misclassified
+    // as "removed". Suppress the unreliable removals so the report does not
+    // invent drift, and warn loudly that added/changed are partial too — they
+    // must never be recorded as a complete review of upstream movement.
     if (tree.truncated) {
         drift.removed = [];
+        console.warn("warning: the upstream listing was truncated — added/changed below are PARTIAL and removals were suppressed.");
     }
     const driftCount = drift.changed.length + drift.added.length + drift.removed.length;
     if (opts.json) {
@@ -376,7 +393,7 @@ async function main() {
             console.log(`${drift.unadoptedFiles.length} upstream file(s) belong to skills this fork does not adopt — adopt or record them with --ignore.`);
         }
         if (tree.truncated) {
-            console.log("warning: the upstream listing was truncated, so this comparison may be partial.");
+            console.log("warning: the upstream listing was truncated, so this comparison is partial: added/changed may be incomplete and removals were suppressed — re-run with GH_TOKEN set or a narrower ref.");
         }
     }
     if (opts.failOnDrift && driftCount > 0 && !tree.truncated) {

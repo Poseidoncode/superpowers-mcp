@@ -23,7 +23,15 @@ sdd="$(cd "$(dirname "$0")/../../subagent-driven-development/scripts" && pwd)"
 # Invoke via bash rather than direct exec: some extractors (Python zipfile)
 # strip Unix exec bits when unpacking marketplace packages (#2040).
 out=$("${BASH:-bash}" "$sdd/task-brief" "$plan" "$n")
-brief=$(printf '%s\n' "$out" | sed -n 's/^wrote \(.*\): [0-9][0-9]* lines$/\1/p')
+# Parse the trailing "wrote <path>: N lines" report robustly: strip only the
+# last ": N lines" suffix so colons inside the path survive, and join
+# continuation lines so an embedded newline in the path is preserved.
+brief=$(printf '%s\n' "$out" | awk '
+  /^wrote / { sub(/^wrote /, ""); buf = $0; next }
+  buf != "" { buf = buf "\n" $0; next }
+  { buf = $0 }
+  END { sub(/: [0-9][0-9]* lines$/, "", buf); print buf }
+')
 [ -n "$brief" ] || { echo "task-brief did not report a path: $out" >&2; exit 1; }
 
 echo "brief: $brief"

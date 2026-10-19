@@ -9,14 +9,45 @@ export interface SkillMeta {
 }
 
 const MAX_SKILL_FILE_BYTES = 10 * 1024 * 1024;
-// 熱路徑：此區間內的連續呼叫直接回傳記憶體快取，完全不觸碰磁碟
+// 熱路徑：此區間內的連續呼叫直接回傳記憶體快取，完全不觸碰磁碟。
+// findSkill() 每次都經過 listSkills()，因此熱路徑內幾乎零成本即可完成重驗證。
+// 冷路徑則以目錄指紋（readdir + lstat）確認是否需要重掃。
 export const CACHE_REVALIDATE_MS = 1000;
+
+const MAX_DESCRIPTION_CHARS = 2000;
+const SCAN_CONCURRENCY = 32;
+const MAX_CONTENT_CACHE_ENTRIES = 100;
+const MAX_CONTENT_CACHE_BYTES = 20 * 1024 * 1024;
+
+/** Simple semaphore-based bounded map (no new deps): at most `limit` fn() in flight. */
+async function mapWithLimit<T, R>(items: readonly T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+    const results = new Array<R>(items.length);
+    let next = 0;
+    const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+        while (true) {
+            const i = next++;
+            if (i >= items.length) return;
+            results[i] = await fn(items[i], i);
+        }
+    });
+    await Promise.all(workers);
+    return results;
+}
+
+/** Sanitize one log fragment: collapse newlines so a skill name/error can't forge log lines. */
+function oneLine(value: string, maxLen = 500): string {
+    return value.replace(/[\r\n]+/g, " ").slice(0, maxLen);
+}
 
 interface FileStatSnapshot {
     dev: number;
     ino: number;
     size: number;
     mtimeMs: number;
+    // ctime (metadata-change time) always advances on rename/replace, even
+    // when mtime granularity or preservation hides the change — a second
+    // fingerprint that closes the same-millisecond same-size rewrite window.
+    ctimeMs: number;
 }
 
 export class SkillsManager {
@@ -27,17 +58,98 @@ export class SkillsManager {
     private skillMap = new Map<string, SkillMeta>();
     private contentCache = new Map<string, string>();
     private contentCacheStat = new Map<string, FileStatSnapshot>();
+    private contentInflight = new Map<string, Promise<string>>();
     private canonicalPathMap = new Map<string, string>();
     private scanEpoch = 0;
     private lastSuccessfulScanAt = 0;
     private skillSignature: string | null = null;
+    private frontmatterTruncatedWarned = false;
 
     constructor(skillsPath: string) {
         this.skillsPath = path.resolve(skillsPath);
     }
 
     private stripQuotes(str: string): string {
-        return str.replace(/^"(.*)"$|^'(.*)'$/, "$1$2").trim();
+        const t = str.trim();
+        if (t.length >= 2 && t[0] === '"' && t[t.length - 1] === '"') {
+            // YAML double-quoted: unescape \" \' \\ (and \X -> X for other escapes).
+            return t.slice(1, -1).replace(/\\(.)/g, (_m, ch: string) =>
+                ch === "n" ? "\n" : ch === "t" ? "\t" : ch === "r" ? "\r" : ch
+            ).trim();
+        }
+        if (t.length >= 2 && t[0] === "'" && t[t.length - 1] === "'") {
+            // YAML single-quoted: '' is an escaped quote.
+            return t.slice(1, -1).replace(/''/g, "'").trim();
+        }
+        return t;
+    }
+
+    /**
+     * Frontmatter `name:` 是顯示字串，不是路徑：剝除路徑分隔符號與控制字元
+     * （否則 `name: ../../evil` 會污染技能清單顯示、混淆名稱解析），並封頂長度。
+     * 清理後為空時回傳 ""，由呼叫端回退到目錄名。
+     */
+    private sanitizeSkillName(raw: string): string {
+        const cleaned = raw
+            .replace(/[\0\/\\]/g, "")
+            .replace(/[\x00-\x1f\x7f]/g, "")
+            // Strip bidi controls / zero-width / BOM so display names can't spoof order.
+            .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, "")
+            .trim();
+        if (cleaned === "." || cleaned === "..") {
+            return "";
+        }
+        return cleaned.slice(0, 200);
+    }
+
+    /** stderr write that never throws (avoid crashing on closed/broken stderr). */
+    private safeStderrWrite(message: string): void {
+        try {
+            process.stderr.write(message);
+        } catch {
+            // ignore: logging must never break the scan path.
+        }
+    }
+
+    private logScanWarning(entryName: string, detail: string): void {
+        this.safeStderrWrite(`Warning: Failed to read skill file in directory "${oneLine(entryName, 200)}": ${oneLine(detail, 500)}\n`);
+    }
+
+    /** Deep-copy a skill list so callers can't mutate the cache or skillMap via the returned objects. */
+    private cloneSkills(skills: readonly SkillMeta[]): SkillMeta[] {
+        return skills.map((s) => ({ ...s }));
+    }
+
+    private cloneSkill(skill: SkillMeta): SkillMeta {
+        return { ...skill };
+    }
+
+    private inflightKeyFor(resolvedSkillPath: string): string {
+        // Normalize the single-flight key through the canonical map when the
+        // real path is already known, so two aliases of the same file coalesce.
+        // First-read aliases (canonical unknown) may still issue duplicate loads;
+        // that is unavoidable without a realpath round-trip on the hot path.
+        return this.canonicalPathMap.get(resolvedSkillPath) ?? resolvedSkillPath;
+    }
+
+    private enforceContentCacheLimits(cache: Map<string, string>, stat: Map<string, FileStatSnapshot>): void {
+        // LRU-ish cap: Map preserves insertion order, so evict oldest first until
+        // both entry-count and total-bytes budgets hold.
+        let totalBytes = 0;
+        for (const body of cache.values()) {
+            totalBytes += Buffer.byteLength(body, "utf-8");
+        }
+        while (cache.size > MAX_CONTENT_CACHE_ENTRIES || totalBytes > MAX_CONTENT_CACHE_BYTES) {
+            const oldest = cache.keys().next();
+            if (oldest.done) break;
+            const key = oldest.value as string;
+            const body = cache.get(key);
+            if (body !== undefined) {
+                totalBytes -= Buffer.byteLength(body, "utf-8");
+            }
+            cache.delete(key);
+            stat.delete(key);
+        }
     }
 
     /**
@@ -50,18 +162,77 @@ export class SkillsManager {
             cleanContent = cleanContent.slice(1);
         }
 
-        if (!cleanContent.startsWith("---")) {
+        // Opener must be the first non-empty line, exactly `---` (surrounding
+        // spaces/TAB allowed). Leading blank lines and BOM are skipped; `---foo`
+        // is rejected so body text starting with dashes isn't eaten as frontmatter.
+        const SCAN_LIMIT = 3 + 64 * 1024;
+        const head = cleanContent.length > SCAN_LIMIT ? cleanContent.slice(0, SCAN_LIMIT) : cleanContent;
+        let openerEnd = -1;
+        {
+            let pos = 0;
+            while (pos <= head.length) {
+                let lineEnd = head.indexOf("\n", pos);
+                const atEnd = lineEnd === -1;
+                if (atEnd) lineEnd = head.length;
+                let line = head.slice(pos, lineEnd);
+                if (line.endsWith("\r")) line = line.slice(0, -1);
+                if (/^[ \t]*$/.test(line)) {
+                    if (atEnd) break;
+                    pos = lineEnd + 1;
+                    continue;
+                }
+                if (/^[ \t]*---[ \t]*$/.test(line)) {
+                    openerEnd = atEnd ? lineEnd : lineEnd + 1;
+                }
+                break;
+            }
+        }
+        if (openerEnd === -1) {
             return { name: "", description: "", body: cleanContent.trim() };
         }
 
-        // 尋找關閉標記 `---` (位於行首或換行後，容許前置/後置空白或 TAB)
-        const closingMatch = cleanContent.slice(3).match(/\r?\n[ \t]*---[ \t]*(?:\r?\n|$)/);
-        if (!closingMatch || closingMatch.index === undefined) {
+        // 尋找關閉標記 `---` 或 YAML 文件結束 `...`（獨立一行，容許前置/後置空白或 TAB，容許 CRLF）。
+        // 逐行 indexOf 掃描而非正則全檔匹配：正則引擎在 10MB 無 frontmatter
+        // 檔案上會逐字元嘗試匹配；只掃前 64KB 也順帶封頂了 frontmatter 大小。
+        let closerStart = -1;
+        let closerEnd = -1;
+        let newlineAt = openerEnd - 1;
+        // openerEnd points just after the opener's newline (or at EOF); the
+        // first body line starts at openerEnd, whose preceding newline is openerEnd-1.
+        if (newlineAt < 0 || head[newlineAt] !== "\n") {
+            // Opener was the whole head with no trailing newline: no closer possible.
+            this.warnFrontmatterTruncated();
+            return { name: "", description: "", body: cleanContent.trim() };
+        }
+        while (newlineAt !== -1) {
+            const lineStart = newlineAt + 1;
+            let lineEnd = head.indexOf("\n", lineStart);
+            const atEnd = lineEnd === -1;
+            if (atEnd) {
+                lineEnd = head.length;
+            }
+            let line = head.slice(lineStart, lineEnd);
+            if (line.endsWith("\r")) {
+                line = line.slice(0, -1);
+            }
+            if (/^[ \t]*---[ \t]*$/.test(line) || /^[ \t]*\.\.\.[ \t]*$/.test(line)) {
+                closerStart = newlineAt;
+                closerEnd = atEnd ? lineEnd : lineEnd + 1;
+                break;
+            }
+            if (atEnd) {
+                break;
+            }
+            newlineAt = lineEnd;
+        }
+        if (closerStart === -1) {
+            // Opener found but no closer within 64KB (or at all): drop frontmatter.
+            this.warnFrontmatterTruncated();
             return { name: "", description: "", body: cleanContent.trim() };
         }
 
-        const frontmatterText = cleanContent.slice(3, 3 + closingMatch.index);
-        const body = cleanContent.slice(3 + closingMatch.index + closingMatch[0].length).trim();
+        const frontmatterText = cleanContent.slice(openerEnd, closerStart);
+        const body = cleanContent.slice(closerEnd).trim();
 
         const lines = frontmatterText.split(/\r?\n/);
         let name = "";
@@ -79,20 +250,43 @@ export class SkillsManager {
 
             const descStartMatch = line.match(/^description:\s*(.*?)\s*$/);
             if (descStartMatch) {
-                description = this.stripQuotes(descStartMatch[1]);
+                const rawVal = descStartMatch[1].trim();
+                // Strip YAML block-scalar indicators (|, >, |-, >+, ...): they are
+                // not content; the actual text lives on the following indented lines.
+                if (/^[|>][+-]?$/.test(rawVal)) {
+                    description = "";
+                } else {
+                    description = this.stripQuotes(descStartMatch[1]);
+                }
                 inDescription = true;
                 continue;
             }
 
-            // 支援 YAML 跨行縮排 (空白或 TAB) description 欄位
-            if (inDescription && /^\s+/.test(line)) {
-                description += " " + line.trim();
+            // 支援 YAML 跨行縮排 (空白或 TAB) description 欄位：只有「縮排且不是新 key」
+            // 才視為接續行，避免把縮排的 `author: x` 之類鍵吞進 description。
+            // 空字串保持接續狀態（YAML 空行不結束純量）；全空白行視為空行同樣略過。
+            if (inDescription && /^\s+/.test(line) && !/^\s*[A-Za-z0-9_-]+\s*:/.test(line)) {
+                const trimmed = line.trim();
+                if (trimmed !== "") {
+                    description += " " + trimmed;
+                }
             } else {
                 inDescription = false;
             }
         }
 
+        if (description.length > MAX_DESCRIPTION_CHARS) {
+            description = description.slice(0, MAX_DESCRIPTION_CHARS) + "...";
+        }
+
         return { name, description, body };
+    }
+
+    /** Rate-limited (once) warning for frontmatter dropped past the 64KB closer window. */
+    private warnFrontmatterTruncated(): void {
+        if (this.frontmatterTruncatedWarned) return;
+        this.frontmatterTruncatedWarned = true;
+        this.safeStderrWrite("Warning: skill frontmatter closer not found within 64KB; ignoring frontmatter\n");
     }
 
 
@@ -110,7 +304,9 @@ export class SkillsManager {
         if (!forceReload && this.cachedSkills) {
             const cacheIsFresh = Date.now() - this.lastSuccessfulScanAt < CACHE_REVALIDATE_MS;
             if (cacheIsFresh) {
-                return this.cachedSkills;
+                // Return copies: the array and each item are cloned so callers
+                // can't mutate cachedSkills/skillMap through the result.
+                return this.cloneSkills(this.cachedSkills);
             }
         }
 
@@ -137,13 +333,20 @@ export class SkillsManager {
         if (!forceReload) {
             const inFlight = this.loadingPromise;
             if (inFlight && this.loadingEpoch === this.scanEpoch) {
-                return inFlight;
+                // Joined callers each get their own copy, like the hot path.
+                return inFlight.then((skills) => this.cloneSkills(skills));
             }
         }
 
         const epoch = ++this.scanEpoch;
         // No `await` between this call and the assignment below, so the single-flight
         // window opens atomically for any caller arriving on the same tick.
+        // NOTE (forceReload vintage): forceReload intentionally orphans a prior in-flight
+        // scan by bumping scanEpoch instead of joining it. The orphaned scan still
+        // resolves for its original waiter with its own vintage (it must not write the
+        // cache — guarded by epoch === scanEpoch on commit), while the forceReload
+        // caller gets strictly fresh disk state. Two concurrent forceReloads each run
+        // their own scan for the same reason; joining would serve potentially stale data.
         const currentPromise = this.refreshSkills(epoch, forceReload);
         this.loadingPromise = currentPromise;
         this.loadingEpoch = epoch;
@@ -178,15 +381,16 @@ export class SkillsManager {
         ) {
             // 內容完全未變：只需一次 readdir 與每檔 lstat 即可確認，
             // 不需要重新讀取任何技能檔案內容。
-            this.lastSuccessfulScanAt = Date.now();
-            return this.cachedSkills;
+            // 世代守衛：被 forceReload/clearCache 取代的舊輪次不可刷新熱路徑時戳。
+            if (epoch === this.scanEpoch) {
+                this.lastSuccessfulScanAt = Date.now();
+            }
+            return this.cloneSkills(this.cachedSkills);
         }
 
-        if (forceReload) {
-            this.dropContentCaches();
-        }
-
-        return this.internalListSkills(epoch, currentSignature);
+        // forceReload 不在掃描前丟棄內容快取：先保留舊快取做 fail-stale（掃描失敗
+        // 時呼叫端仍有可用內容），成功後 internalListSkills 會整批取代；失敗時舊快取原樣保留。
+        return this.internalListSkills(epoch, currentSignature, forceReload);
     }
 
     /**
@@ -199,6 +403,7 @@ export class SkillsManager {
     private dropContentCaches(): void {
         this.contentCache.clear();
         this.contentCacheStat.clear();
+        this.contentInflight.clear();
         this.canonicalPathMap.clear();
         this.skillSignature = null;
     }
@@ -210,10 +415,12 @@ export class SkillsManager {
      * 的 mtime，不會改變上層目錄的 mtime；只看目錄會漏掉描述變更。
      */
     private async computeSkillSignature(): Promise<string | null> {
+        // 指紋 = root 實路徑 + 每個候選的 lstat(連結身分) + SKILL.md stat(內容身分)。
+        // dev/ino/size/mtimeMs/ctimeMs 全量比對；刻意不含 mode，避免 chmod 觸發全量重掃。
         const describe = async (target: string): Promise<string> => {
             try {
                 const stat = await fs.lstat(target);
-                return `${stat.mode}\u0000${stat.ino}\u0000${stat.size}\u0000${stat.mtimeMs}`;
+                return `${stat.dev}\u0000${stat.ino}\u0000${stat.size}\u0000${stat.mtimeMs}\u0000${stat.ctimeMs}`;
             } catch {
                 return "-";
             }
@@ -224,50 +431,65 @@ export class SkillsManager {
         const describeFollow = async (target: string): Promise<string> => {
             try {
                 const stat = await fs.stat(target);
-                return `${stat.mode}\u0000${stat.ino}\u0000${stat.size}\u0000${stat.mtimeMs}`;
+                return `${stat.dev}\u0000${stat.ino}\u0000${stat.size}\u0000${stat.mtimeMs}\u0000${stat.ctimeMs}`;
             } catch {
                 return "-";
             }
         };
 
         try {
+            // Root 實路徑納入指紋：根目錄被替換（rename/recreate）但內容暫時相同時仍能察覺。
+            let rootPart = path.resolve(this.skillsPath);
+            try {
+                rootPart = await fs.realpath(rootPart);
+            } catch {
+                // 沿用 resolve 結果；readdir 失敗時整體仍回傳 null。
+            }
             const entries = await fs.readdir(this.skillsPath, { withFileTypes: true });
             // Only directories and symlinks can be skills; skip stray files (e.g.
             // .DS_Store) so their appearance/disappearance does not invalidate the
-            // signature and force a full rescan. lstat each candidate in parallel —
-            // the previous sequential awaits made the fingerprint cost O(n) round trips.
+            // signature and force a full rescan. lstat each candidate with bounded
+            // concurrency (32) so a 700-skill directory doesn't issue 700 concurrent stats.
             const candidates = entries.filter((entry) => entry.isDirectory() || entry.isSymbolicLink());
-            const parts = await Promise.all(
-                candidates.map(async (entry) => {
+            const parts = await mapWithLimit(
+                candidates,
+                SCAN_CONCURRENCY,
+                async (entry) => {
                     const skillDir = path.join(this.skillsPath, entry.name);
                     const kind = entry.isDirectory() ? "d" : "l";
-                    // 只需 SKILL.md 的 mode/ino/size/mtime：ino 已足以識別目錄或檔案被
-                    // 替換，因此每個技能僅需一次 lstat。符號連結額外比對連結本身的
-                    // inode，以便偵測「連結被重新指向」。
-                    const linkInfo = kind === "l" ? await describe(skillDir) : "-";
-                    const fileInfo = await describeFollow(path.join(skillDir, "SKILL.md"));
+                    // 只需 SKILL.md 的 dev/ino/size/mtime/ctime：ino 已足以識別目錄或檔案被
+                    // 替換，因此每個技能僅需一次 lstat + 一次 stat（併發執行）。符號連結額外比對連結本身的
+                    // inode，以便偵測「連結被重新指向」。mode 刻意排除以避免 chmod 觸發重掃。
+                    const [linkInfo, fileInfo] = await Promise.all([
+                        kind === "l" ? describe(skillDir) : Promise.resolve("-"),
+                        describeFollow(path.join(skillDir, "SKILL.md")),
+                    ]);
                     return `${entry.name}\u0000${kind}\u0000${linkInfo}\u0000${fileInfo}`;
-                })
+                }
             );
             parts.sort();
-            return parts.join("\u0001");
+            return `root:${rootPart}\u0001` + parts.join("\u0001");
         } catch {
             return null;
         }
     }
 
-    private async internalListSkills(epoch = this.scanEpoch, precomputedSignature?: string | null): Promise<SkillMeta[]> {
+    private async internalListSkills(epoch = this.scanEpoch, precomputedSignature?: string | null, forceReload = false): Promise<SkillMeta[]> {
         let preResolvedRoot: { realRootPath: string; rootStat: Stats } | undefined;
         try {
             const resolvedRoot = path.resolve(this.skillsPath);
             const realRootPath = await fs.realpath(resolvedRoot);
             const rootStat = await fs.stat(realRootPath);
             if (!rootStat.isDirectory()) {
-                return this.cachedSkills ?? [];
+                this.safeStderrWrite(`Error reading skills directory: root is not a directory: ${oneLine(realRootPath)}\n`);
+                return this.cachedSkills ? this.cloneSkills(this.cachedSkills) : [];
             }
             preResolvedRoot = { realRootPath, rootStat };
         } catch (_rootErr: unknown) {
-            return this.cachedSkills ?? [];
+            // Fail-stale 也要留下紀錄：回傳舊快取的同時讓維運看得到根因。
+            const detail = _rootErr instanceof Error ? _rootErr.message : String(_rootErr);
+            this.safeStderrWrite(`Error resolving skills directory: ${oneLine(detail)}\n`);
+            return this.cachedSkills ? this.cloneSkills(this.cachedSkills) : [];
         }
 
         // 掃描開始前先取得目錄指紋，供下一次冷路徑呼叫快速比對。
@@ -287,10 +509,49 @@ export class SkillsManager {
             const entries = await fs.readdir(this.skillsPath, { withFileTypes: true });
             const skillCandidates = entries.filter((entry) => entry.isDirectory() || entry.isSymbolicLink());
 
-            const loaded = await Promise.all(
-                skillCandidates.map(async (entry) => {
+            // 單檔變更快速路徑：stat 仍與 contentCacheStat 相符的檔案直接沿用舊
+            // SkillMeta + body，只花一次 stat 而不做 open/read/parse。forceReload
+            // 顯式要求全量重讀時跳過此路徑。
+            const prevMetaByResolved = new Map<string, SkillMeta>();
+            if (!forceReload && this.cachedSkills) {
+                for (const item of this.cachedSkills) {
+                    prevMetaByResolved.set(path.resolve(item.skillPath), item);
+                }
+            }
+
+            const loaded = await mapWithLimit(
+                skillCandidates,
+                SCAN_CONCURRENCY,
+                async (entry) => {
                     const skillDir = path.join(this.skillsPath, entry.name);
                     const skillFile = path.join(skillDir, "SKILL.md");
+                    const resolvedSkillFile = path.resolve(skillFile);
+
+                    if (!forceReload) {
+                        const canonical = this.canonicalPathMap.get(resolvedSkillFile);
+                        const prevItem = prevMetaByResolved.get(resolvedSkillFile);
+                        if (canonical && prevItem) {
+                            const snapshot = this.contentCacheStat.get(canonical);
+                            const cachedBody = this.contentCache.get(canonical);
+                            if (snapshot && cachedBody !== undefined) {
+                                try {
+                                    const st = await fs.stat(resolvedSkillFile);
+                                    if (
+                                        st.isFile() &&
+                                        st.dev === snapshot.dev &&
+                                        st.ino === snapshot.ino &&
+                                        st.size === snapshot.size &&
+                                        st.mtimeMs === snapshot.mtimeMs &&
+                                        st.ctimeMs === snapshot.ctimeMs
+                                    ) {
+                                        return { item: prevItem, body: cachedBody, realFilePath: canonical, directoryName: entry.name, stat: st };
+                                    }
+                                } catch {
+                                    // stat 失敗就走完整讀取路徑產生正確錯誤。
+                                }
+                            }
+                        }
+                    }
 
                     try {
                         const { content, realFilePath, stat } = await this.readFileNoFollow(
@@ -299,7 +560,9 @@ export class SkillsManager {
                             preResolvedRoot
                         );
                         const { name, description, body } = this.parseFrontmatter(content);
-                        const finalName = name || entry.name;
+                        const sanitized = this.sanitizeSkillName(name);
+                        const fallback = this.sanitizeSkillName(entry.name);
+                        const finalName = sanitized || fallback || "unnamed-skill";
                         const item = {
                             name: finalName,
                             description,
@@ -313,11 +576,11 @@ export class SkillsManager {
                             "code" in err &&
                             (err as { code?: string }).code === "ENOENT";
                         if (!isEnoent) {
-                            process.stderr.write(`Warning: Failed to read skill file in directory "${entry.name}": ${err instanceof Error ? err.message : String(err)}\n`);
+                            this.logScanWarning(entry.name, err instanceof Error ? err.message : String(err));
                         }
                         return null;
                     }
-                })
+                }
             );
             const ordered = loaded.filter((value) => value !== null).sort((a, b) =>
                 a!.directoryName < b!.directoryName ? -1 : a!.directoryName > b!.directoryName ? 1 : 0
@@ -327,21 +590,31 @@ export class SkillsManager {
             // dropped because some other skill already claimed its directory name
             // as an alias — that alias is simply not resolvable.
             const accepted: typeof ordered = [];
+            let cachedBodyBytes = 0;
             for (const result of ordered) {
                 const { item, directoryName } = result!;
                 const nameKey = item.name.toLowerCase();
                 if (newSkillMap.has(nameKey)) {
-                    process.stderr.write(
-                        `Warning: Skipping skill directory "${directoryName}" because its name "${nameKey}" is already registered\n`
+                    this.safeStderrWrite(
+                        `Warning: Skipping skill directory "${oneLine(directoryName, 200)}" because its name "${oneLine(nameKey, 200)}" is already registered\n`
                     );
+                    // Best-effort transient-memory reduction: a skipped duplicate's
+                    // body is never cached, so release it immediately.
+                    result!.body = "";
                     continue;
                 }
+                // Freeze internal entries so a caller holding a previous reference
+                // can't mutate the cached object graph; public returns are clones.
+                Object.freeze(item);
                 newSkillMap.set(nameKey, item);
                 accepted.push(result!);
             }
             for (const result of accepted) {
                 const { item, body, realFilePath, directoryName, stat } = result;
                 const dirKey = directoryName.toLowerCase();
+                // Directory alias is best-effort and namespaced by construction:
+                // it is only registered when it collides with neither a claimed
+                // name nor an earlier alias, so it can never shadow a real skill.
                 if (dirKey !== item.name.toLowerCase() && !newSkillMap.has(dirKey)) {
                     newSkillMap.set(dirKey, item);
                 }
@@ -354,17 +627,26 @@ export class SkillsManager {
                     ino: stat.ino,
                     size: stat.size,
                     mtimeMs: stat.mtimeMs,
+                    ctimeMs: stat.ctimeMs,
                 });
                 newCanonicalMap.set(resolvedPath, realFilePath);
                 newCanonicalMap.set(realFilePath, realFilePath);
+                cachedBodyBytes += body.length;
+                if (cachedBodyBytes > MAX_CONTENT_CACHE_BYTES) {
+                    // Best-effort transient-memory reduction: the body is already
+                    // copied into newContentCache above, so release it from the
+                    // loaded entry once the running total exceeds budget.
+                    result.body = "";
+                }
             }
             scanned = true;
         } catch (_dirErr) {
-            process.stderr.write(`Error reading skills directory: ${String(_dirErr)}\n`);
+            this.safeStderrWrite(`Error reading skills directory: ${oneLine(String(_dirErr))}\n`);
         }
 
         // 只在掃描成功且本輪次依然是最新的 scan 時更新快取，防止舊 scan 覆寫新快取
         if (scanned && epoch === this.scanEpoch) {
+            this.enforceContentCacheLimits(newContentCache, newContentStat);
             this.skillMap = newSkillMap;
             this.cachedSkills = skills.sort((a, b) => a.name.localeCompare(b.name, "en"));
             this.lastSuccessfulScanAt = Date.now();
@@ -372,16 +654,19 @@ export class SkillsManager {
             this.contentCacheStat = newContentStat;
             this.canonicalPathMap = newCanonicalMap;
             this.skillSignature = signature;
-            return this.cachedSkills;
+            return this.cloneSkills(this.cachedSkills);
         }
         if (scanned) {
             // 被更新的 scan 取代：不快取，但仍要回傳實際讀到的清單，
             // 否則等待中的呼叫端會拿到空陣列。
-            return skills.sort((a, b) => a.name.localeCompare(b.name, "en"));
+            return this.cloneSkills(skills.sort((a, b) => a.name.localeCompare(b.name, "en")));
         }
         // 掃描失敗：丟棄指紋，讓下一次呼叫強制走完整重掃。
-        this.skillSignature = null;
-        return this.cachedSkills ?? [];
+        // 世代守衛：只有最新輪次能使指紋失效，避免舊失敗清空新成功的指紋。
+        if (epoch === this.scanEpoch) {
+            this.skillSignature = null;
+        }
+        return this.cachedSkills ? this.cloneSkills(this.cachedSkills) : [];
     }
 
     /**
@@ -404,10 +689,12 @@ export class SkillsManager {
             return undefined;
         }
 
-        if (!this.cachedSkills) {
-            await this.listSkills();
-        }
-        return this.skillMap.get(trimmed.toLowerCase());
+        // 永遠走 listSkills() 重驗證：熱路徑（1s 內）零系統呼叫直接回傳快取，
+        // 冷路徑只花一次目錄指紋即可確認未變更；只在 !cachedSkills 時掃描會
+        // 讓描述/檔案變更在熱路徑過期前不可見，且與 listSkills 快取語義分叉。
+        await this.listSkills();
+        const found = this.skillMap.get(trimmed.toLowerCase());
+        return found ? this.cloneSkill(found) : undefined;
     }
 
     /**
@@ -433,11 +720,15 @@ export class SkillsManager {
         }
         const relative = path.relative(realRootPath, realFilePath);
         if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-            throw new Error("File is outside skills directory");
+            const outside = new Error("File is outside skills directory") as Error & { code?: string };
+            outside.code = "EOUTSIDE";
+            throw outside;
         }
 
         const stat = await fs.stat(realFilePath);
-        if (!stat.isFile() || stat.nlink < 1) throw new Error("Skill path is not a regular file");
+        // Require exactly one link: nlink > 1 means an external hardlink aliases this
+        // inode from outside the skills tree and could mutate skill content out-of-band.
+        if (!stat.isFile() || stat.nlink !== 1) throw new Error("Skill path is not a regular file");
         if (stat.size > MAX_SKILL_FILE_BYTES) throw new Error("Skill file exceeds size limit");
 
         // 單次 realpath + stat 即可：真正具權威性的是開檔後對檔案描述元的比對，
@@ -450,7 +741,7 @@ export class SkillsManager {
             const actual = await fd.stat();
             if (
                 !actual.isFile() ||
-                actual.nlink < 1 ||
+                actual.nlink !== 1 ||
                 actual.dev !== stat.dev ||
                 actual.ino !== stat.ino ||
                 actual.size > MAX_SKILL_FILE_BYTES
@@ -458,11 +749,14 @@ export class SkillsManager {
                 throw new Error("File changed while opening");
             }
             // Windows 沒有 O_NOFOLLOW，reparse point 可能在 pre-open stat 與 open
-            // 之間被替換：開檔後立即比對 size/mtimeMs，若與開檔前快照不符就丟棄。
-            // dev/ino 在 Windows 上不足以識別同一檔案，此檢查補上 TOCTOU 缺口。
+            // 之間被替換：開檔後立即比對 size/mtimeMs/ctimeMs，若與開檔前快照不符就丟棄。
+            // dev/ino 在 Windows 上不足以單獨識別同一檔案（卷/重解析語義差異），因此是
+            // 「通用 dev/ino 比對 + Windows 額外 size/mtime/ctime 比對」的雙層防線。
+            // 限制：Windows 沒有原子 O_NOFOLLOW，檢查與 open 之間仍存在理論 TOCTOU
+            // 空隙，此處為 best-effort 緩解而非 POSIX 等級保證。
             if (
                 process.platform === "win32" &&
-                (actual.size !== stat.size || actual.mtimeMs !== stat.mtimeMs)
+                (actual.size !== stat.size || actual.mtimeMs !== stat.mtimeMs || actual.ctimeMs !== stat.ctimeMs)
             ) {
                 throw new Error("File changed while opening");
             }
@@ -499,13 +793,14 @@ export class SkillsManager {
             // Require the file to be byte-for-byte unchanged since the pre-open
             // snapshot: if it grew (or was rewritten) mid-read we would otherwise cache
             // truncated content under the post-read stat and serve it until the next
-            // write. size/mtime equality closes that TOCTOU window.
+            // write. size/mtime/ctime equality closes that TOCTOU window.
             if (
                 after.size > MAX_SKILL_FILE_BYTES ||
                 after.dev !== stat.dev ||
                 after.ino !== stat.ino ||
                 after.size !== stat.size ||
-                after.mtimeMs !== stat.mtimeMs
+                after.mtimeMs !== stat.mtimeMs ||
+                after.ctimeMs !== stat.ctimeMs
             ) {
                 throw new Error("File changed while reading");
             }
@@ -522,41 +817,76 @@ export class SkillsManager {
     }
 
     /**
-     * 讀取並去除 YAML frontmatter 的 Markdown 內容 (非同步 + 快取 + BOM 處理 + realpath 軟連結邊界檢查)
+     * 讀取並去除 YAML frontmatter 的 Markdown 內容 (非同步 + 快取 + 單次飛行去重 +
+     * BOM 處理 + realpath 軟連結邊界檢查)。併發讀取同一技能只發起一次磁碟讀取；
+     * 世代守衛確保 clearCache() 之後完成的舊讀取不會把過期內容回填快取。
      */
     public async readSkillContent(skillPath: string, forceReload = false): Promise<string> {
         const resolvedSkillPath = path.isAbsolute(skillPath)
             ? path.resolve(skillPath)
             : path.resolve(this.skillsPath, skillPath);
 
-        // 高速命中路徑：一次 stat 驗證快取條目仍指向同一個檔案實例（dev/ino/size/mtime
+        // 高速命中路徑：一次 stat 驗證快取條目仍指向同一個檔案實例（dev/ino/size/mtime/ctime
         // 全部相符），命中時不需要 realpath、也不需要讀取檔案內容。
         //
         // 舊行為在快取過期後會先 await this.listSkills(true) 完整重掃整個技能目錄
         // ——只為了讀取「一個」技能，卻把所有技能檔案重新讀一遍。技能越多越慢，
         // 而且並行呼叫會各自觸發一次全樹掃描。
+        // 單飛鍵以 canonical 正規化（已知時），避免同一檔案的兩個別名重複讀取。
         if (!forceReload) {
+            // 同步先查一次：若已有在途讀取，直接加入而不觸碰磁碟。
+            const preInflight = this.contentInflight.get(this.inflightKeyFor(resolvedSkillPath));
+            if (preInflight) {
+                return preInflight;
+            }
             const cached = await this.tryReadFromContentCache(resolvedSkillPath);
             if (cached !== undefined) {
                 return cached;
             }
+            // await 之後再查一次：等待快取驗證期間可能已有其他呼叫建立了在途讀取。
+            const postInflight = this.contentInflight.get(this.inflightKeyFor(resolvedSkillPath));
+            if (postInflight) {
+                return postInflight;
+            }
         }
 
+        const epoch = this.scanEpoch;
+        const load = this.loadSkillContent(resolvedSkillPath, epoch);
+        // 同步佔位：load 已同步建立（無 intervening await），立即寫入 map，
+        // 同 tick 到達的呼叫透過上面的 preInflight 查到並加入。
+        const inflightKey = this.inflightKeyFor(resolvedSkillPath);
+        if (!forceReload) {
+            this.contentInflight.set(inflightKey, load);
+        }
+        try {
+            return await load;
+        } finally {
+            if (!forceReload && this.contentInflight.get(inflightKey) === load) {
+                this.contentInflight.delete(inflightKey);
+            }
+        }
+    }
+
+    private async loadSkillContent(resolvedSkillPath: string, epoch: number): Promise<string> {
         try {
             // 傳入已相對 skillsPath 解析過的路徑，確保「守衛式讀取」與快取鍵
             // （canonicalPathMap）使用同一種解析方式；否則相對路徑會依 CWD
             // 解析而與快取鍵不一致。
             const { content: raw, realFilePath, stat } = await this.readFileNoFollow(resolvedSkillPath, this.skillsPath);
             const { body } = this.parseFrontmatter(raw);
-            this.contentCache.set(realFilePath, body);
-            this.contentCacheStat.set(realFilePath, {
-                dev: stat.dev,
-                ino: stat.ino,
-                size: stat.size,
-                mtimeMs: stat.mtimeMs,
-            });
-            this.canonicalPathMap.set(resolvedSkillPath, realFilePath);
-            this.canonicalPathMap.set(realFilePath, realFilePath);
+            if (epoch === this.scanEpoch) {
+                this.contentCache.set(realFilePath, body);
+                this.contentCacheStat.set(realFilePath, {
+                    dev: stat.dev,
+                    ino: stat.ino,
+                    size: stat.size,
+                    mtimeMs: stat.mtimeMs,
+                    ctimeMs: stat.ctimeMs,
+                });
+                this.canonicalPathMap.set(resolvedSkillPath, realFilePath);
+                this.canonicalPathMap.set(realFilePath, realFilePath);
+                this.enforceContentCacheLimits(this.contentCache, this.contentCacheStat);
+            }
             return body;
         } catch (err) {
             // 保留原始錯誤碼（如 ENOENT），讓呼叫端能區分「檔案不存在」與
@@ -594,7 +924,8 @@ export class SkillsManager {
                 stat.dev === snapshot.dev &&
                 stat.ino === snapshot.ino &&
                 stat.size === snapshot.size &&
-                stat.mtimeMs === snapshot.mtimeMs
+                stat.mtimeMs === snapshot.mtimeMs &&
+                stat.ctimeMs === snapshot.ctimeMs
             ) {
                 return cached;
             }
@@ -605,7 +936,10 @@ export class SkillsManager {
     }
 
     public clearCache(): void {
-        // 遞增世代，讓「清空當下仍在進行中」的掃描無法在完成後回填快取。
+        // invalidate-not-cancel 語義：只遞增世代並清空索引，不取消已在途的讀取/掃描。
+        // 在途工作仍會向原等待者回傳其 vintage，但因 epoch 守衛（loadSkillContent 與
+        // internalListSkills 的 epoch === scanEpoch 檢查）而無法回填快取。
+        // 世代必須先 bump 再清空 maps，否則清空與在途提交之間會有競爭空隙。
         this.scanEpoch++;
         this.cachedSkills = null;
         this.loadingPromise = null;
@@ -613,6 +947,7 @@ export class SkillsManager {
         this.skillMap.clear();
         this.contentCache.clear();
         this.contentCacheStat.clear();
+        this.contentInflight.clear();
         this.canonicalPathMap.clear();
         this.skillSignature = null;
         this.lastSuccessfulScanAt = 0;

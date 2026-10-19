@@ -15,7 +15,7 @@ try {
     # test file executed is always identified as the polluter.
     $npmStub = Join-Path $project "bin/npm"
     Set-Content -Path $npmStub -Value "#!/usr/bin/env bash`ntouch pollution.marker`n" -NoNewline
-    & chmod +x $npmStub
+    if (Get-Command chmod -ErrorAction SilentlyContinue) { & chmod +x $npmStub }
 
     # 1. usage error
     & $scriptPath > $null 2>&1
@@ -56,7 +56,7 @@ try {
         Set-Content -LiteralPath (Join-Path $spaceDir "special.test.ts") -Value "test('space')" -NoNewline
         $runnerStub = Join-Path $project "bin/test-one"
         Set-Content -LiteralPath $runnerStub -Value "#!/usr/bin/env bash`nprintf '%s' `"`$1`" > runner-arg`ntouch pollution.marker`n" -NoNewline
-        & chmod +x $runnerStub
+        if (Get-Command chmod -ErrorAction SilentlyContinue) { & chmod +x $runnerStub }
         $out = & $scriptPath "pollution.marker" "src/space folder/*.test.ts" $runnerStub 2>&1
         Assert-ExitCode $LASTEXITCODE 1 "custom single-test runner exits after finding polluter"
         $runnerArg = Get-Content -LiteralPath (Join-Path $project "runner-arg") -Raw

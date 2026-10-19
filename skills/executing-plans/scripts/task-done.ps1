@@ -25,14 +25,24 @@ if ($n -notmatch '^[0-9]+$') {
 # PowerShell consumes an unquoted `--` as its own end-of-parameters marker,
 # so the documented `... BASE -- CMD` arrives here WITHOUT the separator; a
 # quoted "--" survives and is skipped below. Unlike the sh twin, this port
-# therefore cannot reject a call that genuinely omits the separator.
-$cmdArgs = @($args[3..($args.Count - 1)])
-if ($cmdArgs[0] -eq "--") {
+# therefore cannot reject a call that genuinely omits the separator: a missing
+# separator is treated as `... BASE CMD...` gracefully.
+$cmdArgs = @()
+if ($args.Count -gt 3) {
+    $cmdArgs = @($args[3..($args.Count - 1)])
+}
+if ($cmdArgs.Count -gt 0 -and $cmdArgs[0] -eq "--") {
     if ($cmdArgs.Count -lt 2) {
         [Console]::Error.WriteLine("usage: task-done.ps1 PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND [ARGS...]")
         exit 2
     }
+    # Guard the lower bound: 1..0 in PowerShell yields @(1,0), not an empty
+    # range, so slice only when a command actually follows the separator.
     $cmdArgs = @($cmdArgs[1..($cmdArgs.Count - 1)])
+}
+if ($cmdArgs.Count -eq 0) {
+    [Console]::Error.WriteLine("usage: task-done.ps1 PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND [ARGS...]")
+    exit 2
 }
 $sdd = Join-Path $PSScriptRoot "../../subagent-driven-development/scripts"
 
@@ -47,8 +57,11 @@ $log = Join-Path $dir "task-$n-tests.log"
 $ledger = Join-Path $dir "progress.md"
 
 # Render the command the way a person would type it, for the ledger line.
+# Single-quote anything outside a safe allowlist so $,`,(),<>,#,*,?,[,quotes
+# and newlines can never break the ledger line; an embedded ' is escaped by
+# doubling it inside the single quotes.
 $parts = foreach ($a in [string[]]$cmdArgs) {
-    if ($a -match '[\s";|&]') { "'$a'" } else { $a }
+    if ($a -match "[^a-zA-Z0-9_@%+=:,./-]") { "'" + ($a -replace "'", "''") + "'" } else { $a }
 }
 $cmd = $parts -join ' '
 
@@ -56,7 +69,7 @@ $rc = 0
 try {
     $exe = $cmdArgs[0]
     $rest = @()
-    if ($cmdArgs.Count -gt 1) { $rest = $cmdArgs[1..($cmdArgs.Count - 1)] }
+    if ($cmdArgs.Count -gt 1) { $rest = @($cmdArgs[1..($cmdArgs.Count - 1)]) }
     & $exe @rest > $log 2>&1
     $rc = $LASTEXITCODE
 } catch {

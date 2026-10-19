@@ -139,12 +139,14 @@ if [[ -f "$PID_FILE" ]]; then
   rm -f "$PID_FILE" "$SERVER_ID_FILE" "${STATE_DIR}/server.log"
   mark_stopped "stop-server.sh"
 
-  # Only delete ephemeral /tmp directories. Resolve both paths canonically
-  # (cd + pwd -P, like stop-server.ps1) so a session dir such as
-  # "/tmp/../home/user/project" can't trick the prefix check into deleting
-  # a directory outside the temp root. (Plain variables: this code runs at
-  # top level, where `local` is a syntax error on bash 3.2 / macOS.)
-  tmp_root="$(cd /tmp 2>/dev/null && pwd -P || true)"
+  # Only delete ephemeral temp directories. Honor $TMPDIR when set (macOS/
+  # Linux ephemeral sessions live under it); fall back to /tmp. Resolve both
+  # paths canonically (cd + pwd -P, like stop-server.ps1) so a session dir
+  # such as "/tmp/../home/user/project" can't trick the prefix check into
+  # deleting a directory outside the temp root. (Plain variables: this code
+  # runs at top level, where `local` is a syntax error on bash 3.2 / macOS.)
+  tmp_base="${TMPDIR:-/tmp}"
+  tmp_root="$(cd "$tmp_base" 2>/dev/null && pwd -P || true)"
   resolved="$(cd "$SESSION_DIR" 2>/dev/null && pwd -P || true)"
   if [[ -n "$tmp_root" && -n "$resolved" && "$resolved" == "$tmp_root/"* ]]; then
     rm -rf "$resolved"

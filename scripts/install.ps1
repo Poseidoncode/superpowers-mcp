@@ -40,7 +40,7 @@ $localSetup = if ($scriptDir) { Join-Path $scriptDir "setup.js" } else { "" }
 if ($localSetup -and (Test-Path $localSetup) -and (Get-Command node -ErrorAction SilentlyContinue)) {
     Write-Host "📦 Using local setup engine..." -ForegroundColor Green
     & node $localSetup @argsList
-    return $LASTEXITCODE
+    exit $LASTEXITCODE
 }
 
 # Check for bunx or npx
@@ -53,10 +53,15 @@ if (Get-Command bunx -ErrorAction SilentlyContinue) {
 
 if ($runner) {
     Write-Host "🚀 Running global setup via $runner..." -ForegroundColor Green
-    & $runner -y superpowers-mcp setup @argsList
-    return $LASTEXITCODE
+    # bunx takes no -y flag: passing one makes it look up a "-y" package and fail.
+    if ($runner -eq "bunx") {
+        & $runner superpowers-mcp setup @argsList
+    } else {
+        & $runner -y superpowers-mcp setup @argsList
+    }
+    exit $LASTEXITCODE
 }
 
 Write-Host "❌ Error: Node.js (npx) or Bun (bunx) is required to run Superpowers MCP." -ForegroundColor Red
 Write-Host "Please install Node.js from https://nodejs.org or Bun from https://bun.sh and try again." -ForegroundColor Yellow
-return 1
+exit 1

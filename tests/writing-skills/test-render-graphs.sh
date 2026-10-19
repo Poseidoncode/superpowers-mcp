@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -u
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -69,8 +69,8 @@ EOF
 
 echo "Writing-skills render-graphs tests"
 
-missing_dot_output="$(PATH="$TEST_ROOT/empty-path" "$NODE_BIN" "$SCRIPT_UNDER_TEST" "$fixture" 2>&1)"
-missing_dot_status=$?
+missing_dot_status=0
+missing_dot_output="$(PATH="$TEST_ROOT/empty-path" "$NODE_BIN" "$SCRIPT_UNDER_TEST" "$fixture" 2>&1)" || missing_dot_status=$?
 
 if [[ "$missing_dot_status" -ne 0 ]]; then
   pass "missing Graphviz exits non-zero"
@@ -89,8 +89,8 @@ if ! command -v dot >/dev/null 2>&1; then
   exit 0
 fi
 
-render_output="$("$NODE_BIN" "$SCRIPT_UNDER_TEST" "$fixture" 2>&1)"
-render_status=$?
+render_status=0
+render_output="$("$NODE_BIN" "$SCRIPT_UNDER_TEST" "$fixture" 2>&1)" || render_status=$?
 
 if [[ "$render_status" -eq 0 ]]; then
   pass "fixture diagram renders"

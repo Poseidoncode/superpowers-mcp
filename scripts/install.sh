@@ -35,7 +35,12 @@ fi
 
 if [ -n "$RUNNER" ]; then
     echo "🚀 Running global setup via $RUNNER..."
-    "$RUNNER" -y superpowers-mcp setup "$@"
+    # bunx takes no -y flag: passing one makes it look up a "-y" package and fail.
+    if [ "$RUNNER" = "bunx" ]; then
+        "$RUNNER" superpowers-mcp setup "$@"
+    else
+        "$RUNNER" -y superpowers-mcp setup "$@"
+    fi
     exit $?
 fi
 

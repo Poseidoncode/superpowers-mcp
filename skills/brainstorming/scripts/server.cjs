@@ -999,8 +999,16 @@ function maybeOpenBrowser() {
   const url = companionUrl(); // must carry the key or the gate 403s it
   const cp = require('child_process');
   // Operator-provided launcher: run via execFile (no shell) so a malicious env var
-  // cannot inject commands through shell metacharacters.
+  // cannot inject commands through shell metacharacters. Only an absolute path
+  // is honored — the operator is expected to allowlist a fixed browser binary
+  // (e.g. export BRAINSTORM_OPEN_CMD=/usr/bin/xdg-open); a relative value is
+  // refused with a warning because it would resolve via PATH and could be
+  // hijacked by a planted executable earlier on the search path.
   if (process.env.BRAINSTORM_OPEN_CMD) {
+    if (!path.isAbsolute(process.env.BRAINSTORM_OPEN_CMD)) {
+      console.error('Refusing relative BRAINSTORM_OPEN_CMD (must be an absolute path):', process.env.BRAINSTORM_OPEN_CMD);
+      return;
+    }
     try { cp.execFile(process.env.BRAINSTORM_OPEN_CMD, [url], () => {}); } catch (e) { /* best effort */ }
     return;
   }

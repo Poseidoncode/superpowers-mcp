@@ -34,8 +34,12 @@ function Protect-PathForCurrentUser {
         $item = Get-Item -LiteralPath $Path -ErrorAction Stop
         if (-not $isWindowsPlatform) {
             $mode = if ($item.PSIsContainer) { "700" } else { "600" }
-            & chmod $mode $item.FullName
-            if ($LASTEXITCODE -ne 0) { throw "chmod failed" }
+            # chmod may be absent (e.g. bare Windows pwsh without Git-bash);
+            # skip best-effort instead of failing — Windows uses ACLs below.
+            if (Get-Command chmod -ErrorAction SilentlyContinue) {
+                & chmod $mode $item.FullName
+                if ($LASTEXITCODE -ne 0) { throw "chmod failed" }
+            }
             return
         }
         $acl = Get-Acl -LiteralPath $item.FullName

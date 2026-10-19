@@ -42,7 +42,7 @@ function needsBuild() {
         return true;
     }
     try {
-        return fs.statSync(compiledRunner).mtimeMs < newestInputMtime();
+        return fs.statSync(compiledRunner).mtimeMs <= newestInputMtime();
     } catch {
         return true;
     }
@@ -117,7 +117,9 @@ function releaseLock() {
 
 function lockIsStale() {
     try {
-        return Date.now() - fs.statSync(lockPath).mtimeMs > 120000;
+        // Stale threshold (30s) stays well under the 60s wait deadline below, so a
+        // dead holder's lock is reclaimed instead of timing out the waiter.
+        return Date.now() - fs.statSync(lockPath).mtimeMs > 30000;
     } catch {
         return false; // already gone
     }
@@ -128,7 +130,7 @@ const cliArgs = process.argv.slice(2);
 const skipBuild = cliArgs.includes("--help") || cliArgs.includes("-h") || cliArgs.includes("--dry-run");
 
 if (!skipBuild && needsBuild()) {
-    const { execSync } = require("child_process");
+    const { execFileSync } = require("child_process");
 
     const deadline = Date.now() + 60000;
     let owned = acquireLock();
@@ -136,9 +138,10 @@ if (!skipBuild && needsBuild()) {
     // Wait for a concurrent build to finish (and release the lock) before building,
     // so two invocations never run esbuild at once and interleave writes to out/*.
     while (!owned && needsBuild() && Date.now() < deadline) {
-        if (lockIsStale()) {
+        if (!fs.existsSync(lockPath) || lockIsStale()) {
             // acquireLock steals only a dead holder's lock; a live holder keeps
-            // it and we keep waiting for it to finish.
+            // it and we keep waiting for it to finish. A missing lock means the
+            // holder released cleanly, so it is acquirable.
             owned = acquireLock();
             if (owned) break;
         }
@@ -146,12 +149,22 @@ if (!skipBuild && needsBuild()) {
     }
 
     if (owned) {
+        // Heartbeat: periodically refresh the lock mtime so concurrent waiters
+        // (30s stale threshold) do not steal it mid-build on slow machines.
+        const heartbeat = setInterval(() => {
+            try {
+                fs.utimesSync(lockPath, new Date(), new Date());
+            } catch {
+                // Best-effort; the build proceeds regardless.
+            }
+        }, 10000);
         try {
-            execSync("node esbuild.js", { cwd: repoRoot, stdio: "inherit" });
+            execFileSync(process.execPath, ["esbuild.js"], { cwd: repoRoot, stdio: "inherit" });
         } catch (e) {
             console.error("Failed to build out/setup-runner.js automatically:", e.message);
             process.exit(1);
         } finally {
+            clearInterval(heartbeat);
             releaseLock();
         }
     } else if (needsBuild()) {
@@ -161,7 +174,34 @@ if (!skipBuild && needsBuild()) {
     // If !owned but !needsBuild(), another process finished the build — reuse it.
 }
 
-const runner = require(compiledRunner);
+let runner;
+try {
+    runner = require(compiledRunner);
+} catch (loadErr) {
+    // Help and dry-run skip the build above, so the bundle may legitimately be
+    // missing here (fresh checkout). Serve those without the bundle — reading
+    // the version straight from package.json — instead of crashing on require.
+    // Any other case (a build was expected, or the bundle exists but is broken)
+    // rethrows: that is a genuine failure, not a skippable one.
+    if (require.main !== module || !skipBuild || fs.existsSync(compiledRunner)) {
+        throw loadErr;
+    }
+    let pkgVersion = "unknown";
+    try {
+        pkgVersion = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8")).version || "unknown";
+    } catch {
+        // Keep "unknown".
+    }
+    if (cliArgs.includes("--help") || cliArgs.includes("-h")) {
+        console.log(`\nSuperpowers MCP v${pkgVersion} - Targeted Global Setup`);
+        console.log("\nUsage:\n  superpowers-mcp setup --target <name> [options]\n");
+        console.log("The setup bundle (out/setup-runner.js) is not built yet;");
+        console.log("re-run without --help/--dry-run to build it, then use --help for full usage.\n");
+        process.exit(0);
+    }
+    console.log(`Superpowers MCP v${pkgVersion}: setup bundle is not built; re-run without --dry-run to build it first.`);
+    process.exit(0);
+}
 
 module.exports = runner;
 

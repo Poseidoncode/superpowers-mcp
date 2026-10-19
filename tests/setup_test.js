@@ -315,7 +315,7 @@ it("should emit clean desktop import JSON without modifying client files", () =>
         const flags = [cli, "--print-config", ...(bun ? ["--bun"] : [])];
         const json = JSON.parse(execFileSync(process.execPath, flags, { encoding: "utf8" }));
         assert.deepStrictEqual(json, { mcpServers: { superpowers: {
-            command: bun ? "bunx" : "npx", args: ["-y", "superpowers-mcp"],
+            command: bun ? "bunx" : "npx", args: bun ? ["superpowers-mcp"] : ["-y", "superpowers-mcp"],
         } } });
     }
     // Verify fail-closed defense against conflicting flags in both out/setup.js and out/server.js
@@ -1538,9 +1538,9 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
         passed++;
 
         // Test CLI execution via scripts/setup.js: must execute exactly once (no double invocation)
-        const { execSync } = require("child_process");
+        const { execFileSync } = require("child_process");
         const setupScriptPath = path.join(__dirname, "..", "scripts", "setup.js");
-        const cliHelpOut = execSync(`node "${setupScriptPath}" --help`, { encoding: "utf8" });
+        const cliHelpOut = execFileSync(process.execPath, [setupScriptPath, "--help"], { encoding: "utf8" });
         const helpOccurrences = (cliHelpOut.match(/Superpowers MCP - Targeted Global Setup/g) || []).length;
         assert.strictEqual(helpOccurrences, 1, "scripts/setup.js must execute CLI exactly once (no double invocation)");
         console.log("  ✅ PASS: scripts/setup.js executes exactly once without double invocation");
@@ -1646,10 +1646,10 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
             return;
         }
 
-        const noTarget = spawnSync("node", [entry, "setup"], { encoding: "utf8" });
+        const noTarget = spawnSync(process.execPath, [entry, "setup"], { encoding: "utf8" });
         assert.strictEqual(noTarget.status, 1, "missing --target must exit non-zero");
 
-        const extraArg = spawnSync("node", [entry, "setup", "copilot", "cursor"], { encoding: "utf8" });
+        const extraArg = spawnSync(process.execPath, [entry, "setup", "copilot", "cursor"], { encoding: "utf8" });
         assert.strictEqual(extraArg.status, 1, "unexpected positional argument must exit non-zero");
         assert.match(extraArg.stderr, /Unexpected argument "cursor"/);
     });
@@ -1814,7 +1814,7 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
             skipped++;
             return;
         }
-        const res = spawnSync("node", [entry, "setup", "--target", "cursor", "--target", "claude"], { encoding: "utf8" });
+        const res = spawnSync(process.execPath, [entry, "setup", "--target", "cursor", "--target", "claude"], { encoding: "utf8" });
         assert.strictEqual(res.status, 1, "a repeated --target must exit non-zero");
         assert.match(res.stderr, /--target.*(more than once|specified)/i);
     });

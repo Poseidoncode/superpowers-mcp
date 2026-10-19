@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 if ! command -v pwsh >/dev/null 2>&1; then
-  echo "pwsh not found - skipping PowerShell script tests."
+  echo "SKIP: pwsh not found - skipping PowerShell script tests (not a pass)."
   echo "Install with: brew install --cask powershell"
   exit 0
 fi

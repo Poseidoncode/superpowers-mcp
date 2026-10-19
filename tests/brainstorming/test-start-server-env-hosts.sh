@@ -6,7 +6,7 @@
 # passed, so containers and tunnels stop having to repeat the flags.
 #
 # Run: bash tests/brainstorming/test-start-server-env-hosts.sh
-set -uo pipefail
+set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 START="$ROOT/skills/brainstorming/scripts/start-server.sh"
@@ -94,8 +94,8 @@ assert_eq "empty BRAINSTORM_URL_HOST falls back to localhost" "$(json_field "$in
 
 # 6. A non-loopback bind is refused by the server's own guard.
 mkdir -p "$TMP/non-loopback"
-env BRAINSTORM_HOST=0.0.0.0 "$START" --project-dir "$TMP/non-loopback" --background >/dev/null 2>&1
-non_loopback_status=$?
+non_loopback_status=0
+env BRAINSTORM_HOST=0.0.0.0 "$START" --project-dir "$TMP/non-loopback" --background >/dev/null 2>&1 || non_loopback_status=$?
 if [ "$non_loopback_status" -ne 0 ]; then
   pass "non-loopback BRAINSTORM_HOST is refused (exit $non_loopback_status)"
 else

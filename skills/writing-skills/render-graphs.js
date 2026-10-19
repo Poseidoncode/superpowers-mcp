@@ -130,9 +130,10 @@ function main() {
   console.log(`Found ${blocks.length} diagram(s) in ${path.basename(skillDir)}/SKILL.md`);
 
   const outputDir = path.join(skillDir, 'diagrams');
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir);
-  }
+  // recursive:true so deeply-nested skill dirs never fail; re-renders
+  // overwrite same-named SVGs from a previous run (stale diagrams for
+  // removed ```dot blocks are left in place, never deleted).
+  fs.mkdirSync(outputDir, { recursive: true });
 
   if (combine) {
     // Combine all graphs into one

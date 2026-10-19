@@ -33,10 +33,13 @@ log="$dir/task-${n}-tests.log"
 ledger="$dir/progress.md"
 
 # Render the command the way a person would type it, for the ledger line.
+# Single-quote anything outside a safe allowlist so $,`,\,(),<>,#,*,?[,quotes
+# and newlines can never break or inject into the ledger line; an embedded '
+# is escaped by doubling it inside the single quotes.
 cmd=""
 for a in "$@"; do
   case "$a" in
-    *[[:space:]\"\;\|\&\']*) esc=$(printf '%s' "$a" | sed "s/'/'\\\\''/g"); cmd="$cmd '$esc'" ;;
+    ''|*[!a-zA-Z0-9_@%+=:,./-]*) esc=$(printf '%s' "$a" | sed "s/'/'\\\\''/g"); cmd="$cmd '$esc'" ;;
     *) cmd="$cmd $a" ;;
   esac
 done

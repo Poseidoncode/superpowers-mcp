@@ -10,6 +10,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const src = path.join(__dirname, "..", "..", "target-learn", "skills");
 const dest = path.join(__dirname, "..", "skills");
@@ -22,16 +23,30 @@ if (!fs.existsSync(src)) {
 
 function listFiles(root) {
     const out = [];
+    // A readdir failure (permissions, concurrent deletion, I/O error) yields a
+    // partial file list; the stale cleanup below deletes every manifest entry
+    // missing from that list, so a partial walk must abort the run instead of
+    // proceeding as if upstream had shrunk.
+    let walkFailed = false;
     const walk = (dir, rel) => {
         let entries;
         try {
             entries = fs.readdirSync(dir, { withFileTypes: true });
-        } catch {
+        } catch (err) {
+            walkFailed = true;
+            console.warn(`Warning: cannot read directory, skipping: ${dir} (${err.message})`);
             return;
         }
         for (const entry of entries) {
             const abs = path.join(dir, entry.name);
             const childRel = rel ? `${rel}/${entry.name}` : entry.name;
+            // Never follow symlinks: a crafted or stale link would copy content
+            // from outside the skills tree (or loop forever). Skip with a warning.
+            // Dirent comes from lstat, so isSymbolicLink() needs no extra stat.
+            if (entry.isSymbolicLink()) {
+                console.warn(`Warning: skipping symlink: ${abs}`);
+                continue;
+            }
             if (entry.isDirectory()) {
                 walk(abs, childRel);
             } else if (entry.isFile()) {
@@ -40,14 +55,20 @@ function listFiles(root) {
         }
     };
     walk(root, "");
-    return out.sort();
+    return { files: out.sort(), walkFailed };
 }
 
 function sameFile(a, b) {
+    // Size + content hash: mtime granularity (and preserved mtimes) can hide
+    // a same-size content change, which the old size+mtimeMs check then
+    // skipped forever. Skills are small text files, so hashing is cheap.
     try {
         const sa = fs.statSync(a);
         const sb = fs.statSync(b);
-        return sa.size === sb.size && sa.mtimeMs === sb.mtimeMs;
+        if (sa.size !== sb.size) return false;
+        const ha = crypto.createHash("sha256").update(fs.readFileSync(a)).digest();
+        const hb = crypto.createHash("sha256").update(fs.readFileSync(b)).digest();
+        return ha.equals(hb);
     } catch {
         return false;
     }
@@ -74,7 +95,7 @@ function loadManifest() {
     }
 }
 
-const srcFiles = listFiles(src);
+const { files: srcFiles, walkFailed } = listFiles(src);
 const previousCopied = loadManifest();
 const currentlyCopied = new Set();
 
@@ -91,8 +112,25 @@ for (const rel of srcFiles) {
         continue; // unchanged — avoid needless disk writes and mtime churn
     }
     fs.mkdirSync(path.dirname(to), { recursive: true });
+    if (fs.existsSync(to) && !sameFile(from, to)) {
+        try {
+            fs.copyFileSync(to, `${to}.bak`);
+            console.warn(`Warning: overwriting modified file, backup created: ${to}.bak`);
+        } catch {
+            // best-effort backup; the overwrite below still proceeds.
+        }
+    }
     fs.copyFileSync(from, to);
     copied++;
+}
+
+if (walkFailed) {
+    // The source walk above hit unreadable directories: srcFiles is partial, so
+    // the stale cleanup below would delete fork-shipped files that still exist
+    // upstream. Copies already made are incremental and harmless; skip cleanup
+    // and the manifest rewrite (which would record the partial set) and fail.
+    console.error("❌ Aborting: source tree walk failed; stale cleanup skipped to avoid deleting live skills.");
+    process.exit(1);
 }
 
 // Remove only files THIS script copied previously that no longer exist upstream.
@@ -127,7 +165,16 @@ for (const dir of staleDirs) {
 
 try {
     fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-    fs.writeFileSync(manifestPath, JSON.stringify({ files: [...currentlyCopied].sort() }, null, 2) + "\n", "utf-8");
+    // Atomic write (tmp + rename, exclusive create): a crash mid-write must not
+    // leave a truncated manifest that the next run mistakes for the full set.
+    const manifestTmp = `${manifestPath}.${process.pid}.${crypto.randomBytes(8).toString("hex")}.tmp`;
+    try {
+        fs.writeFileSync(manifestTmp, JSON.stringify({ files: [...currentlyCopied].sort() }, null, 2) + "\n", { encoding: "utf-8", flag: "wx" });
+        fs.renameSync(manifestTmp, manifestPath);
+    } catch (manifestErr) {
+        try { fs.unlinkSync(manifestTmp); } catch { /* ignore */ }
+        throw manifestErr;
+    }
 } catch {
     // Manifest write is best-effort; a missing manifest just means no stale cleanup next run.
 }
