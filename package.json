@@ -40,7 +40,7 @@
   "overrides": {
     "@hono/node-server": "^2.1.1",
     "fast-uri": "^4.2.1",
-    "hono": "^4.13.7",
+    "hono": "^4.13.13",
     "proxy-addr": "^2.0.8",
     "qs": "^6.16.0"
   },
