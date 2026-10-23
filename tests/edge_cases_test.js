@@ -464,6 +464,44 @@ async function runEdgeCaseTests() {
         }
         console.log("  ✅ Test 14 Passed!");
 
+        console.log("\nTest 15: replaced skills root is rejected on the hot cache path...");
+        {
+            const rootDir = path.join(tmpSkillsDir, "root-swap");
+            fs.mkdirSync(rootDir, { recursive: true });
+            fs.mkdirSync(path.join(rootDir, "swap-skill"), { recursive: true });
+            fs.writeFileSync(
+                path.join(rootDir, "swap-skill", "SKILL.md"),
+                "---\nname: swap-skill\ndescription: before swap\n---\nbody\n",
+                "utf-8"
+            );
+            const swapManager = new SkillsManager(rootDir);
+            await swapManager.listSkills();
+            const moved = `${rootDir}.moved`;
+            fs.renameSync(rootDir, moved);
+            fs.mkdirSync(rootDir, { recursive: true });
+            fs.mkdirSync(path.join(rootDir, "other-skill"), { recursive: true });
+            fs.writeFileSync(
+                path.join(rootDir, "other-skill", "SKILL.md"),
+                "---\nname: other-skill\ndescription: after swap\n---\nbody\n",
+                "utf-8"
+            );
+            await assert.rejects(
+                () => swapManager.listSkills(),
+                (err) => err && err.code === "EROOTCHANGED",
+                "hot listSkills must reject a replaced skills root"
+            );
+            await assert.rejects(
+                () => swapManager.readSkillContent(path.join(rootDir, "other-skill", "SKILL.md")),
+                (err) =>
+                    (err && err.code === "EROOTCHANGED") ||
+                    (err instanceof Error && err.message.includes("replaced")),
+                "readSkillContent must reject a replaced skills root"
+            );
+            fs.rmSync(moved, { recursive: true, force: true });
+            fs.rmSync(rootDir, { recursive: true, force: true });
+        }
+        console.log("  ✅ Test 15 Passed!");
+
         console.log("\n🎉 ALL EDGE CASE & SECURITY UNIT TESTS PASSED!");
     } finally {
         if (fs.existsSync(tmpSkillsDir)) {

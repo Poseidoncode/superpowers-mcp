@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -87,6 +87,9 @@ ChatWise、Cherry Studio は手動インポートが必要です。[デスクト
   ```powershell
   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.ps1))) -Target cursor
   ```
+
+> [!IMPORTANT]
+> **セキュリティ**: MCP サーバーにはアプリケーションレベルの認証はありません（ローカル stdio の信頼モデル）。パイプ経由の `curl`/`irm` インストーラは可変の `main` を追跡します。リポジトリを clone して `./scripts/install.sh` / `.\scripts\install.ps1` を実行するか、release タグを固定してください。カスタム `SKILLS_PATH` 内のスキルはすべて信頼された agent 指示として扱われます。詳細は [`SECURITY.md`](SECURITY.md)。
 
 #### 主な高度なオプション：
 - `--dry-run`：ディスクに書き込まず、変更内容をプレビューします。
@@ -180,7 +183,16 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.4.7（最新）
+### v6.4.8（最新）
+
+- **MCP クライアント向けレスポンス上限**：`read_skill`、`list_skills`、スキル resource、compositions guide のインライン本文を **20 KB** に制限し、巨大な 1 つの `SKILL.md` がエージェントのコンテキストを枯渇させないようにした（`tests/client_truncation_test.js`）。
+- **スキルルート差し替え検知**（`EROOTCHANGED`）：起動時にスキルディレクトリの inode を記録。MCP サーバーを再起動せず `SKILLS_PATH` が置き換わった場合、ホットパスの一覧・読み取りは fail-closed で再起動を促す（edge-cases Test 15）。
+- **クライアント向けエラーの衛生**：`read_skill`、プロンプトテンプレート、compositions guide は汎用 MCP エラーのみ返し、ファイルシステムのパスは `stderr` のみ（mcp_coverage Test 3c）。
+- **信頼モデルとサプライチェーン**：[SECURITY.md](SECURITY.md) の threat model、README のインストール注意、起動時の stderr 信頼通知、パイプ／registry 経由インストールの警告。
+- **スキルキャッシュ修正**：`forceReload` は再スキャン前に本文キャッシュを破棄しつきディレクトリ指紋は保持。キャッシュ予算は UTF-8 バイト長で計算。
+- 検証：`npm test` グリーン **14/21 スイート**（`pwsh` なし時は PowerShell スイート skip）、`npm run build` ok、`npm audit` **0** 脆弱性。
+
+### v6.4.7
 
 - **プロジェクト全体のセキュリティスキャン（2026-10-09）**：`src/*.ts`、brainstorming コンパニオンサーバー、`scripts/`、`esbuild.js`、npm パッケージングとロックファイルの完全性、秘密情報／パーミッションの衛生、およびすべての自動テストスイートを対象。ベースラインの統制を再検証しクリーン——出荷ソース中の `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` は 0、`child_process` は argv のみ、ハードコードされた秘密情報 0、追跡対象のワールドライタブルファイル 0（詳細は [SECURITY.md](SECURITY.md)）。
 - **`--remove` は有効な MCP エントリが残ったまま成功を報告し得た**（CWE-459、実行による再現）：TOML は最後の `[[mcp_servers.superpowers]]` 配列テーブル以外のすべてを残し、`[[mcp_servers.superpowers.env]]` を孤立させる；JSON は `superpowers` エントリを保持する最初のルートキーだけを消去する；YAML の削除は、内容のあるフローマップ `superpowers: {…}` では no-op に留まる。呼び出し側が指定した `command` はしたがって、成功を報告したアンインストールの後も自動起動し続ける。

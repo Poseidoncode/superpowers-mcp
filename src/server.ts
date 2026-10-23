@@ -107,6 +107,29 @@ function getSafeSkillsPath(): string {
 }
 
 const SKILLS_PATH = getSafeSkillsPath();
+
+function writeStartupTrustNotices(skillsPath: string): void {
+    process.stderr.write(
+        "[superpowers-mcp] Trust: stdio MCP has no application-level auth; any process that can spawn this server can use all tools and read all skills.\n"
+    );
+    const envPath = process.env.SKILLS_PATH;
+    if (!envPath) {
+        return;
+    }
+    let resolvedEnv = path.resolve(envPath);
+    try {
+        resolvedEnv = fs.realpathSync(resolvedEnv);
+    } catch (_realpathErr: unknown) {
+        return;
+    }
+    if (path.resolve(skillsPath) !== path.resolve(resolvedEnv)) {
+        return;
+    }
+    process.stderr.write(
+        `[superpowers-mcp] Trust: SKILLS_PATH is set; all SKILL.md under that directory are treated as trusted agent instructions.\n`
+    );
+}
+
 const skillsManager = new SkillsManager(SKILLS_PATH);
 const COMPOSITIONS_GUIDE_URI = "guide://superpowers/skill-compositions";
 const COMPOSITIONS_GUIDE_PATH = path.join(__dirname, "..", "docs", "skill-compositions.md");
@@ -126,11 +149,61 @@ function normalizeSkillName(value: string): string {
     return value.trim().replace(/^superpowers:/i, "");
 }
 
+/** Caps skill body size for tool/resource responses (same budget as session-start). */
+function truncateSkillBodyForClient(body: string): string {
+    if (body.length <= MAX_INLINE_SKILL_CHARS) {
+        return body;
+    }
+    return (
+        body.slice(0, MAX_INLINE_SKILL_CHARS) +
+        `\n\n...[skill content truncated (${body.length - MAX_INLINE_SKILL_CHARS} more characters not shown)]`
+    );
+}
+
 /**
  * Rejects a skill name that could address something other than a scanned skill
  * directory. Shared by the resource reader and the read_skill tool so both
  * surfaces accept and refuse exactly the same names.
  */
+function isSkillsRootChangedError(err: unknown): boolean {
+    return Boolean(err && typeof err === "object" && (err as { code?: string }).code === "EROOTCHANGED");
+}
+
+const SKILLS_ROOT_CHANGED_MESSAGE = "Skills directory path was replaced; restart the MCP server.";
+
+function rethrowIfSkillsRootChanged(err: unknown): void {
+    if (isSkillsRootChangedError(err)) {
+        throw new McpError(ErrorCode.InternalError, SKILLS_ROOT_CHANGED_MESSAGE);
+    }
+}
+
+async function listSkillsForClient() {
+    try {
+        return await skillsManager.listSkills();
+    } catch (err: unknown) {
+        rethrowIfSkillsRootChanged(err);
+        throw err;
+    }
+}
+
+async function findSkillForClient(skillName: string) {
+    try {
+        return await skillsManager.findSkill(skillName);
+    } catch (err: unknown) {
+        rethrowIfSkillsRootChanged(err);
+        throw err;
+    }
+}
+
+async function readSkillContentForClient(skillPath: string) {
+    try {
+        return await skillsManager.readSkillContent(skillPath);
+    } catch (err: unknown) {
+        rethrowIfSkillsRootChanged(err);
+        throw err;
+    }
+}
+
 function isUnsafeSkillName(name: string): boolean {
     return (
         name === "" ||
@@ -173,7 +246,7 @@ const server = new Server(
 // ---------------------------------------------------------------------------
 
 server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    const skills = await skillsManager.listSkills();
+    const skills = await listSkillsForClient();
     return {
         resources: [
             ...skills.map((skill) => ({
@@ -210,7 +283,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
                 compositionsGuideMtimeMs = postReadStat.mtimeMs;
                 compositionsGuideSize = postReadStat.size;
             }
-            const text = compositionsGuideCache;
+            const text = truncateSkillBodyForClient(compositionsGuideCache ?? "");
             return {
                 contents: [{ uri, mimeType: "text/markdown", text }],
             };
@@ -219,7 +292,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
             process.stderr.write(`[superpowers-mcp] Failed to read compositions guide: ${detail}\n`);
             throw new McpError(
                 ErrorCode.InternalError,
-                `Failed to read the skill compositions guide: ${detail}`
+                "Failed to read the skill compositions guide."
             );
         }
     }
@@ -246,14 +319,14 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     if (isUnsafeSkillName(normalizedSkillName)) {
         throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
     }
-    const skill = await skillsManager.findSkill(normalizedSkillName);
+    const skill = await findSkillForClient(normalizedSkillName);
 
     if (!skill) {
         throw new McpError(ErrorCode.InvalidRequest, `Skill not found: ${skillName}`);
     }
 
     try {
-        const content = await skillsManager.readSkillContent(skill.skillPath);
+        const content = truncateSkillBodyForClient(await readSkillContentForClient(skill.skillPath));
         return {
             contents: [
                 {
@@ -738,13 +811,13 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     const readPromptFileSafe = async (relPath: string): Promise<string> => {
         const fullPath = path.join(SKILLS_PATH, relPath);
         try {
-            const content = await skillsManager.readSkillContent(fullPath);
+            const content = await readSkillContentForClient(fullPath);
             if (content.trim() === "") {
                 // Returning an empty template would silently hand the user a blank
                 // prompt with no indication that the installation is broken.
                 throw new Error("prompt template is empty");
             }
-            return content;
+            return truncateSkillBodyForClient(content);
         } catch (fileErr: unknown) {
             const detail = fileErr instanceof Error ? fileErr.message : String(fileErr);
             process.stderr.write(`[superpowers-mcp] Failed to load prompt template "${relPath}": ${detail}\n`);
@@ -760,15 +833,9 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     if (promptName === "session-start") {
         let skillContent = "";
         try {
-            const skill = await skillsManager.findSkill("using-superpowers");
+            const skill = await findSkillForClient("using-superpowers");
             const targetPath = skill ? skill.skillPath : path.join(SKILLS_PATH, "using-superpowers", "SKILL.md");
-            skillContent = await skillsManager.readSkillContent(targetPath);
-            // 技能內容若異常龐大就截斷，避免每次 session-start 塞爆上下文。
-            if (skillContent.length > MAX_INLINE_SKILL_CHARS) {
-                skillContent =
-                    skillContent.slice(0, MAX_INLINE_SKILL_CHARS) +
-                    `\n\n...[skill content truncated (${skillContent.length - MAX_INLINE_SKILL_CHARS} more characters not shown)]`;
-            }
+            skillContent = truncateSkillBodyForClient(await readSkillContentForClient(targetPath));
         } catch (_skillErr: unknown) {
             const detail = _skillErr instanceof Error ? _skillErr.message : String(_skillErr);
             process.stderr.write(`[superpowers-mcp] Failed to load using-superpowers skill, using fallback: ${detail}\n`);
@@ -1168,7 +1235,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "list_skills") {
-        const skills = await skillsManager.listSkills();
+        const skills = await listSkillsForClient();
         const header = `# Superpowers Skills (${skills.length} available)\n\nUse \`read_skill\` with the skill name to load its full content.`;
         // 總輸出上限：技能一多或描述一大就截斷，並註明省略數量。
         const entries: string[] = [];
@@ -1215,7 +1282,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             throw new McpError(ErrorCode.InvalidParams, `Invalid skill name: "${skillName}"`);
         }
 
-        const skill = await skillsManager.findSkill(skillName);
+        const skill = await findSkillForClient(skillName);
         if (!skill) {
             throw new McpError(
                 ErrorCode.InvalidParams,
@@ -1224,7 +1291,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         try {
-            const content = await skillsManager.readSkillContent(skill.skillPath);
+            const content = truncateSkillBodyForClient(await readSkillContentForClient(skill.skillPath));
             return {
                 content: [
                     {
@@ -1278,6 +1345,7 @@ async function main() {
         return;
     }
 
+    writeStartupTrustNotices(SKILLS_PATH);
     const transport = new StdioServerTransport();
     await server.connect(transport);
 

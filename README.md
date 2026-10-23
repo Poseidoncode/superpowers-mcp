@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -87,6 +87,9 @@ Select your client and run the corresponding command in your terminal:
   ```powershell
   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.ps1))) -Target cursor
   ```
+
+> [!IMPORTANT]
+> **Security**: The MCP server has no application-level auth (local stdio trust model). Piped `curl`/`irm` installers track the mutable `main` branch; prefer cloning the repo and running `./scripts/install.sh` / `.\scripts\install.ps1`, or pin a release tag. Custom `SKILLS_PATH` directories are fully trusted as agent instructions. Details: [`SECURITY.md`](SECURITY.md).
 
 #### Advanced Flags:
 - `--dry-run`: Preview changes without writing to disk.
@@ -179,7 +182,16 @@ To help you choose the right skill, we have structured all 15 skills across the 
 
 ## 🆕 Recent Updates
 
-### v6.4.7 (Latest)
+### v6.4.8 (Latest)
+
+- **MCP client response budgets**: Inline skill bodies are capped at **20 KB** for `read_skill`, `list_skills`, skill resources, and the compositions guide so one huge `SKILL.md` cannot exhaust agent context (`tests/client_truncation_test.js`).
+- **Skills root swap detection** (`EROOTCHANGED`): the skills directory inode is tracked at startup; if `SKILLS_PATH` is replaced without restarting the MCP server, hot-path listing and reads fail closed with a restart hint (edge-cases Test 15).
+- **Client-facing error hygiene**: `read_skill`, prompt templates, and the compositions guide return generic MCP errors; filesystem paths stay on `stderr` only (mcp_coverage Test 3c).
+- **Trust & supply-chain docs**: [SECURITY.md](SECURITY.md) threat model, README install callouts, stderr trust notices on server start, and installer warnings for piped/registry setup.
+- **Skills cache fixes**: `forceReload` drops cached bodies before rescan without losing the directory fingerprint; content-cache limits use UTF-8 byte length.
+- Verification: `npm test` green **14/21 suites** (PowerShell suites skip when `pwsh` is absent), `npm run build` ok, `npm audit` **0** vulnerabilities.
+
+### v6.4.7
 
 - **Full project security scan (2026-10-09)**: `src/*.ts`, the brainstorming companion server, `scripts/`, `esbuild.js`, npm packaging and lockfile integrity, secret/permission hygiene, and every automated suite. Baseline controls re-verified clean — 0 `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` in shipped source, `child_process` argv-only, 0 hardcoded secrets, 0 world-writable tracked files (details in [SECURITY.md](SECURITY.md)).
 - **`--remove` could report success while a live MCP entry survived** (CWE-459, reproduced by execution): TOML keeps all but the last `[[mcp_servers.superpowers]]` array table and orphans `[[mcp_servers.superpowers.env]]`; JSON clears only the first root key holding a `superpowers` entry; YAML removal is a no-op on a populated flow map `superpowers: {…}`. A caller-chosen `command` therefore keeps auto-launching after an uninstall that reported success.

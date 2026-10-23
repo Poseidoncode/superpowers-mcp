@@ -53,6 +53,7 @@ const HAVE_PWSH = havePwsh();
 const SUITES = [
     "tests/edge_cases_test.js",
     "tests/run_test.js",
+    "tests/client_truncation_test.js",
     "tests/brainstorm_server_test.js",
     "tests/prompts_compositions_test.js",
     "tests/upstream_sync_test.js",

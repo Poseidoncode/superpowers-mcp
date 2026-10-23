@@ -193,6 +193,26 @@ async function main() {
         assert.ok(guideText.includes("feature-pipeline"), "guide resource does not document feature-pipeline");
     });
 
+    const guideBackup = `${COMPOSITIONS_DOC}.coverage-bak`;
+    let guideErrorMessage = "";
+    try {
+        fs.renameSync(COMPOSITIONS_DOC, guideBackup);
+        try {
+            await request("resources/read", { uri: COMPOSITIONS_GUIDE_URI });
+        } catch (err) {
+            guideErrorMessage = err.message;
+        }
+    } finally {
+        if (fs.existsSync(guideBackup)) {
+            fs.renameSync(guideBackup, COMPOSITIONS_DOC);
+        }
+    }
+    check("3c (composition guide read errors omit filesystem paths)", () => {
+        assert.ok(guideErrorMessage, "expected resources/read to fail when the guide file is missing");
+        assert.match(guideErrorMessage, /Failed to read the skill compositions guide\./);
+        assert.doesNotMatch(guideErrorMessage, /[\\/]|\.md/i, "MCP error must not leak absolute paths or doc filenames");
+    });
+
     check("3b (composition guides are included in the npm package)", () => {
         const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
         assert.ok(manifest.files.includes("docs"), "package.json files must include the published composition guides");

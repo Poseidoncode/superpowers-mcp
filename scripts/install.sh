@@ -34,6 +34,7 @@ if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/setup.js" ] && command -v node >/de
 fi
 
 if [ -n "$RUNNER" ]; then
+    echo "⚠️  Supply chain: remote/piped installs run mutable registry or script content. Prefer ./scripts/install.sh from a git clone, or pin a release tag/SHA (see SECURITY.md)."
     echo "🚀 Running global setup via $RUNNER..."
     # bunx takes no -y flag: passing one makes it look up a "-y" package and fail.
     if [ "$RUNNER" = "bunx" ]; then

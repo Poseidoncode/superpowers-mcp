@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![संस्करण](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![संस्करण](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![लाइसेंस](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 यह दस्तावेज़ Superpowers skills लाइब्रेरी और स्वायत्त वर्कफ़्लो सिस्टम को एक स्वतंत्र, उच्च-प्रदर्शन और सुरक्षित **Model Context Protocol (MCP)** सर्वर के रूप में पैकेज करने की जानकारी और उपयोग निर्देशों का सारांश है।
@@ -87,6 +87,9 @@ ChatWise और Cherry Studio में मैन्युअल इम्पो
   ```powershell
   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.ps1))) -Target cursor
   ```
+
+> [!IMPORTANT]
+> **सुरक्षा**: MCP सर्वर में एप्लिकेशन-स्तर प्रमाणीकरण नहीं है (स्थानीय stdio विश्वास मॉडल)। पाइप किए गए `curl`/`irm` इंस्टॉलर परिवर्तनशील `main` का अनुसरण करते हैं; रिपॉज़िटरी clone करके `./scripts/install.sh` / `.\scripts\install.ps1` चलाएँ, या release टैग पिन करें। कस्टम `SKILLS_PATH` निर्देशिकाएँ पूर्णतः विश्वसनीय agent निर्देश मानी जाती हैं। विवरण: [`SECURITY.md`](SECURITY.md).
 
 #### उन्नत फ़्लैग:
 - `--dry-run`: डिस्क पर लिखे बिना बदलावों का पूर्वावलोकन करें।
@@ -179,7 +182,16 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 हाल के अपडेट
 
-### v6.4.7 (नवीनतम)
+### v6.4.8 (नवीनतम)
+
+- **MCP क्लाइंट प्रतिक्रिया सीमा**: `read_skill`, `list_skills`, स्किल resources और compositions guide के इनलाइन बॉडी **20 KB** पर सीमित, ताकि एक विशाल `SKILL.md` एजेंट संदर्भ न खत्म करे (`tests/client_truncation_test.js`).
+- **स्किल रूट बदलाव पहचान** (`EROOTCHANGED`): स्टार्टअप पर स्किल डायरेक्टरी inode ट्रैक; MCP सर्वर रीस्टार्ट के बिना `SKILLS_PATH` बदलने पर हॉट-पाथ लिस्ट/रीड fail-closed और रीस्टार्ट संकेत (edge-cases Test 15).
+- **क्लाइंट-फेसिंग त्रुटि स्वच्छता**: `read_skill`, प्रॉम्प्ट टेम्पलेट और compositions guide सामान्य MCP त्रुटि लौटाते हैं; फ़ाइलसिस्टम पथ केवल `stderr` पर (mcp_coverage Test 3c).
+- **विश्वास मॉडल और सप्लाई चेन**: [SECURITY.md](SECURITY.md) threat model, README इंस्टॉल कॉलआउट, सर्वर स्टार्ट पर stderr विश्वास सूचनाएँ, पाइप/registry इंस्टॉल चेतावनियाँ।
+- **स्किल कैश सुधार**: `forceReload` रीस्कैन से पहले बॉडी कैश हटाता है, डायरेक्टरी फ़िंगरप्रिंट बनाए रखता है; कैश बजट UTF-8 बाइट लंबाई पर।
+- सत्यापन: `npm test` हरा **14/21 सुइट** (`pwsh` न होने पर PowerShell सुइट skip), `npm run build` ok, `npm audit` **0** कमज़ोरियाँ।
+
+### v6.4.7
 
 - **पूर्ण प्रोजेक्ट सुरक्षा स्कैन (2026-10-09)**: `src/*.ts`, brainstorming companion सर्वर, `scripts/`, `esbuild.js`, npm पैकेजिंग व लॉकफ़ाइल अखंडता, रहस्य/अनुमति स्वच्छता, और हर स्वचालित सूट। आधार नियंत्रण पुनः सत्यापित और स्वच्छ — शिप किए गए स्रोत में `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` 0, `child_process` केवल argv द्वारा, 0 हार्डकोडेड रहस्य, 0 world-writable ट्रैक की गई फ़ाइलें (विवरण [SECURITY.md](SECURITY.md) में)।
 - **`--remove` सफलता की सूचना दे सकता था जबकि एक सक्रिय MCP प्रविष्टि बची रहती थी** (CWE-459, निष्पादन द्वारा पुनरुत्पादित): TOML अंतिम `[[mcp_servers.superpowers]]` array table को छोड़कर बाकी सभी रखता है और `[[mcp_servers.superpowers.env]]` को अनाथ कर देता है; JSON केवल पहली root key को साफ़ करता है जिसमें `superpowers` प्रविष्टि हो; भरे हुए flow map `superpowers: {…}` पर YAML हटाना no-op रहता है। इसलिए कॉलर-चयनित `command` सफलता की सूचना देने वाली अनइंस्टॉल के बाद भी स्वतः लॉन्च होता रह सकता है।

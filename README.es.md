@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versión](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versión](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licencia](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume la información y las instrucciones de uso para empaquetar las habilidades (skills) de Superpowers y el sistema de flujos de trabajo autónomos en un servidor **Model Context Protocol (MCP)** independiente, de alto rendimiento y seguro.
@@ -87,6 +87,9 @@ Selecciona tu cliente y ejecuta el comando correspondiente en tu terminal:
   ```powershell
   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.ps1))) -Target cursor
   ```
+
+> [!IMPORTANT]
+> **Seguridad**: el servidor MCP no tiene autenticación a nivel de aplicación (modelo de confianza stdio local). Los instaladores por tubería `curl`/`irm` siguen la rama mutable `main`; prefiera clonar el repositorio y ejecutar `./scripts/install.sh` / `.\scripts\install.ps1`, o fije un tag de release. Los directorios `SKILLS_PATH` personalizados se tratan como instrucciones de agente de confianza. Detalles en [`SECURITY.md`](SECURITY.md).
 
 #### Opciones avanzadas:
 - `--dry-run`: Muestra los cambios sin escribir en disco.
@@ -179,7 +182,16 @@ Para ayudarte a elegir el skill adecuado, hemos estructurado los 15 skills a lo 
 
 ## 🆕 Novedades recientes
 
-### v6.4.7 (versión actual)
+### v6.4.8 (versión actual)
+
+- **Límites de respuesta al cliente MCP**: el cuerpo inline de las skills se limita a **20 KB** en `read_skill`, `list_skills`, resources y la guía de compositions para que un `SKILL.md` enorme no agote el contexto del agente (`tests/client_truncation_test.js`).
+- **Detección de reemplazo del directorio raíz** (`EROOTCHANGED`): se registra el inode del directorio de skills al arrancar; si `SKILLS_PATH` se sustituye sin reiniciar el servidor MCP, listados y lecturas en caliente fallan de forma segura con aviso de reinicio (edge-cases Test 15).
+- **Higiene de errores hacia el cliente**: `read_skill`, plantillas de prompt y la guía de compositions devuelven errores MCP genéricos; las rutas del sistema de archivos solo van a `stderr` (mcp_coverage Test 3c).
+- **Modelo de confianza y cadena de suministro**: threat model en [SECURITY.md](SECURITY.md), avisos de instalación en el README, notificaciones de confianza en `stderr` al iniciar el servidor y advertencias en instaladores por tubería/registry.
+- **Correcciones de caché de skills**: `forceReload` descarta cuerpos en caché antes del rescan sin perder la huella del directorio; el presupuesto de caché usa longitud en bytes UTF-8.
+- Verificación: `npm test` en verde **14/21 suites** (las suites PowerShell se omiten sin `pwsh`), `npm run build` ok, `npm audit` **0** vulnerabilidades.
+
+### v6.4.7
 
 - **Escaneo completo de seguridad del proyecto (2026-10-09)**: `src/*.ts`, el servidor companion de brainstorming, `scripts/`, `esbuild.js`, integridad del empaquetado npm y del lockfile, higiene de secretos y permisos, y todas las suites automatizadas. Controles base reverificados limpios — 0 `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` en el código distribuido, `child_process` solo por argv, 0 secretos hardcodeados, 0 archivos world-writable versionados (detalles en [SECURITY.md](SECURITY.md)).
 - **`--remove` podría reportar éxito mientras sobrevivía una entrada MCP activa** (CWE-459, reproducido por ejecución): TOML conserva todas las tablas de array `[[mcp_servers.superpowers]]` salvo la última y deja huérfana `[[mcp_servers.superpowers.env]]`; JSON solo limpia la primera clave raíz que contiene una entrada `superpowers`; la eliminación en YAML es un no-op sobre un mapa de flujo poblado `superpowers: {…}`. Por tanto, un `command` elegido por quien llama sigue auto-lanzándose tras una desinstalación que reportó éxito.

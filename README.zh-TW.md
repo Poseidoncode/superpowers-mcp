@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![版本](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -87,6 +87,9 @@ ChatWise 與 Cherry Studio 需手動匯入，請見[桌面版匯入指南](docs/
   ```powershell
   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.ps1))) -Target cursor
   ```
+
+> [!IMPORTANT]
+> **安全性**：MCP 伺服器無應用層認證（本地 stdio 信任模型）。透過管道執行的 `curl`/`irm` 安裝腳本會追蹤可變的 `main` 分支；建議 clone 後執行 `./scripts/install.sh` / `.\scripts\install.ps1`，或固定 release tag。自訂 `SKILLS_PATH` 目錄內的所有技能內容均視為可信的 agent 指令。詳見 [`SECURITY.md`](SECURITY.md)。
 
 #### 常用進階參數：
 - `--dry-run`：預覽即將修改的檔案與配置內容，不實際寫入磁碟。
@@ -178,7 +181,16 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.4.7（最新版）
+### v6.4.8（最新版）
+
+- **MCP 客戶端回應上限**：`read_skill`、`list_skills`、技能資源與 compositions guide 的內嵌技能正文上限為 **20 KB**，避免單一巨大 `SKILL.md` 撐爆 agent 上下文（`tests/client_truncation_test.js`）。
+- **技能根目錄替換偵測**（`EROOTCHANGED`）：啟動時記錄技能目錄 inode；若未重啟 MCP 即替換 `SKILLS_PATH`，熱路徑清單與讀取會 fail-closed 並提示重啟（edge-cases Test 15）。
+- **客戶端錯誤訊息去敏感化**：`read_skill`、prompt 模板與 compositions guide 僅回傳泛化 MCP 錯誤；檔案系統路徑僅寫入 `stderr`（mcp_coverage Test 3c）。
+- **信任與供應鏈文件**：[SECURITY.md](SECURITY.md) 威脅模型、README 安裝提示、伺服器啟動時的 stderr 信任說明，以及管道／registry 安裝警告。
+- **技能快取修復**：`forceReload` 在重掃前清除正文快取且保留目錄指紋；快取預算改以 UTF-8 位元組計算。
+- 驗證：`npm test` 全綠 **14/21 套件**（無 `pwsh` 時 PowerShell 套件 skip）、`npm run build` 正常、`npm audit` **0** 漏洞。
+
+### v6.4.7
 
 - **完整專案安全性掃描（2026-10-09）**：`src/*.ts`、brainstorming companion server、`scripts/`、`esbuild.js`、npm 打包與 lockfile 完整性、密鑰／權限衛生，以及所有自動化測試套件。基準控管重新驗證為乾淨——發佈程式碼中 `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` 為 0、`child_process` 僅用 argv、0 硬編碼密鑰、0 全域可寫的受追蹤檔案（詳見 [SECURITY.md](SECURITY.md)）。
 - **`--remove` 可能在仍有存活的 MCP 項目時回報成功**（CWE-459，已以實際執行重現）：TOML 會保留除最後一個 `[[mcp_servers.superpowers]]` 陣列表之外的所有項目，並使 `[[mcp_servers.superpowers.env]]` 淪為孤兒；JSON 只清除第一個含有 `superpowers` 項目的根層 key；YAML 移除對已填滿的 flow map `superpowers: {…}` 是無動作。因此呼叫端自選的 `command` 在回報成功的解除安裝之後，仍會持續自動啟動。

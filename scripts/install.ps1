@@ -52,6 +52,7 @@ if (Get-Command bunx -ErrorAction SilentlyContinue) {
 }
 
 if ($runner) {
+    Write-Host "⚠️  Supply chain: remote/piped installs run mutable registry or script content. Prefer .\scripts\install.ps1 from a git clone, or pin a release tag/SHA (see SECURITY.md)." -ForegroundColor Yellow
     Write-Host "🚀 Running global setup via $runner..." -ForegroundColor Green
     # bunx takes no -y flag: passing one makes it look up a "-y" package and fail.
     if ($runner -eq "bunx") {

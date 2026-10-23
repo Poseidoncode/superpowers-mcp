@@ -6,6 +6,7 @@ The following versions of Superpowers MCP are currently supported with security 
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 6.4.8   | :white_check_mark: |
 | 6.4.x   | :white_check_mark: |
 | 6.3.x   | :white_check_mark: |
 | 6.2.x   | :white_check_mark: |
@@ -14,6 +15,15 @@ The following versions of Superpowers MCP are currently supported with security 
 | 5.0.x   | :x:                |
 | 4.3.x   | :x:                |
 | < 4.3   | :x:                |
+
+## Threat model & deployment
+
+Superpowers MCP is a **local stdio** server: JSON-RPC over stdin/stdout with **no application-level authentication, authorization, or tenancy**. Any OS user or process that can spawn the server (or edit the host’s MCP config) can invoke every tool, prompt, and resource, including full skill bodies.
+
+- **Trust the spawner**: treat MCP host configuration like shell access — only install Superpowers for clients and accounts you control.
+- **Trust `SKILLS_PATH`**: when set, every `SKILL.md` under that tree is loaded as **trusted agent instructions** (prompt-injection surface). `getSafeSkillsPath()` blocks well-known system locations but is a **blocklist**, not an allowlist; see v6.4.7 finding 3 in the notes below.
+- **Remote one-liners**: `curl … | bash` / `irm … | iex` against `main` fetches mutable scripts; prefer a **git clone** (`./scripts/install.sh`) or pin a **release tag / commit SHA**. Registry installs (`npx -y superpowers-mcp`) resolve the package at run time — pin versions in production configs when feasible.
+- **Windows file reads**: skill content uses `O_NOFOLLOW` on POSIX; on Windows the server applies best-effort post-open stat checks (see `readFileNoFollow` in `src/skills-manager.ts`) — not a POSIX-grade TOCTOU guarantee.
 
 ## Reporting a Vulnerability
 

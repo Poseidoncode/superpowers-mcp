@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -87,6 +87,9 @@ ChatWise, Cherry Studio는 수동 가져오기가 필요합니다. [데스크톱
   ```powershell
   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.ps1))) -Target cursor
   ```
+
+> [!IMPORTANT]
+> **보안**: MCP 서버에는 애플리케이션 수준 인증이 없습니다(로컬 stdio 신뢰 모델). 파이프로 실행하는 `curl`/`irm` 설치 스크립트는 변경 가능한 `main`을 따릅니다. 저장소를 clone한 뒤 `./scripts/install.sh` / `.\scripts\install.ps1`을 사용하거나 release 태그를 고정하세요. 사용자 지정 `SKILLS_PATH`의 모든 스킬은 신뢰된 agent 지시로 처리됩니다. 자세히는 [`SECURITY.md`](SECURITY.md).
 
 #### 유용한 고급 옵션:
 - `--dry-run`: 디스크에 쓰지 않고 변경될 파일과 내용을 미리 확인합니다.
@@ -178,7 +181,16 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.4.7 (최신)
+### v6.4.8 (최신)
+
+- **MCP 클라이언트 응답 한도**: `read_skill`, `list_skills`, 스킬 resource, compositions guide에 반환되는 인라인 스킬 본문을 **20 KB**로 제한해 하나의 큰 `SKILL.md`가 agent 컨텍스트를 고갈시키지 않도록 함 (`tests/client_truncation_test.js`).
+- **스킬 루트 교체 감지** (`EROOTCHANGED`): 시작 시 스킬 디렉터리 inode를 추적. MCP 서버를 재시작하지 않고 `SKILLS_PATH`가 바뀌면 핫 경로 목록/읽기가 fail-closed로 재시작을 안내 (edge-cases Test 15).
+- **클라이언트 오류 위생**: `read_skill`, 프롬프트 템플릿, compositions guide는 일반 MCP 오류만 반환하고 파일 시스템 경로는 `stderr`에만 기록 (mcp_coverage Test 3c).
+- **신뢰 모델 및 공급망**: [SECURITY.md](SECURITY.md) threat model, README 설치 안내, 서버 시작 시 stderr 신뢰 알림, 파이프/registry 설치 경고.
+- **스킬 캐시 수정**: `forceReload`가 재스캔 전 본문 캐시를 비우면서 디렉터리 지문은 유지. 캐시 예산은 UTF-8 바이트 길이 사용.
+- 검증: `npm test` 그린 **14/21 스위트** (`pwsh` 없으면 PowerShell 스위트 skip), `npm run build` ok, `npm audit` **0** 취약점.
+
+### v6.4.7
 
 - **전체 프로젝트 보안 스캔 (2026-10-09)**: `src/*.ts`, brainstorming 컴패니언 서버, `scripts/`, `esbuild.js`, npm 패키징 및 lockfile 무결성, 비밀/권한 위생, 그리고 모든 자동화 스위트. 기준 통제 재검증 결과 클린 — 출하 소스 내 `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` 0건, `child_process`는 argv 전용, 하드코딩된 비밀 0건, world-writable 추적 파일 0건 (자세한 내용은 [SECURITY.md](SECURITY.md)).
 - **`--remove`가 성공을 보고했는데도 살아 있는 MCP 항목이 남을 수 있음** (CWE-459, 실행으로 재현): TOML은 마지막 `[[mcp_servers.superpowers]]` 배열 테이블을 제외한 모든 테이블을 유지하고 `[[mcp_servers.superpowers.env]]`를 고아 상태로 남김; JSON은 `superpowers` 항목을 담은 첫 번째 루트 키만 비움; YAML 제거는 채워진 flow map `superpowers: {…}`에 대해 무동작임. 따라서 호출자가 선택한 `command`는 성공을 보고한 제거 이후에도 계속 자동 실행될 수 있음.

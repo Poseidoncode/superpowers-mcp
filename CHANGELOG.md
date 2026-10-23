@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.4.8] - 2026-10-23
+
+Release hardening for MCP client payloads, skills-directory integrity, and
+operator-facing trust documentation. Full deployment notes are in
+[SECURITY.md](SECURITY.md#threat-model--deployment).
+
+### Security
+
+- **Client response size caps** — Inline skill bodies returned to MCP clients are
+  truncated at **20 KB** for `read_skill`, `list_skills`, skill `resources/read`,
+  and the bundled compositions guide, reducing context-bloat / DoS risk from a
+  single oversized `SKILL.md`. Pinned end-to-end by `tests/client_truncation_test.js`.
+- **Skills root replacement detection** (`EROOTCHANGED`) — `SkillsManager` records
+  the skills root inode at construction and re-checks on hot paths; if the
+  `SKILLS_PATH` directory is renamed or recreated without restarting the server,
+  `listSkills` and reads fail closed with a restart message instead of serving a
+  swapped tree. Regression: edge-cases Test 15.
+- **Sanitized MCP error messages** — `read_skill`, prompt-template load failures,
+  and compositions-guide read failures return fixed client strings; absolute paths
+  and other filesystem detail stay on `stderr` only. Regression: mcp_coverage Test 3c.
+- **Trust model & supply chain** — New **Threat model & deployment** section in
+  `SECURITY.md`; README install callouts (7 languages); stderr trust notices when
+  the stdio server starts; supply-chain warnings when `install.sh` / `install.ps1`
+  run via registry or piped remote scripts.
+
+### Fixed
+
+- **`forceReload` content cache** — Bodies are dropped before a rescan without
+  clearing the directory fingerprint, so concurrent `readSkillContent` cannot serve
+  pre-reload bodies while the tree is rescanned.
+- **Content-cache byte accounting** — Cache budget now uses UTF-8 byte length instead
+  of JavaScript string length.
+
+### Tests
+
+- `tests/client_truncation_test.js` added to `scripts/run-tests.js`.
+- mcp_coverage Test 3c (composition guide errors omit paths).
+- edge_cases Test 15 (replaced skills root).
+
 ## [6.4.7] - 2026-10-09
 
 Full-project security scan of this release tree, run as a five-role parallel audit

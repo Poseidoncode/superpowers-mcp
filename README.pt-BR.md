@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versão](https://img.shields.io/badge/version-6.4.7-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versão](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licença](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume as informações e instruções de uso para empacotar as skills do Superpowers e o sistema de fluxos de trabalho autônomos em um servidor **Model Context Protocol (MCP)** independente, de alta performance e seguro.
@@ -87,6 +87,9 @@ Selecione seu cliente e execute o comando correspondente no terminal:
   ```powershell
   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Poseidoncode/superpowers-mcp/main/scripts/install.ps1))) -Target cursor
   ```
+
+> [!IMPORTANT]
+> **Segurança**: o servidor MCP não tem autenticação em nível de aplicativo (modelo de confiança stdio local). Instaladores por pipe `curl`/`irm` seguem o branch mutável `main`; prefira clonar o repositório e executar `./scripts/install.sh` / `.\scripts\install.ps1`, ou fixe uma tag de release. Diretórios `SKILLS_PATH` personalizados são tratados como instruções confiáveis do agente. Detalhes em [`SECURITY.md`](SECURITY.md).
 
 #### Flags avançadas:
 - `--dry-run`: Mostra as mudanças sem gravar no disco.
@@ -179,7 +182,16 @@ Para ajudar você a escolher a skill certa, estruturamos as 15 skills ao longo d
 
 ## 🆕 Novidades recentes
 
-### v6.4.7 (atual)
+### v6.4.8 (atual)
+
+- **Limites de resposta ao cliente MCP**: corpos inline de skills limitados a **20 KB** em `read_skill`, `list_skills`, resources e o guia de compositions para que um `SKILL.md` enorme não esgote o contexto do agente (`tests/client_truncation_test.js`).
+- **Detecção de troca da raiz de skills** (`EROOTCHANGED`): o inode do diretório de skills é registrado na inicialização; se `SKILLS_PATH` for substituído sem reiniciar o servidor MCP, listagens e leituras em caminho quente falham de forma segura com aviso de reinício (edge-cases Test 15).
+- **Higiene de erros ao cliente**: `read_skill`, templates de prompt e o guia de compositions retornam erros MCP genéricos; caminhos do sistema de arquivos ficam apenas em `stderr` (mcp_coverage Test 3c).
+- **Modelo de confiança e cadeia de suprimentos**: threat model em [SECURITY.md](SECURITY.md), avisos de instalação no README, notificações de confiança em `stderr` na inicialização e alertas nos instaladores via pipe/registry.
+- **Correções de cache de skills**: `forceReload` descarta corpos em cache antes do rescan sem perder a impressão digital do diretório; o orçamento de cache usa comprimento em bytes UTF-8.
+- Verificação: `npm test` verde **14/21 suites** (suites PowerShell omitidas sem `pwsh`), `npm run build` ok, `npm audit` **0** vulnerabilidades.
+
+### v6.4.7
 
 - **Varredura completa de segurança do projeto (2026-10-09)**: `src/*.ts`, o servidor companion de brainstorming, `scripts/`, `esbuild.js`, integridade do empacotamento npm e do lockfile, higiene de segredos/permissões e todas as suítes automatizadas. Controles de base reverificados limpos — 0 `eval` / `new Function` / `innerHTML` / `document.write` / `shell: true` no código distribuído, `child_process` somente por argv, 0 segredos hardcodados, 0 arquivos rastreados world-writable (detalhes em [SECURITY.md](SECURITY.md)).
 - **`--remove` poderia reportar sucesso enquanto uma entrada MCP viva sobrevivia** (CWE-459, reproduzido por execução): o TOML mantém todas as tabelas de array `[[mcp_servers.superpowers]]` exceto a última e deixa órfã `[[mcp_servers.superpowers.env]]`; o JSON limpa apenas a primeira chave raiz que contém uma entrada `superpowers`; a remoção em YAML é um no-op sobre um mapa de fluxo populado `superpowers: {…}`. Assim, um `command` escolhido pelo chamador continua sendo iniciado automaticamente após uma desinstalação que reportou sucesso.

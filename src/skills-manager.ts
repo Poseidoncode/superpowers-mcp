@@ -1,4 +1,5 @@
 import * as fs from "fs/promises";
+import { realpathSync, statSync } from "fs";
 import type { Stats } from "fs";
 import * as path from "path";
 
@@ -64,9 +65,66 @@ export class SkillsManager {
     private lastSuccessfulScanAt = 0;
     private skillSignature: string | null = null;
     private frontmatterTruncatedWarned = false;
+    /** realpath at construction; detects SKILLS_PATH symlink swap without a restart. */
+    private trustedRootRealpath: string;
+    /** Root directory identity: same path string can be recreated with a new inode. */
+    private trustedRootIdentity: { dev: number; ino: number } | null;
 
     constructor(skillsPath: string) {
         this.skillsPath = path.resolve(skillsPath);
+        this.trustedRootRealpath = this.skillsPath;
+        this.trustedRootIdentity = null;
+        try {
+            const resolved = realpathSync(this.skillsPath);
+            this.trustedRootRealpath = resolved;
+            const rootStat = statSync(resolved);
+            if (rootStat.isDirectory()) {
+                this.trustedRootIdentity = { dev: rootStat.dev, ino: rootStat.ino };
+            }
+        } catch {
+            // Adopt identity on the first successful assert once the tree exists.
+        }
+    }
+
+    private foldRootRealpath(value: string): string {
+        return process.platform === "darwin" || process.platform === "win32" ? value.toLowerCase() : value;
+    }
+
+    private rootsMatch(a: string, b: string): boolean {
+        return this.foldRootRealpath(a) === this.foldRootRealpath(b);
+    }
+
+    private async assertSkillsRootUnchanged(): Promise<void> {
+        try {
+            const current = await fs.realpath(this.skillsPath);
+            const rootStat = await fs.stat(current);
+            if (!rootStat.isDirectory()) {
+                return;
+            }
+            const identity = { dev: rootStat.dev, ino: rootStat.ino };
+            if (this.trustedRootIdentity) {
+                if (identity.dev !== this.trustedRootIdentity.dev || identity.ino !== this.trustedRootIdentity.ino) {
+                    const err = new Error("Skills directory path was replaced; restart the MCP server") as Error & {
+                        code?: string;
+                    };
+                    err.code = "EROOTCHANGED";
+                    throw err;
+                }
+            } else if (!this.rootsMatch(current, this.trustedRootRealpath)) {
+                const err = new Error("Skills directory path was replaced; restart the MCP server") as Error & {
+                    code?: string;
+                };
+                err.code = "EROOTCHANGED";
+                throw err;
+            }
+            this.trustedRootRealpath = current;
+            this.trustedRootIdentity = identity;
+        } catch (err: unknown) {
+            if (err && typeof err === "object" && (err as { code?: string }).code === "EROOTCHANGED") {
+                throw err;
+            }
+            // Let downstream reads surface ENOENT / permission errors.
+        }
     }
 
     private stripQuotes(str: string): string {
@@ -304,6 +362,7 @@ export class SkillsManager {
         if (!forceReload && this.cachedSkills) {
             const cacheIsFresh = Date.now() - this.lastSuccessfulScanAt < CACHE_REVALIDATE_MS;
             if (cacheIsFresh) {
+                await this.assertSkillsRootUnchanged();
                 // Return copies: the array and each item are cloned so callers
                 // can't mutate cachedSkills/skillMap through the result.
                 return this.cloneSkills(this.cachedSkills);
@@ -388,8 +447,6 @@ export class SkillsManager {
             return this.cloneSkills(this.cachedSkills);
         }
 
-        // forceReload 不在掃描前丟棄內容快取：先保留舊快取做 fail-stale（掃描失敗
-        // 時呼叫端仍有可用內容），成功後 internalListSkills 會整批取代；失敗時舊快取原樣保留。
         return this.internalListSkills(epoch, currentSignature, forceReload);
     }
 
@@ -400,12 +457,14 @@ export class SkillsManager {
      * 刻意不清除 cachedSkills：若接下來的重掃失敗（例如目錄暫時不可讀），呼叫端
      * 仍可取得最後一次成功的清單，而不是一個空清單。
      */
-    private dropContentCaches(): void {
+    private dropContentCaches(clearSignature = true): void {
         this.contentCache.clear();
         this.contentCacheStat.clear();
         this.contentInflight.clear();
         this.canonicalPathMap.clear();
-        this.skillSignature = null;
+        if (clearSignature) {
+            this.skillSignature = null;
+        }
     }
 
     /**
@@ -415,6 +474,7 @@ export class SkillsManager {
      * 的 mtime，不會改變上層目錄的 mtime；只看目錄會漏掉描述變更。
      */
     private async computeSkillSignature(): Promise<string | null> {
+        await this.assertSkillsRootUnchanged();
         // 指紋 = root 實路徑 + 每個候選的 lstat(連結身分) + SKILL.md stat(內容身分)。
         // dev/ino/size/mtimeMs/ctimeMs 全量比對；刻意不含 mode，避免 chmod 觸發全量重掃。
         const describe = async (target: string): Promise<string> => {
@@ -475,6 +535,11 @@ export class SkillsManager {
     }
 
     private async internalListSkills(epoch = this.scanEpoch, precomputedSignature?: string | null, forceReload = false): Promise<SkillMeta[]> {
+        if (forceReload) {
+            // Drop stale bodies so concurrent readSkillContent cannot serve pre-reload
+            // cache while the tree is being rescanned; keep skillSignature for this pass.
+            this.dropContentCaches(false);
+        }
         let preResolvedRoot: { realRootPath: string; rootStat: Stats } | undefined;
         try {
             const resolvedRoot = path.resolve(this.skillsPath);
@@ -631,7 +696,7 @@ export class SkillsManager {
                 });
                 newCanonicalMap.set(resolvedPath, realFilePath);
                 newCanonicalMap.set(realFilePath, realFilePath);
-                cachedBodyBytes += body.length;
+                cachedBodyBytes += Buffer.byteLength(body, "utf-8");
                 if (cachedBodyBytes > MAX_CONTENT_CACHE_BYTES) {
                     // Best-effort transient-memory reduction: the body is already
                     // copied into newContentCache above, so release it from the
@@ -709,6 +774,8 @@ export class SkillsManager {
         rootPath: string,
         preResolvedRoot?: { realRootPath: string; rootStat: Stats }
     ): Promise<{ content: string; realFilePath: string; stat: Stats }> {
+        await this.assertSkillsRootUnchanged();
+
         const resolvedFilePath = path.resolve(filePath);
         const resolvedRootPath = path.resolve(rootPath);
 
