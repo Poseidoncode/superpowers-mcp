@@ -38,7 +38,7 @@
     "docs"
   ],
   "overrides": {
-    "@hono/node-server": "^2.1.1",
+    "@hono/node-server": "^2.1.6",
     "fast-uri": "^4.2.3",
     "hono": "^4.13.16",
     "proxy-addr": "^2.0.8",
