@@ -42,7 +42,7 @@
     "fast-uri": "^4.2.3",
     "hono": "^4.13.16",
     "proxy-addr": "^2.0.8",
-    "qs": "^6.16.0"
+    "qs": "^6.17.1"
   },
   "scripts": {
     "build": "node esbuild.js --production",
