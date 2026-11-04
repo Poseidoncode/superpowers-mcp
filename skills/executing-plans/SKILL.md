@@ -125,11 +125,15 @@ and the new one resumes from the same ledger.
 - Each plan owns a workspace: at skill start, run
   `bash ../subagent-driven-development/scripts/sdd-workspace PLAN_FILE`
   (or `../subagent-driven-development/scripts/sdd-workspace.ps1 PLAN_FILE`
-  on Windows PowerShell) — it
-  prints the plan's git-ignored directory
+  on Windows PowerShell) by its absolute path, from the working tree you're
+  executing in — it prints the plan's git-ignored directory
   (`<repo-root>/.superpowers/sdd/<plan-basename>/`), home to every
   artifact for THIS plan: ledger, briefs, review packages. Another plan's
-  directory is never yours to read or write.
+  directory is never yours to read or write. These helpers use the current
+  directory's working tree, not the plan's location; run them from the tree
+  you're executing in (or use `-C DIR` where supported). They fail closed
+  outside a repository. For a new project, initialize Git first and make an
+  initial commit before `task-start` records BASE.
 - Check for this plan's ledger at `<workspace>/progress.md`. If its first
   line names your plan file, tasks with a `Task <N>: complete` line are
   DONE — do not redo them; resume at the first task without one. Their
@@ -171,10 +175,10 @@ in the workspace and read its tail; read a brief, not the whole plan.
 
 ### 1. Take the task
 
-- Run this skill's `bash scripts/task-start PLAN_FILE N` (or
-  `scripts/task-start.ps1 PLAN_FILE N` on Windows PowerShell). It prints
-  the brief path and BASE (the commit the task's range is cut from) in
-  one call.
+- Run this skill's `bash scripts/task-start PLAN_FILE TASK_ID` (or
+  `scripts/task-start.ps1 PLAN_FILE TASK_ID` on Windows PowerShell) by its
+  absolute path, from the working tree you're executing in. It prints the
+  brief path and BASE (the commit the task's range is cut from) in one call.
   Read the brief for every task, including ones you remember from setup:
   what you remember is a summary, the brief has the exact values,
   signatures, and test cases.
@@ -227,9 +231,10 @@ the claim. If any item is missing, the task is not complete: finish it.
 
 ### 4. Complete the task
 
-Run this skill's `bash scripts/task-done PLAN_FILE N BASE -- <test command>`
-(or `scripts/task-done.ps1 PLAN_FILE N BASE -- <test command>` on Windows
-PowerShell) with the test command the brief names for the whole task. It runs the
+Run this skill's `bash scripts/task-done PLAN_FILE TASK_ID BASE -- <test command>`
+(or `scripts/task-done.ps1 PLAN_FILE TASK_ID BASE -- <test command>` on Windows
+PowerShell) by its absolute path, from the working tree you're executing in,
+with the test command the brief names for the whole task. It runs the
 tests, keeps the full output in the workspace, prints the tail, and — only
 if they pass — appends the completion line to the ledger:
 
@@ -246,8 +251,9 @@ deliverable does not exist yet; never tick one you skipped.
 
 Run `bash ../subagent-driven-development/scripts/review-package PLAN_FILE MERGE_BASE HEAD`
 (or `../subagent-driven-development/scripts/review-package.ps1 PLAN_FILE MERGE_BASE HEAD`
-on Windows PowerShell; MERGE_BASE = the commit the branch started from, e.g.
-`git merge-base main HEAD`) and review from the file it prints.
+on Windows PowerShell) by its absolute path, from the working tree you're
+executing in (MERGE_BASE = the commit the branch started from, e.g.
+`git merge-base main HEAD`), and review from the file it prints.
 
 **With a subagent tool:** dispatch the reviewer on the most capable
 available model — the whole-branch review is a judgment task — using

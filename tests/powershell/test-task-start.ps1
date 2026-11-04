@@ -23,6 +23,10 @@ Do task one.
 ## Task 2
 
 Do task two.
+
+## Task A1
+
+Do task A1.
 '@ | Set-Content -Path $plan -Encoding utf8
 
     Push-Location $repo
@@ -52,6 +56,14 @@ Do task two.
         Assert-True ($text -match "(?m)^base: $([regex]::Escape($head))$") "prints base SHA line"
         Assert-True (($briefPath -replace '\\', '/') -match '\.superpowers/sdd/plan/task-1-brief\.md$') "brief lands in plan-scoped workspace"
         Assert-True (Test-Path -LiteralPath $briefPath) "brief file written to plan-scoped workspace"
+
+        # 5. Alphanumeric task identifiers flow through task-start and task-brief.
+        $outA1 = @(& $scriptPath $plan "A1")
+        Assert-ExitCode $LASTEXITCODE 0 "Task A1 exits 0"
+        $textA1 = $outA1 -join "`n"
+        Assert-True ($textA1 -match '(?m)^brief: (.*task-A1-brief\.md)$') "Task A1 prints its brief path"
+        $briefA1 = $Matches[1]
+        Assert-True (Test-Path -LiteralPath $briefA1) "Task A1 brief is written"
     }
     finally {
         Pop-Location

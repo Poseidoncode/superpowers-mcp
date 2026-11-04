@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Project-local packaging and runtime additions
+
+- **SDD helper safety and portability**: the local helper set fails closed outside a Git working tree, can target another checkout with `-C DIR` where supported, and consistently uses the executing worktree rather than the plan's location. `task-brief` handles alphanumeric/dotted task IDs and refuses briefs truncated by unclosed fences. PowerShell twins were kept and updated instead of adopting upstream's removal of them.
+- **Keep development fixtures out of installed skills**: systematic-debugging pressure scenarios and their creation log moved under `tests/`; a structural test prevents them from being repackaged as live skill files.
+
+### Selective upstream adoption — obra/superpowers v7.0.2
+
+- **Issue-report provenance**: `diagnosing-superpowers` now requires the filer context and a human-authored summary, refuses to file while that summary is a placeholder, and links to upstream's current `bug_report.md` template.
+
+The upstream drift baseline was not globally refreshed: other skill changes remain intentionally visible for a later reviewed sync. The baseline entries for the five relocated debugging fixtures were removed because those files are no longer shipped under `skills/`.
+
+### Tests
+
+- Added regression coverage for repository selection, `-C`, alphanumeric task IDs, unclosed fences, helper invocation paths, and installed-skill layout.
+- Verification in the current environment: SDD Bash suites and upstream-sync assertions pass. Full `npm test` still has unrelated setup-suite failures; PowerShell suites skip when `pwsh` is unavailable.
+
 ## [6.4.8] - 2026-10-23
 
 Release hardening for MCP client payloads, skills-directory integrity, and

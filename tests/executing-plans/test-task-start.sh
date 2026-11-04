@@ -37,6 +37,10 @@ Do task one.
 ## Task 2
 
 Do task two.
+
+## Task A1
+
+Do task A1.
 EOF
 
 cd "$REPO"
@@ -74,6 +78,18 @@ if [[ $rc -eq 0 ]]; then pass "task 1 exits 0"; else fail "task 1 exits 0 (got $
 if printf '%s\n' "$out" | grep -qxF "brief: $expected"; then pass "prints brief path line"; else fail "prints brief path line (got: $out)"; fi
 if printf '%s\n' "$out" | grep -qxF "base: $head"; then pass "prints base SHA line"; else fail "prints base SHA line (got: $out)"; fi
 if [[ -f "$expected" ]]; then pass "brief file written to plan-scoped workspace"; else fail "brief file written to plan-scoped workspace"; fi
+
+# 5. Alphanumeric task identifiers flow through task-start to task-brief.
+set +e
+out_a1=$("$TASK_START" "$PLAN" A1 2>&1)
+rc_a1=$?
+set -e
+expected_a1="$REPO/.superpowers/sdd/plan/task-A1-brief.md"
+if [[ $rc_a1 -eq 0 && -s "$expected_a1" && "$out_a1" == *"brief: $expected_a1"* ]]; then
+    pass "alphanumeric Task A1 produces a brief and BASE"
+else
+    fail "alphanumeric Task A1 produces a brief and BASE (rc=$rc_a1, output=$out_a1)"
+fi
 
 echo ""
 echo "task-start: $FAILURES failure(s)"

@@ -17,22 +17,32 @@
 # legacy workspace adopts instead of detecting; acceptable, marker-less
 # workspaces age out as plans finish.
 #
-# A greenfield plan's first task is often "create the repo", so there is no
-# repo root to resolve yet: fall back to the current directory rather than
-# failing, since that task is exactly the one needing a brief.
-#
-# Usage: ./sdd-workspace.ps1 PLAN_FILE
+# The repository is the current directory's (see sdd-repo.ps1). -C DIR runs
+# as if started there, allowing another checkout to be selected without a
+# compound `cd DIR ; ...` command.
+# Usage: ./sdd-workspace.ps1 [-C DIR] PLAN_FILE
 
 $ErrorActionPreference = "Stop"
+$scriptArgs = @($args)
+$workingDir = (Get-Location).Path
+if ($scriptArgs.Count -gt 0 -and $scriptArgs[0] -eq "-C") {
+    if ($scriptArgs.Count -lt 2 -or -not (Test-Path -LiteralPath $scriptArgs[1] -PathType Container)) {
+        [Console]::Error.WriteLine("bad -C directory: $($scriptArgs[1])")
+        exit 2
+    }
+    $workingDir = (Resolve-Path -LiteralPath $scriptArgs[1]).Path
+    if ($scriptArgs.Count -gt 2) { $scriptArgs = @($scriptArgs[2..($scriptArgs.Count - 1)]) } else { $scriptArgs = @() }
+}
 
-if ($args.Count -ne 1) {
-    [Console]::Error.WriteLine("usage: sdd-workspace.ps1 PLAN_FILE")
+if ($scriptArgs.Count -ne 1) {
+    [Console]::Error.WriteLine("usage: sdd-workspace.ps1 [-C DIR] PLAN_FILE")
     exit 2
 }
 
-$plan = $args[0]
+$planArg = $scriptArgs[0]
+$plan = if ([System.IO.Path]::IsPathRooted($planArg)) { $planArg } else { Join-Path $workingDir $planArg }
 if (-not (Test-Path -LiteralPath $plan -PathType Leaf)) {
-    [Console]::Error.WriteLine("no such plan file: $plan")
+    [Console]::Error.WriteLine("no such plan file: $planArg")
     exit 2
 }
 
@@ -42,21 +52,12 @@ if ([string]::IsNullOrEmpty($slug) -or $slug -eq "." -or $slug -eq "..") {
     exit 2
 }
 
-$root = $null
-try {
-    # Collect all output without an early-terminating pipeline: a
-    # Select-Object -First teardown can leave $LASTEXITCODE stale.
-    $rootOutput = @(& git rev-parse --show-toplevel 2>$null)
-    if ($LASTEXITCODE -eq 0 -and $rootOutput.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($rootOutput[0])) {
-        $root = ([string]$rootOutput[0]).Trim()
-    }
-} catch {
-    $root = $null
-}
-if ([string]::IsNullOrWhiteSpace($root)) {
-    $root = (Get-Location).Path
-    [Console]::Error.WriteLine("sdd-workspace.ps1: no git repository yet, using $root/.superpowers/sdd until this plan's first task creates one")
-}
+$scriptDir = Split-Path -Parent $PSCommandPath
+$repoHelper = Join-Path $scriptDir "sdd-repo.ps1"
+$rootOutput = @(& $repoHelper -C $workingDir)
+$repoStatus = $LASTEXITCODE
+if ($repoStatus -ne 0 -or $rootOutput.Count -eq 0) { exit 2 }
+$root = ([string]$rootOutput[0]).Trim()
 
 function Get-PhysicalDirectoryPath($path) {
     if (-not (Test-Path -LiteralPath $path)) { return $path }
@@ -82,7 +83,7 @@ function Get-PhysicalDirectoryPath($path) {
 # repo-relative when the plan lives under the repo root, absolute otherwise.
 $planLeaf = Split-Path -Leaf $plan
 $planParent = Split-Path -Parent $plan
-if ([string]::IsNullOrEmpty($planParent)) { $planParent = "." }
+if ([string]::IsNullOrEmpty($planParent)) { $planParent = $workingDir }
 
 $planDir = Get-PhysicalDirectoryPath $planParent
 $rootPhys = Get-PhysicalDirectoryPath $root
@@ -134,4 +135,10 @@ if (-not (Test-And-Claim-Workspace $dir $planId)) {
 if (-not (Test-Path -LiteralPath (Join-Path $base ".gitignore"))) {
     Set-Content -LiteralPath (Join-Path $base ".gitignore") -Value "*" -NoNewline -Encoding ascii
 }
-(Resolve-Path -LiteralPath $dir).Path
+$printedPath = (Resolve-Path -LiteralPath $dir).Path
+$cygpath = Get-Command cygpath -ErrorAction SilentlyContinue
+if ($cygpath) {
+    $nativePath = & $cygpath.Source -m $printedPath
+    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($nativePath)) { $printedPath = ([string]$nativePath).Trim() }
+}
+Write-Output $printedPath

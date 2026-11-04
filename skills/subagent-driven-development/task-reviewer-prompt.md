@@ -204,8 +204,7 @@ Subagent (general-purpose):
 
 **Placeholders:**
 - `[MODEL]` — REQUIRED: reviewer model per SKILL.md Model Selection
-- `[BRIEF_FILE]` — REQUIRED: the task brief file (`bash scripts/task-brief PLAN N`, or `scripts/task-brief.ps1 PLAN N` on Windows PowerShell,
-  prints the path; same file the implementer worked from)
+- `[BRIEF_FILE]` — REQUIRED: the task brief file (`bash scripts/task-brief PLAN N`, or `scripts/task-brief.ps1 PLAN N` on Windows PowerShell) run by its absolute path from the working tree being executed in; it prints the path to the same file the implementer worked from
 - `[GLOBAL_CONSTRAINTS]` — the binding requirements copied verbatim from
   the plan's Global Constraints section or the spec: exact values, formats,
   and stated relationships between components (not process rules — those
@@ -215,8 +214,7 @@ Subagent (general-purpose):
 - `[BASE_SHA]` — commit before this task
 - `[HEAD_SHA]` — current commit
 - `[DIFF_FILE]` — REQUIRED: the path the controller wrote the review
-  package to (`bash scripts/review-package PLAN_FILE BASE HEAD`, or `scripts/review-package.ps1 PLAN_FILE BASE HEAD` on Windows PowerShell, prints the unique
-  path it wrote; the package never enters the controller's context)
+  package to (`bash scripts/review-package PLAN_FILE BASE HEAD`, or `scripts/review-package.ps1 PLAN_FILE BASE HEAD` on Windows PowerShell) run by its absolute path from the working tree being executed in; it prints the unique path it wrote, and the package never enters the controller's context
 - `[REVIEW_FILE]` — REQUIRED: the file the reviewer writes its full report
   to; name it after the brief (brief `…/task-N-brief.md` → review
   `…/task-N-review.md`). Re-reviews append to the same file.

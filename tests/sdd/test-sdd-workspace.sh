@@ -145,6 +145,116 @@ else
     fail "task-brief exits 3 on missing task number (got $rc_notask)"
 fi
 
+# Task IDs may be alphanumeric/dotted, but are matched as whole IDs. Nested
+# letter/dot extensions remain part of their parent's brief.
+cat > "$repo/task-ids.md" <<'PLAN'
+## Task 6: Six
+Six body.
+
+## Task 6b: Six B
+Six B body.
+
+## Task A1: Alpha
+Alpha body.
+
+### Task A1a: Alpha child
+Alpha child body.
+
+## Task A2: Alpha two
+Alpha two body.
+
+## Task 2.1: Dotted
+Dotted body.
+
+## Task M3a: Mixed
+Mixed body.
+PLAN
+id_brief="$repo/task-id-brief.md"
+( cd "$repo" && "$SDD_SCRIPTS/task-brief" task-ids.md 6 "$id_brief" >/dev/null )
+if grep -q "Six body." "$id_brief" && ! grep -q "Six B body." "$id_brief"; then
+    pass "Task 6 does not prefix-match Task 6b"
+else
+    fail "Task 6 does not prefix-match Task 6b"
+fi
+( cd "$repo" && "$SDD_SCRIPTS/task-brief" task-ids.md A1 "$id_brief" >/dev/null )
+if grep -q "Alpha child body." "$id_brief" && ! grep -q "Alpha two body." "$id_brief"; then
+    pass "Task A1 includes nested Task A1a but not Task A2"
+else
+    fail "Task A1 includes nested Task A1a but not Task A2"
+fi
+( cd "$repo" && "$SDD_SCRIPTS/task-brief" task-ids.md 2.1 "$id_brief" >/dev/null )
+if grep -q "Dotted body." "$id_brief"; then
+    pass "dotted task IDs are extracted"
+else
+    fail "dotted task IDs are extracted"
+fi
+( cd "$repo" && "$SDD_SCRIPTS/task-brief" task-ids.md M3a "$id_brief" >/dev/null )
+if grep -q "Mixed body." "$id_brief"; then
+    pass "mixed alphanumeric task IDs are extracted"
+else
+    fail "mixed alphanumeric task IDs are extracted"
+fi
+
+cat > "$repo/open-fence.md" <<'PLAN'
+## Task 1: Incomplete
+This task is cut off by an unclosed fence.
+```markdown
+## Task 2: Hidden
+PLAN
+set +e
+fence_err="$(cd "$repo" && "$SDD_SCRIPTS/task-brief" open-fence.md 1 "$repo/open-fence-brief.md" 2>&1 >/dev/null)"
+fence_rc=$?
+set -e
+if [[ $fence_rc -eq 4 && "$fence_err" == *"never closes"* && ! -e "$repo/open-fence-brief.md" ]]; then
+    pass "task-brief refuses a brief truncated by an unclosed fence"
+else
+    fail "task-brief refuses an unclosed fence (rc=$fence_rc, stderr=$fence_err)"
+fi
+
+cat > "$repo/hidden-task.md" <<'PLAN'
+# Hidden task plan
+```markdown
+## Task 1: Hidden
+PLAN
+set +e
+hidden_err="$(cd "$repo" && "$SDD_SCRIPTS/task-brief" hidden-task.md 1 "$repo/hidden-task-brief.md" 2>&1 >/dev/null)"
+hidden_rc=$?
+set -e
+if [[ $hidden_rc -eq 4 && "$hidden_err" == *"never closes"* && ! -e "$repo/hidden-task-brief.md" ]]; then
+    pass "task-brief reports an unclosed fence that hides the requested task"
+else
+    fail "task-brief reports a hidden task (rc=$hidden_rc, stderr=$hidden_err)"
+fi
+
+cat > "$repo/spanish-plan.md" <<'PLAN'
+## Tarea 1: Trabajo
+Texto.
+PLAN
+set +e
+spanish_err="$(cd "$repo" && "$SDD_SCRIPTS/task-brief" spanish-plan.md 1 "$repo/spanish-brief.md" 2>&1 >/dev/null)"
+spanish_rc=$?
+set -e
+if [[ $spanish_rc -eq 3 && "$spanish_err" == *"English word"* ]]; then
+    pass "task-brief explains the English Task heading requirement"
+else
+    fail "task-brief explains translated task headings (rc=$spanish_rc, stderr=$spanish_err)"
+fi
+
+# `-C DIR` must select the target worktree even when invoked elsewhere.
+brief_cwd="$TEST_ROOT/cwd-brief.md"
+out_cwd="$(cd "$TEST_ROOT" && "$SDD_SCRIPTS/task-brief" -C "$repo" docs/alpha/plan.md 1 "$brief_cwd")"
+if [[ "$out_cwd" == *"wrote $brief_cwd:"* && -s "$brief_cwd" ]]; then
+    pass "task-brief -C resolves plans and output in the selected worktree"
+else
+    fail "task-brief -C resolves plans and output in the selected worktree"
+fi
+workspace_cwd="$(cd "$TEST_ROOT" && "$SDD_SCRIPTS/sdd-workspace" -C "$repo" docs/alpha/plan.md)"
+if [[ "$workspace_cwd" == "$dir_alpha" ]]; then
+    pass "sdd-workspace -C resolves the selected plan workspace"
+else
+    fail "sdd-workspace -C resolves the selected plan workspace (got $workspace_cwd)"
+fi
+
 # Test 5: review-package range guards
 echo "a" > "$repo/a.txt"
 git -C "$repo" add a.txt
@@ -175,6 +285,14 @@ else
     fail "non-descendant HEAD exits 3 (got $rc_nondesc)"
 fi
 
+review_cwd="$repo/review-from-cwd.diff"
+(cd "$TEST_ROOT" && "$SDD_SCRIPTS/review-package" -C "$repo" docs/alpha/plan.md "$base_sha" "$head_sha" "$review_cwd" >/dev/null)
+if [[ -s "$review_cwd" ]]; then
+    pass "review-package -C generates a review from the selected worktree"
+else
+    fail "review-package -C generates a review from the selected worktree"
+fi
+
 # Test 6: helper execution when executable bit stripped
 cp_dir="$TEST_ROOT/no-exec-helpers"
 mkdir -p "$cp_dir"
@@ -192,10 +310,9 @@ else
     fail "helpers work even when chmod -x stripped (got $rc_noexec)"
 fi
 
-# Test 7: Greenfield — the scripts run before a repo exists
-# A greenfield plan's Task 1 is "create the repo", so the scripts must work
-# with no repo to resolve. $TEST_ROOT is a fresh mktemp directory, normally
-# outside any repository.
+# Test 7: fail closed outside a repo instead of writing into a plugin cache.
+# A new project can use workspace/task-brief helpers after `git init`, but
+# task-start needs an initial commit because it records HEAD as BASE.
 gf="$TEST_ROOT/greenfield"
 mkdir -p "$gf"
 cat > "$gf/plan-a.md" <<'PLAN'
@@ -209,53 +326,55 @@ PLAN
 if git -C "$gf" rev-parse --git-dir >/dev/null 2>&1; then
     fail "greenfield test needs a directory outside any repository"
 else
-    gf_phys="$(cd "$gf" && pwd -P)"
-
-    gf_dir="$(cd "$gf" && "$SDD_SCRIPTS/sdd-workspace" plan-a.md 2>/dev/null)"
-    if [[ "$gf_dir" == "$gf_phys/.superpowers/sdd/plan-a" ]]; then
-        pass "sdd-workspace outside a repo degrades to the current directory"
-    else
-        fail "sdd-workspace outside a repo degrades to the current directory (got $gf_dir)"
-    fi
-
-    # stdout stays the bare path (task-brief captures it); the notice goes to stderr
-    gf_err="$(cd "$gf" && "$SDD_SCRIPTS/sdd-workspace" plan-a.md 2>&1 >/dev/null)"
-    if [[ "$gf_err" == *"no git repository yet"* ]]; then
-        pass "sdd-workspace outside a repo explains itself on stderr"
-    else
-        fail "sdd-workspace outside a repo explains itself on stderr"
-    fi
-
     set +e
+    gf_err="$(cd "$gf" && "$SDD_SCRIPTS/sdd-workspace" plan-a.md 2>&1 >/dev/null)"
+    sw_rc=$?
     ( cd "$gf" && "$SDD_SCRIPTS/task-brief" plan-a.md 1 >/dev/null 2>&1 )
     tb_rc=$?
-    set -e
-    if [[ $tb_rc -eq 0 && -s "$gf_phys/.superpowers/sdd/plan-a/task-1-brief.md" ]]; then
-        pass "task-brief outside a repo writes the brief for Task 1"
-    else
-        fail "task-brief outside a repo writes the brief for Task 1 (rc=$tb_rc)"
-    fi
-
-    # review-package genuinely needs SHAs: it must refuse with an actionable
-    # message rather than git's bare "fatal: not a git repository".
-    set +e
-    rp_err="$(cd "$gf" && "$SDD_SCRIPTS/review-package" plan-a.md HEAD~1 HEAD 2>&1 >/dev/null)"
+    ( cd "$gf" && "$REPO_ROOT/skills/executing-plans/scripts/task-start" plan-a.md 1 >/dev/null 2>&1 )
+    ts_rc=$?
+    ( cd "$gf" && "$REPO_ROOT/skills/executing-plans/scripts/task-done" plan-a.md 1 deadbeef -- true >/dev/null 2>&1 )
+    td_rc=$?
+    ( cd "$gf" && "$SDD_SCRIPTS/review-package" plan-a.md HEAD~1 HEAD >/dev/null 2>&1 )
     rp_rc=$?
     set -e
-    if [[ $rp_rc -eq 2 && "$rp_err" == *"not a git repository"* && "$rp_err" == *"BASE and HEAD"* ]]; then
-        pass "review-package outside a repo errors actionably with exit 2"
+
+    if [[ $sw_rc -eq 2 && "$gf_err" == *"must run from inside the git working tree"* && "$gf_err" == *"git said:"* ]]; then
+        pass "sdd-workspace outside a repo fails with an actionable git diagnostic"
     else
-        fail "review-package outside a repo errors actionably with exit 2 (rc=$rp_rc, stderr=$rp_err)"
+        fail "sdd-workspace outside a repo fails actionably (rc=$sw_rc, stderr=$gf_err)"
+    fi
+    if [[ $tb_rc -eq 2 && $ts_rc -eq 2 && $td_rc -eq 2 && $rp_rc -eq 2 && ! -e "$gf/.superpowers" ]]; then
+        pass "all default-output helpers fail closed outside a repo without writing state"
+    else
+        fail "all helpers fail closed outside a repo (task-brief=$tb_rc task-start=$ts_rc task-done=$td_rc review=$rp_rc)"
     fi
 
-    # Once Task 1 creates the repo in place, the workspace path is unchanged,
-    # so briefs written pre-repo are not orphaned.
     git init -q -b main "$gf"
-    gf_after="$(cd "$gf" && "$SDD_SCRIPTS/sdd-workspace" plan-a.md 2>/dev/null)"
-    if [[ "$gf_after" == "$gf_dir" ]]; then
-        pass "workspace path survives the repo being created in place"
+    gf_phys="$(cd "$gf" && pwd -P)"
+    gf_dir="$(cd "$gf" && "$SDD_SCRIPTS/sdd-workspace" plan-a.md)"
+    if [[ "$gf_dir" == "$gf_phys/.superpowers/sdd/plan-a" ]]; then
+        pass "sdd-workspace works after git init, before the first commit"
     else
-        fail "workspace path survives the repo being created in place (before=$gf_dir after=$gf_after)"
+        fail "sdd-workspace after git init (got $gf_dir)"
+    fi
+    set +e
+    ( cd "$gf" && "$REPO_ROOT/skills/executing-plans/scripts/task-start" plan-a.md 1 >/dev/null 2>&1 )
+    ts_no_commit_rc=$?
+    set -e
+    if [[ $ts_no_commit_rc -eq 2 ]]; then
+        pass "task-start requires an initial commit before recording BASE"
+    else
+        fail "task-start without a commit exits 2 (got $ts_no_commit_rc)"
+    fi
+    git -C "$gf" config user.name "Tester"
+    git -C "$gf" config user.email "test@example.com"
+    git -C "$gf" commit -q --allow-empty -m "initial"
+    ( cd "$gf" && "$REPO_ROOT/skills/executing-plans/scripts/task-start" plan-a.md 1 >/dev/null )
+    if [[ -s "$gf/.superpowers/sdd/plan-a/task-1-brief.md" ]]; then
+        pass "task-start succeeds after the initial commit"
+    else
+        fail "task-start succeeds after the initial commit"
     fi
 fi
 

@@ -33,6 +33,17 @@ try {
     Assert-True (Test-Path -LiteralPath (Join-Path $repo ".superpowers/sdd/plan")) "workspace dir exists"
     Assert-True (Test-Path -LiteralPath (Join-Path $repo ".superpowers/sdd/.gitignore")) ".gitignore written"
 
+    # -C selects the target checkout while preserving this process's cwd.
+    Push-Location $root
+    try {
+        $fromCwd = & $scriptPath -C $repo "plan.md"
+        Assert-ExitCode $LASTEXITCODE 0 "-C selects another repository"
+        Assert-True ((($fromCwd | Select-Object -First 1).Trim()) -eq $workspace) "-C resolves to the same plan workspace"
+    }
+    finally {
+        Pop-Location
+    }
+
     # 4. slug derivation strips only a trailing .md (regression for the
     #    GetFileNameWithoutExtension bug: plan.txt must keep its extension)
     $planTxt = Join-Path $repo "plan.txt"
@@ -97,10 +108,9 @@ try {
     $unicodeMarker = (Get-Content -LiteralPath (Join-Path $unicodeFirst "plan-path") -Raw).Trim()
     Assert-True ($unicodeMarker -match "規格/計畫\.md$") "Unicode ownership marker round-trips without ASCII loss"
 
-    # 8. Greenfield: the script runs before a repo exists
-    # A greenfield plan's Task 1 is "create the repo", so the script must fall
-    # back to the current directory instead of failing. $root is a fresh temp
-    # directory outside any repository.
+    # 8. Fail closed outside a repository instead of writing into a plugin cache.
+    # A newly initialized repository may create workspaces before its first commit,
+    # but task-start needs the initial commit to record HEAD as BASE.
     $gf = Join-Path $root "greenfield"
     New-Item -ItemType Directory -Force -Path $gf | Out-Null
     $gfPlan = Join-Path $gf "plan-a.md"
@@ -108,28 +118,36 @@ try {
 
     & git -C $gf rev-parse --git-dir *> $null
     if ($LASTEXITCODE -eq 0) {
-        Fail "greenfield test needs a directory outside any repository"
+        Fail "fail-closed test needs a directory outside any repository"
     } else {
         Push-Location $gf
         try {
-            $gfOut = & $scriptPath $gfPlan 2>$null
-            Assert-ExitCode $LASTEXITCODE 0 "sdd-workspace outside a repo exits 0"
-            $gfWorkspace = ($gfOut | Select-Object -First 1).Trim()
-            Assert-True ((Split-Path -Leaf $gfWorkspace) -eq "plan-a") "greenfield workspace slug is plan-a"
-            Assert-True (Test-Path -LiteralPath (Join-Path $gf ".superpowers/sdd/plan-a/plan-path")) "greenfield workspace created in the current directory"
+            $gfErr = (& $scriptPath $gfPlan 2>&1 | Out-String)
+            Assert-ExitCode $LASTEXITCODE 2 "sdd-workspace outside a repo exits 2"
+            Assert-True ($gfErr -match "must run from inside the git working tree" -and $gfErr -match "git said:") "explains the repository requirement"
+            Assert-True (-not (Test-Path -LiteralPath (Join-Path $gf ".superpowers"))) "does not write a workspace outside a repo"
 
-            # The stderr notice is the user-facing contract; run in a child
-            # pwsh so its real stderr stream is captured.
-            $prevEap = $ErrorActionPreference
-            $ErrorActionPreference = "Continue"
-            $gfErr = (& pwsh -NoProfile -File "$scriptPath" $gfPlan 2>&1 | Out-String)
-            $ErrorActionPreference = $prevEap
-            Assert-True ($gfErr -match "no git repository yet") "explains itself on stderr"
+            $taskBrief = Join-Path $PSScriptRoot "../../skills/subagent-driven-development/scripts/task-brief.ps1"
+            & $taskBrief $gfPlan 1 *> $null
+            Assert-ExitCode $LASTEXITCODE 2 "task-brief outside a repo exits 2"
+            $taskStart = Join-Path $PSScriptRoot "../../skills/executing-plans/scripts/task-start.ps1"
+            & $taskStart $gfPlan 1 *> $null
+            Assert-ExitCode $LASTEXITCODE 2 "task-start outside a repo exits 2"
+            $taskDone = Join-Path $PSScriptRoot "../../skills/executing-plans/scripts/task-done.ps1"
+            & $taskDone $gfPlan 1 deadbeef "true" *> $null
+            Assert-ExitCode $LASTEXITCODE 2 "task-done outside a repo exits 2"
 
-            # Once Task 1 creates the repo in place, the path is unchanged.
-            & git -C $gf init -q | Out-Null
-            $gfAfter = (& $scriptPath $gfPlan 2>$null | Select-Object -First 1).Trim()
-            Assert-True ($gfAfter -eq $gfWorkspace) "workspace path survives the repo being created in place"
+            & git init -q | Out-Null
+            $gfWorkspaceOutput = & $scriptPath $gfPlan
+            Assert-ExitCode $LASTEXITCODE 0 "sdd-workspace after git init exits 0"
+            $gfWorkspace = ($gfWorkspaceOutput | Select-Object -First 1).Trim()
+            Assert-True (Test-Path -LiteralPath (Join-Path $gfWorkspace "plan-path")) "workspace created inside the initialized repo"
+
+            $briefOutput = & $taskBrief $gfPlan 1
+            Assert-ExitCode $LASTEXITCODE 0 "task-brief works before the first commit"
+            Assert-True (($briefOutput | Out-String) -match "task-1-brief.md") "task-brief writes to the plan workspace"
+            & $taskStart $gfPlan 1 *> $null
+            Assert-ExitCode $LASTEXITCODE 2 "task-start requires an initial commit"
         }
         finally {
             Pop-Location

@@ -63,6 +63,18 @@ try {
     Assert-ExitCode $LASTEXITCODE 0 "explicit outfile exits 0"
     Assert-True (Test-Path -LiteralPath $custom) "explicit outfile written"
 
+    # -C selects the repository from outside it without changing caller cwd.
+    $fromCwd = Join-Path $root "review-from-cwd.diff"
+    Push-Location $root
+    try {
+        & $scriptPath -C $repo "plan.md" $base $head $fromCwd > $null
+        Assert-ExitCode $LASTEXITCODE 0 "-C selects another repository"
+        Assert-True (Test-Path -LiteralPath $fromCwd) "-C review package written"
+    }
+    finally {
+        Pop-Location
+    }
+
     # 7. Greenfield: outside a repo it refuses actionably instead of letting
     #    git's bare "fatal: not a git repository" through.
     $gf = Join-Path $root "greenfield"
@@ -82,8 +94,8 @@ try {
             $gfRc = $LASTEXITCODE
             $ErrorActionPreference = $prevEap
             Assert-ExitCode $gfRc 2 "review-package outside a repo exits 2"
-            Assert-True ($gfErr -match "not a git repository") "review-package outside a repo errors actionably"
-            Assert-True ($gfErr -match "BASE and HEAD") "review-package names the missing commits"
+            Assert-True ($gfErr -match "must run from inside the git working tree") "review-package outside a repo errors actionably"
+            Assert-True ($gfErr -match "git said:") "review-package includes git's diagnostic"
         }
         finally {
             Pop-Location

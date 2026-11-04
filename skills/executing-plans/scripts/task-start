@@ -5,20 +5,24 @@
 # cut from. One tool call instead of two, because every call in an inline
 # session is a turn that re-reads the whole context.
 #
-# Usage: task-start PLAN_FILE TASK_NUMBER
+# Usage: task-start PLAN_FILE TASK_ID
 # Prints:
 #   brief: <path to the task's brief file>
 #   base:  <full SHA of HEAD>
 set -euo pipefail
 
 if [ $# -ne 2 ]; then
-  echo "usage: task-start PLAN_FILE TASK_NUMBER" >&2
+  echo "usage: task-start PLAN_FILE TASK_ID" >&2
   exit 2
 fi
 
 plan=$1
 n=$2
 sdd="$(cd "$(dirname "$0")/../../subagent-driven-development/scripts" && pwd)"
+
+# Require a committed working tree before capturing HEAD as the task's BASE;
+# the current directory, not the plan's location, chooses the repository.
+repo=$("${BASH:-bash}" "$sdd/sdd-repo" --with-commit)
 
 # Invoke via bash rather than direct exec: some extractors (Python zipfile)
 # strip Unix exec bits when unpacking marketplace packages (#2040).
@@ -35,4 +39,4 @@ brief=$(printf '%s\n' "$out" | awk '
 [ -n "$brief" ] || { echo "task-brief did not report a path: $out" >&2; exit 1; }
 
 echo "brief: $brief"
-echo "base: $(git rev-parse HEAD)"
+echo "base: $(git -C "$repo" rev-parse HEAD)"

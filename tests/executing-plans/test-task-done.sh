@@ -34,6 +34,10 @@ Do task one.
 ## Task 2
 
 Do task two.
+
+## Task A1
+
+Do task A1.
 EOF
 
 cd "$REPO"
@@ -118,6 +122,14 @@ set -e
 if [[ $rc -eq 0 ]]; then pass "blank-output command exits 0"; else fail "blank-output command exits 0 (got $rc)"; fi
 if grep -qF "Task 4: complete" "$WS/progress.md"; then pass "blank-output run recorded"; else fail "blank-output run recorded"; fi
 if grep -qE 'Task 4: complete.*→ \(no output\)' "$WS/progress.md"; then pass "blank output recorded as (no output)"; else fail "blank output recorded as (no output)"; fi
+
+# 9. Alphanumeric task identifiers are accepted and kept intact in the ledger.
+set +e
+"$TASK_DONE" "$PLAN" A1 "$BASE" -- true >/dev/null 2>&1
+rc=$?
+set -e
+if [[ $rc -eq 0 ]]; then pass "Task A1 exits 0"; else fail "Task A1 exits 0 (got $rc)"; fi
+if grep -qF "Task A1: complete" "$WS/progress.md"; then pass "Task A1 is recorded in the ledger"; else fail "Task A1 is recorded in the ledger"; fi
 
 echo ""
 echo "task-done: $FAILURES failure(s)"

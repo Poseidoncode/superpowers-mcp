@@ -253,20 +253,26 @@ async function runUpstreamSyncTests() {
         }
     });
 
-    // Test 13: PR #2276 — SDD scripts survive a greenfield (no repo yet) plan
-    check("13 (PR #2276: greenfield SDD scripts)", () => {
+    // Test 13: upstream v7.0.2 — every helper fails closed outside the repo
+    // and delegates worktree selection to the shared sdd-repo helper.
+    check("13 (v7.0.2: fail-closed SDD repository selection)", () => {
+        const repo = readSkillFile("subagent-driven-development", "scripts/sdd-repo");
+        expectContains(repo, "must run from inside the git working tree");
+        expectContains(repo, "git said:");
         const workspace = readSkillFile("subagent-driven-development", "scripts/sdd-workspace");
-        expectContains(workspace, "no git repository yet, using $root/.superpowers/sdd");
+        expectContains(workspace, '"${BASH:-bash}" "$here/sdd-repo"');
+        expectContains(workspace, "[-C DIR] PLAN_FILE");
 
         const review = readSkillFile("subagent-driven-development", "scripts/review-package");
-        expectContains(review, "error: not a git repository — review-package needs the BASE and HEAD commits");
+        expectContains(review, '"$here/sdd-repo" --with-commit');
+        expectContains(review, "[-C DIR] PLAN_FILE BASE HEAD");
 
         const workspacePs1 = readSkillFile("subagent-driven-development", "scripts/sdd-workspace.ps1");
-        expectContains(workspacePs1, "no git repository yet, using $root/.superpowers/sdd");
-        expectContains(workspacePs1, '$base = Join-Path $rootPhys ".superpowers/sdd"');
-
+        expectContains(workspacePs1, '"sdd-repo.ps1"');
+        expectContains(workspacePs1, "[-C DIR] PLAN_FILE");
         const reviewPs1 = readSkillFile("subagent-driven-development", "scripts/review-package.ps1");
-        expectContains(reviewPs1, "not a git repository — review-package needs the BASE and HEAD commits");
+        expectContains(reviewPs1, '"sdd-repo.ps1"');
+        expectContains(reviewPs1, "[-C DIR] PLAN_FILE BASE HEAD");
     });
 
     // Test 14: PR #2196 — characterization guard for behavior-preserving refactors
@@ -346,18 +352,19 @@ async function runUpstreamSyncTests() {
         const executing = readSkill("executing-plans");
         expectContains(executing, "Rulings, not stalls");
         expectContains(executing, "Do not pause to check in with your human partner");
-        expectContains(executing, "bash scripts/task-start PLAN_FILE N");
-        expectContains(executing, "bash scripts/task-done PLAN_FILE N BASE");
+        expectContains(executing, "bash scripts/task-start PLAN_FILE TASK_ID");
+        expectContains(executing, "bash scripts/task-done PLAN_FILE TASK_ID BASE");
     });
 
     check("18b (v6.4.1: task-start / task-done ship)", () => {
         const start = readSkillFile("executing-plans", "scripts/task-start");
-        expectContains(start, "task-start PLAN_FILE TASK_NUMBER");
-        expectContains(start, "base: $(git rev-parse HEAD)");
+        expectContains(start, "task-start PLAN_FILE TASK_ID");
+        expectContains(start, 'base: $(git -C "$repo" rev-parse HEAD)');
         expectContains(start, '"${BASH:-bash}"');
         const done = readSkillFile("executing-plans", "scripts/task-done");
-        expectContains(done, "task-done PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND");
+        expectContains(done, "task-done PLAN_FILE TASK_ID BASE -- TEST_COMMAND");
         expectContains(done, "Task $n: complete");
+        expectContains(done, 'git -C "$repo" rev-parse --short=7 HEAD');
         expectContains(done, '"${BASH:-bash}"');
     });
 
@@ -392,6 +399,17 @@ async function runUpstreamSyncTests() {
         expectContains(diagnosing, "Every finding cites `path:line`");
         expectContains(diagnosing, "prompts/analyst-common.md");
         expectContains(diagnosing, "## Hard rules");
+    });
+
+    check("18g (v7.0.1: human-authored issue summary)", () => {
+        const diagnosing = readSkill("diagnosing-superpowers");
+        const issue = readSkillFile("diagnosing-superpowers", "templates/issue.md");
+        const issuesGuide = readSkillFile("diagnosing-superpowers", "references/github-issues.md");
+        expectContains(diagnosing, "Human-authored summary must be your");
+        expectContains(diagnosing, "Do not file\n   while that field is a placeholder");
+        expectContains(issue, "## Human-authored summary (required, under 200 words)");
+        expectContains(issue, "ask them to trim rather\nthan editing their words");
+        expectContains(issuesGuide, "template=bug_report.md");
     });
 
     // Test 19: upstream v6.4.2 (#2384) — leaner plans.

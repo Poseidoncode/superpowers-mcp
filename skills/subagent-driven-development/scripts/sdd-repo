@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Print the top-level directory of the git working tree the SDD scripts use:
+# the current directory's, exactly as git itself picks one. A caller that
+# means a different working tree says so with the scripts' -C DIR, which they
+# apply before calling this helper.
+#
+# The plan file's location never picks the repository. An executor working in
+# a linked worktree may hold an absolute plan path in the main checkout; its
+# workspace and commits still belong to the worktree it is executing in.
+# Outside any working tree, stop rather than writing state into a plugin cache
+# or another unrelated directory.
+#
+# --with-commit also requires HEAD to resolve, for callers that need a BASE or
+# review range. Usage: sdd-repo [--with-commit]
+set -euo pipefail
+
+with_commit=false
+if [ "${1:-}" = "--with-commit" ]; then
+  with_commit=true
+  shift
+fi
+
+if [ $# -ne 0 ]; then
+  echo "usage: sdd-repo [--with-commit]" >&2
+  exit 2
+fi
+
+if root=$(git rev-parse --show-toplevel 2>/dev/null); then
+  if [ "$with_commit" = false ] || git -C "$root" rev-parse --verify --quiet HEAD >/dev/null; then
+    printf '%s\n' "$root"
+    exit 0
+  fi
+  said=$(git -C "$root" rev-parse --verify HEAD 2>&1 >/dev/null) || true
+else
+  said=$(git rev-parse --show-toplevel 2>&1 >/dev/null) || true
+fi
+
+if [ "$with_commit" = true ]; then
+  echo "SDD scripts that record BASE or review commits need a git working tree with at least one commit (current directory: $PWD). If this is a new project, run 'git init', make a first commit, then rerun." >&2
+else
+  echo "SDD scripts must run from inside the git working tree you're executing in (current directory: $PWD). If this is a new project, run 'git init' first, then rerun." >&2
+fi
+echo "git said: ${said%%$'\n'*}" >&2
+exit 2

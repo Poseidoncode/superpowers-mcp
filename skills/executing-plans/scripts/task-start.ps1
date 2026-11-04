@@ -5,7 +5,7 @@
 # cut from. One tool call instead of two, because every call in an inline
 # session is a turn that re-reads the whole context.
 #
-# Usage: ./task-start.ps1 PLAN_FILE TASK_NUMBER
+# Usage: ./task-start.ps1 PLAN_FILE TASK_ID
 # Prints:
 #   brief: <path to the task's brief file>
 #   base:  <full SHA of HEAD>
@@ -13,13 +13,18 @@
 $ErrorActionPreference = "Stop"
 
 if ($args.Count -ne 2) {
-    [Console]::Error.WriteLine("usage: task-start.ps1 PLAN_FILE TASK_NUMBER")
+    [Console]::Error.WriteLine("usage: task-start.ps1 PLAN_FILE TASK_ID")
     exit 2
 }
 
 $plan = $args[0]
 $n = $args[1]
-$sdd = Join-Path $PSScriptRoot "../../subagent-driven-development/scripts"
+$sdd = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../../subagent-driven-development/scripts"))
+
+# Require a committed working tree before recording HEAD as the task's BASE.
+$repoOutput = @(& (Join-Path $sdd "sdd-repo.ps1") "--with-commit")
+if ($LASTEXITCODE -ne 0 -or $repoOutput.Count -eq 0) { exit 2 }
+$repo = ([string]$repoOutput[0]).Trim()
 
 $out = @(& (Join-Path $sdd "task-brief.ps1") $plan $n)
 if ($LASTEXITCODE -ne 0) {
@@ -35,4 +40,4 @@ if ([string]::IsNullOrEmpty($brief)) {
 }
 
 Write-Output "brief: $brief"
-Write-Output "base: $((& git rev-parse HEAD).Trim())"
+Write-Output "base: $((& git -C $repo rev-parse HEAD).Trim())"

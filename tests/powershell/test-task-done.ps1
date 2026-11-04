@@ -20,6 +20,10 @@ Do task one.
 ## Task 2
 
 Do task two.
+
+## Task A1
+
+Do task A1.
 '@ | Set-Content -Path $plan -Encoding utf8
     $ws = Join-Path $repo ".superpowers/sdd/plan"
 
@@ -92,6 +96,12 @@ Do task two.
         $ledgerText5 = Get-Content -LiteralPath $ledger -Raw
         Assert-True ($ledgerText5 -match "Task 4: complete") "blank-output run recorded"
         Assert-True ($ledgerText5 -match "Task 4: complete.*→ \(no output\)") "blank output recorded as (no output)"
+
+        # 9. Alphanumeric task IDs are accepted and preserved in the ledger.
+        & $scriptPath $plan "A1" $base -- $pwshBin -NoProfile -Command "exit 0" > $null
+        Assert-ExitCode $LASTEXITCODE 0 "Task A1 exits 0"
+        $ledgerText6 = Get-Content -LiteralPath $ledger -Raw
+        Assert-True ($ledgerText6 -match "Task A1: complete") "Task A1 is recorded in the ledger"
     }
     finally {
         Pop-Location

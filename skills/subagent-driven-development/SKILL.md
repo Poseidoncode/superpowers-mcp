@@ -136,10 +136,16 @@ sequences — the single most expensive failure observed. Track progress in
 a ledger file, not only in todos.
 
 - Each plan owns a workspace: at skill start, run this skill's
-  `bash scripts/sdd-workspace PLAN_FILE` — it prints the plan's git-ignored
+  `bash scripts/sdd-workspace PLAN_FILE` by its absolute path, from the
+  working tree you're executing in — it prints the plan's git-ignored
   directory (under `<repo-root>/.superpowers/sdd/`), home to
   every artifact for THIS plan: ledger, briefs, reports, review packages.
-  Another plan's directory is never yours to read or write.
+  Another plan's directory is never yours to read or write. Helpers act on the
+  current directory's git working tree, never the plan file's repository; use
+  `-C DIR` when a helper supports it. They fail closed outside a working tree
+  so an invocation from a skill cache cannot write there. In a new project,
+  run `git init` before creating the workspace and make an initial commit
+  before `task-start` records BASE.
 - Check for this plan's ledger at `<workspace>/progress.md`. If its first
   line names your plan file, tasks with a `Task <N>: complete` line are DONE
   — do not re-dispatch them; resume at the first task without one. A task
@@ -273,9 +279,10 @@ Record BASE (`git rev-parse HEAD`) before dispatching — the review package
 and fix-round diffs need it.
 
 - **Task brief:** before dispatching an implementer, run this skill's
-  `bash scripts/task-brief PLAN_FILE N` (or `scripts/task-brief.ps1 PLAN_FILE N` on
-  Windows PowerShell) — it extracts the task's full text to a
-  uniquely named file and prints the path. Compose the dispatch so the
+  `bash scripts/task-brief PLAN_FILE TASK_ID` (or `scripts/task-brief.ps1 PLAN_FILE TASK_ID` on
+  Windows PowerShell) by its absolute path, from the working tree you're
+  executing in — it extracts the task's full text to a uniquely named file
+  and prints the path. Compose the dispatch so the
   brief stays the single source of
   requirements. Your dispatch should contain: (1) one line on where this
   task fits in the project; (2) the brief path, introduced as "read this
@@ -344,7 +351,7 @@ Template: [implementer-prompt.md](implementer-prompt.md)
 
 Implementer subagents report one of four statuses. Handle each appropriately:
 
-**DONE:** Generate the review package (`bash scripts/review-package PLAN_FILE BASE HEAD`, or `scripts/review-package.ps1 PLAN_FILE BASE HEAD` on Windows PowerShell, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path.
+**DONE:** Generate the review package (`bash scripts/review-package PLAN_FILE BASE HEAD`, or `scripts/review-package.ps1 PLAN_FILE BASE HEAD` on Windows PowerShell) by its absolute path, from the working tree you're executing in — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task. Then dispatch the task reviewer with the printed path.
 
 **DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
 
@@ -372,8 +379,9 @@ needed.
 
 - Hand the reviewer its diff as a file: run this skill's
   `bash scripts/review-package PLAN_FILE BASE HEAD` (or
-  `scripts/review-package.ps1 PLAN_FILE BASE HEAD` on Windows PowerShell) and
-  pass the reviewer the file path
+  `scripts/review-package.ps1 PLAN_FILE BASE HEAD` on Windows PowerShell) by
+  its absolute path, from the working tree you're executing in, and pass the
+  reviewer the file path
   it prints (or, without bash: `git log --oneline`, `git diff --stat`,
   and `git diff -U10` for the range, redirected to one uniquely named
   file). The output never enters your own context, and the reviewer sees
@@ -466,7 +474,8 @@ whole suite.
 
 **The re-review is scoped.** Run `bash scripts/review-package PLAN_FILE FIX_BASE HEAD`
 (or `scripts/review-package.ps1 PLAN_FILE FIX_BASE HEAD` on Windows PowerShell)
-where FIX_BASE is the head the previous review saw, and dispatch
+by its absolute path, from the working tree you're executing in, where FIX_BASE
+is the head the previous review saw, and dispatch
 [re-review-prompt.md](re-review-prompt.md) with the findings list, the
 brief, the report file, the review file to append its verdicts to, and the
 printed diff path. The re-reviewer verdicts
@@ -553,9 +562,9 @@ parked-with-ruling at the cap.
 
 The final whole-branch review gets a package too: run
 `bash scripts/review-package PLAN_FILE MERGE_BASE HEAD` (or
-`scripts/review-package.ps1 PLAN_FILE MERGE_BASE HEAD` on Windows PowerShell;
-MERGE_BASE = the commit the branch started from, e.g. `git merge-base main HEAD`)
-and include the
+`scripts/review-package.ps1 PLAN_FILE MERGE_BASE HEAD` on Windows PowerShell)
+by its absolute path, from the working tree you're executing in; MERGE_BASE is
+ the commit the branch started from, e.g. `git merge-base main HEAD`. Include the
 printed path in the final review dispatch, so the final reviewer reads
 one file instead of re-deriving the branch diff with git commands. Dispatch
 on the most capable available model (see Model Selection), using
@@ -575,9 +584,9 @@ Per-finding fixers each rebuild context and re-run suites; a real
 session's final-review fix wave cost more than all its tasks combined.
 Then run exactly one scoped re-review of the fix wave
 (`bash scripts/review-package PLAN_FILE FIX_BASE HEAD`, or
-`scripts/review-package.ps1 PLAN_FILE FIX_BASE HEAD` on Windows PowerShell,
-over the fix range,
-[re-review-prompt.md](re-review-prompt.md)).
+`scripts/review-package.ps1 PLAN_FILE FIX_BASE HEAD` on Windows PowerShell)
+by its absolute path, from the working tree you're executing in, over the fix
+range, [re-review-prompt.md](re-review-prompt.md).
 Adjudicate any residual findings as in the task loop's breaker: park with
 rulings, or rule on the load-bearing ones and ledger what you decided. Only
 the four classes above stop you here. There is no second fix wave —

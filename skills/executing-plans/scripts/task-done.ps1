@@ -4,22 +4,22 @@
 # only if the command succeeded — append the completion line to the ledger.
 # A failing command records nothing: the task is not complete.
 #
-# Usage: ./task-done.ps1 PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND [ARGS...]
+# Usage: ./task-done.ps1 PLAN_FILE TASK_ID BASE -- TEST_COMMAND [ARGS...]
 #   BASE is the SHA task-start printed; the completion line records BASE..HEAD.
 # Exit: the test command's exit status.
 
 $ErrorActionPreference = "Stop"
 
 if ($args.Count -lt 4) {
-    [Console]::Error.WriteLine("usage: task-done.ps1 PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND [ARGS...]")
+    [Console]::Error.WriteLine("usage: task-done.ps1 PLAN_FILE TASK_ID BASE -- TEST_COMMAND [ARGS...]")
     exit 2
 }
 
 $plan = $args[0]
 $n = $args[1]
 $base = $args[2]
-if ($n -notmatch '^[0-9]+$') {
-    [Console]::Error.WriteLine("usage: task-done.ps1 PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND [ARGS...]")
+if ($n -notmatch '^(?=.*[0-9])[A-Za-z0-9]+(\.[A-Za-z0-9]+)*$') {
+    [Console]::Error.WriteLine("usage: task-done.ps1 PLAN_FILE TASK_ID BASE -- TEST_COMMAND [ARGS...]")
     exit 2
 }
 # PowerShell consumes an unquoted `--` as its own end-of-parameters marker,
@@ -33,7 +33,7 @@ if ($args.Count -gt 3) {
 }
 if ($cmdArgs.Count -gt 0 -and $cmdArgs[0] -eq "--") {
     if ($cmdArgs.Count -lt 2) {
-        [Console]::Error.WriteLine("usage: task-done.ps1 PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND [ARGS...]")
+        [Console]::Error.WriteLine("usage: task-done.ps1 PLAN_FILE TASK_ID BASE -- TEST_COMMAND [ARGS...]")
         exit 2
     }
     # Guard the lower bound: 1..0 in PowerShell yields @(1,0), not an empty
@@ -41,12 +41,17 @@ if ($cmdArgs.Count -gt 0 -and $cmdArgs[0] -eq "--") {
     $cmdArgs = @($cmdArgs[1..($cmdArgs.Count - 1)])
 }
 if ($cmdArgs.Count -eq 0) {
-    [Console]::Error.WriteLine("usage: task-done.ps1 PLAN_FILE TASK_NUMBER BASE -- TEST_COMMAND [ARGS...]")
+    [Console]::Error.WriteLine("usage: task-done.ps1 PLAN_FILE TASK_ID BASE -- TEST_COMMAND [ARGS...]")
     exit 2
 }
-$sdd = Join-Path $PSScriptRoot "../../subagent-driven-development/scripts"
+$sdd = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../../subagent-driven-development/scripts"))
 
-& git rev-parse --verify --quiet "$base" >$null 2>&1
+# Use the same working-tree selection as the workspace and require HEAD to exist.
+$repoOutput = @(& (Join-Path $sdd "sdd-repo.ps1") "--with-commit")
+if ($LASTEXITCODE -ne 0 -or $repoOutput.Count -eq 0) { exit 2 }
+$repo = ([string]$repoOutput[0]).Trim()
+
+& git -C $repo rev-parse --verify --quiet "$base" >$null 2>&1
 if ($LASTEXITCODE -ne 0) {
     [Console]::Error.WriteLine("bad BASE: $base")
     exit 2
@@ -93,8 +98,8 @@ $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 if (-not (Test-Path -LiteralPath $ledger -PathType Leaf)) {
     [System.IO.File]::WriteAllText($ledger, "# SDD ledger — plan: $plan" + [Environment]::NewLine, $utf8NoBom)
 }
-$base7 = (& git rev-parse --short=7 "$base").Trim()
-$head7 = (& git rev-parse --short=7 HEAD).Trim()
+$base7 = (& git -C $repo rev-parse --short=7 "$base").Trim()
+$head7 = (& git -C $repo rev-parse --short=7 HEAD).Trim()
 $line = "Task ${n}: complete (commits $base7..$head7, tests: $cmd → $last)"
 [System.IO.File]::AppendAllText($ledger, $line + [Environment]::NewLine, $utf8NoBom)
 Write-Output "ledger: $line"
