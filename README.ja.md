@@ -190,7 +190,11 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 - **クライアント向けエラーの衛生**：`read_skill`、プロンプトテンプレート、compositions guide は汎用 MCP エラーのみ返し、ファイルシステムのパスは `stderr` のみ（mcp_coverage Test 3c）。
 - **信頼モデルとサプライチェーン**：[SECURITY.md](SECURITY.md) の threat model、README のインストール注意、起動時の stderr 信頼通知、パイプ／registry 経由インストールの警告。
 - **スキルキャッシュ修正**：`forceReload` は再スキャン前に本文キャッシュを破棄しつきディレクトリ指紋は保持。キャッシュ予算は UTF-8 バイト長で計算。
-- 検証：`npm test` グリーン **14/21 スイート**（`pwsh` なし時は PowerShell スイート skip）、`npm run build` ok、`npm audit` **0** 脆弱性。
+- **より安全で移植性の高い SDD ヘルパー**：Git worktree の外では安全側に停止し、実行中の worktree を基準にパスを解決します。対応するヘルパーでは `-C DIR` で別の checkout を指定できます。ベースを記録するヘルパーには解決可能な Git `HEAD` が必要なため、新しいリポジトリでは先に初回コミットを作成してください。PowerShell 版も引き続きサポートします。
+- **より信頼できるタスクブリーフ**：タスク ID は英数字のセグメントをドットで連結した形式（少なくとも 1 桁の数字を含む）に対応し、未閉じのコードフェンスによりブリーフが切り詰められる場合は抽出を安全側に停止します。
+- **スキルパッケージの整理**：systematic-debugging の負荷テスト用 fixture と作成記録を `tests/` に移し、インストール対象の skills に混入しないことを構造テストで確認します。
+- **より適切な問題報告**：`diagnosing-superpowers` は報告者の状況と人が記述した要約を必須とし、placeholder の要約を拒否して、upstream の最新 `bug_report.md` テンプレートを使用します。
+- 検証（ローカル実行）：`npm run build` は成功しました。`npm test` は全件成功していません。23 スイート中 15 スイートが成功し、`pwsh` がないため PowerShell スイート 7 件はスキップ、`tests/setup_test.js` では 3 件失敗しました（同ファイル内の 69 件は成功）。失敗ケースは [CHANGELOG.md](CHANGELOG.md) を参照してください。この実行ではテストスイート全体の成功を確認できていません。
 
 ### v6.4.7
 

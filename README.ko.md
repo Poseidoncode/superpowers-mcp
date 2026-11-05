@@ -188,7 +188,11 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 - **클라이언트 오류 위생**: `read_skill`, 프롬프트 템플릿, compositions guide는 일반 MCP 오류만 반환하고 파일 시스템 경로는 `stderr`에만 기록 (mcp_coverage Test 3c).
 - **신뢰 모델 및 공급망**: [SECURITY.md](SECURITY.md) threat model, README 설치 안내, 서버 시작 시 stderr 신뢰 알림, 파이프/registry 설치 경고.
 - **스킬 캐시 수정**: `forceReload`가 재스캔 전 본문 캐시를 비우면서 디렉터리 지문은 유지. 캐시 예산은 UTF-8 바이트 길이 사용.
-- 검증: `npm test` 그린 **14/21 스위트** (`pwsh` 없으면 PowerShell 스위트 skip), `npm run build` ok, `npm audit` **0** 취약점.
+- **더 안전하고 이식성 높은 SDD 헬퍼**: Git worktree 밖에서는 fail closed하고, 실행 중인 worktree를 기준으로 경로를 해석하며, 지원되는 헬퍼에서는 `-C DIR`로 다른 checkout을 지정할 수 있습니다. 기준점을 기록하는 헬퍼는 해석 가능한 Git `HEAD`가 필요하므로 새 저장소에서는 먼저 초기 commit을 만들어야 합니다. PowerShell 버전도 계속 지원합니다.
+- **더 신뢰할 수 있는 task brief**: task ID는 영숫자 세그먼트를 점으로 구분한 형식(숫자 최소 1개 포함)을 지원하며, 닫히지 않은 코드 펜스 때문에 brief가 잘릴 수 있으면 추출을 fail closed합니다.
+- **깔끔한 skill 패키징**: systematic-debugging 압력 테스트 fixture와 생성 기록을 `tests/`로 옮겼고, 구조적 회귀 검사를 통해 설치된 skills에 포함되지 않도록 했습니다.
+- **개선된 이슈 보고**: `diagnosing-superpowers`는 신고자 맥락과 사람이 작성한 요약을 요구하고 placeholder 요약을 거부하며, upstream의 최신 `bug_report.md` 템플릿을 사용합니다.
+- 로컬 검증: `npm run build`는 통과했습니다. `npm test`는 전체 통과하지 못했습니다. 23개 스위트 중 15개 통과, `pwsh`가 없어 PowerShell 스위트 7개는 건너뛰었고, `tests/setup_test.js`에서 3개 실패했습니다(같은 파일의 테스트 69개는 통과). 실패 항목은 [CHANGELOG.md](CHANGELOG.md)를 참고하세요. 이번 실행에서는 전체 테스트 스위트가 통과하지 않았습니다.
 
 ### v6.4.7
 

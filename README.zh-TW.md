@@ -188,7 +188,11 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 - **客戶端錯誤訊息去敏感化**：`read_skill`、prompt 模板與 compositions guide 僅回傳泛化 MCP 錯誤；檔案系統路徑僅寫入 `stderr`（mcp_coverage Test 3c）。
 - **信任與供應鏈文件**：[SECURITY.md](SECURITY.md) 威脅模型、README 安裝提示、伺服器啟動時的 stderr 信任說明，以及管道／registry 安裝警告。
 - **技能快取修復**：`forceReload` 在重掃前清除正文快取且保留目錄指紋；快取預算改以 UTF-8 位元組計算。
-- 驗證：`npm test` 全綠 **14/21 套件**（無 `pwsh` 時 PowerShell 套件 skip）、`npm run build` 正常、`npm audit` **0** 漏洞。
+- **更安全的 SDD 輔助腳本**：本機輔助腳本在 Git worktree 外會 fail closed、以實際執行中的 worktree 為路徑基準，並於支援的腳本使用 `-C DIR` 選擇其他 checkout。需要記錄基準版本的輔助腳本要求 `HEAD` 可解析（請先在 Repository 建立初始 commit）。PowerShell 版本仍持續支援。
+- **更可靠的 task brief**：Task ID 支援含數字的英數字串與點分段格式；若未閉合的 code fence 可能導致 brief 被截斷，擷取程序會 fail closed。
+- **更乾淨的技能打包內容**：systematic-debugging 壓力測試 fixtures 與建立紀錄已移至 `tests/`，並新增結構性回歸檢查，避免它們被打包進已安裝的 skills。
+- **更完整的錯誤回報**：`diagnosing-superpowers` 要求填寫回報者背景與人工撰寫的摘要、拒絕 placeholder 摘要，並使用上游目前的 `bug_report.md` 範本。
+- 本機驗證：`npm run build` 通過。`npm test` 尚未全綠：23 個測試套件中 15 個通過，7 個 PowerShell 套件因環境未安裝 `pwsh` 而跳過，`tests/setup_test.js` 有 3 個失敗（另有 69 個測試通過）。失敗項目詳見 [CHANGELOG.md](CHANGELOG.md)；此次執行的完整測試套件尚未全數通過。
 
 ### v6.4.7
 

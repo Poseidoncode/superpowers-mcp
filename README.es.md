@@ -182,14 +182,18 @@ Para ayudarte a elegir el skill adecuado, hemos estructurado los 15 skills a lo 
 
 ## 🆕 Novedades recientes
 
-### v6.4.8 (versión actual)
+### v6.4.8 (última versión)
 
 - **Límites de respuesta al cliente MCP**: el cuerpo inline de las skills se limita a **20 KB** en `read_skill`, `list_skills`, resources y la guía de compositions para que un `SKILL.md` enorme no agote el contexto del agente (`tests/client_truncation_test.js`).
 - **Detección de reemplazo del directorio raíz** (`EROOTCHANGED`): se registra el inode del directorio de skills al arrancar; si `SKILLS_PATH` se sustituye sin reiniciar el servidor MCP, listados y lecturas en caliente fallan de forma segura con aviso de reinicio (edge-cases Test 15).
 - **Higiene de errores hacia el cliente**: `read_skill`, plantillas de prompt y la guía de compositions devuelven errores MCP genéricos; las rutas del sistema de archivos solo van a `stderr` (mcp_coverage Test 3c).
 - **Modelo de confianza y cadena de suministro**: threat model en [SECURITY.md](SECURITY.md), avisos de instalación en el README, notificaciones de confianza en `stderr` al iniciar el servidor y advertencias en instaladores por tubería/registry.
 - **Correcciones de caché de skills**: `forceReload` descarta cuerpos en caché antes del rescan sin perder la huella del directorio; el presupuesto de caché usa longitud en bytes UTF-8.
-- Verificación: `npm test` en verde **14/21 suites** (las suites PowerShell se omiten sin `pwsh`), `npm run build` ok, `npm audit` **0** vulnerabilidades.
+- **Helpers SDD más seguros y portables**: fallan de forma segura fuera de un worktree de Git, resuelven las rutas respecto al worktree en ejecución y, cuando está disponible, permiten elegir otro checkout con `-C DIR`. Los helpers que registran una base requieren un `HEAD` de Git resoluble (crea primero un commit inicial). Se mantienen las variantes de PowerShell.
+- **Resúmenes de tarea más fiables**: los ID aceptan segmentos alfanuméricos separados por puntos (con al menos un dígito); si un bloque de código sin cerrar puede truncar el resumen, la extracción falla de forma segura.
+- **Paquete de skills más limpio**: los fixtures de presión de systematic-debugging y su registro de creación se trasladaron a `tests/`, con una prueba estructural que evita incluirlos en las skills instaladas.
+- **Mejores informes de problemas**: `diagnosing-superpowers` exige el contexto de quien informa y un resumen escrito por una persona, rechaza los textos de marcador de posición y usa la plantilla upstream actual `bug_report.md`.
+- Verificación (ejecución local): `npm run build` pasó. `npm test` no está verde: pasaron 15/23 suites, 7 suites de PowerShell se omitieron porque `pwsh` no está disponible y `tests/setup_test.js` tuvo 3 fallos (69 pruebas pasaron). Consulta los casos fallidos en [CHANGELOG.md](CHANGELOG.md); la suite completa no pasó en esta ejecución.
 
 ### v6.4.7
 

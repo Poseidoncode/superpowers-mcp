@@ -22,6 +22,7 @@ Superpowers MCP is a **local stdio** server: JSON-RPC over stdin/stdout with **n
 
 - **Trust the spawner**: treat MCP host configuration like shell access — only install Superpowers for clients and accounts you control.
 - **Trust `SKILLS_PATH`**: when set, every `SKILL.md` under that tree is loaded as **trusted agent instructions** (prompt-injection surface). `getSafeSkillsPath()` blocks well-known system locations but is a **blocklist**, not an allowlist; see v6.4.7 finding 3 in the notes below.
+- **SDD helper permissions**: default workspace outputs are rooted in the Git worktree selected by the invoking directory or a supported `-C DIR`; helpers run with the caller's OS permissions. Workspace resolution fails closed outside a worktree, but explicit output paths can bypass that resolution. This is path-selection safety, **not a sandbox** — review the target and plan before running helpers.
 - **Remote one-liners**: `curl … | bash` / `irm … | iex` against `main` fetches mutable scripts; prefer a **git clone** (`./scripts/install.sh`) or pin a **release tag / commit SHA**. Registry installs (`npx -y superpowers-mcp`) resolve the package at run time — pin versions in production configs when feasible.
 - **Windows file reads**: skill content uses `O_NOFOLLOW` on POSIX; on Windows the server applies best-effort post-open stat checks (see `readFileNoFollow` in `src/skills-manager.ts`) — not a POSIX-grade TOCTOU guarantee.
 
@@ -42,6 +43,30 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Acknowledgment**: Within 48 hours
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
+
+## v6.4.8 — SDD Runtime Safety and Package Content Notes (2026-11-05)
+
+> **Scope and status:** targeted review of v6.4.8's SDD helper, task-brief, skill-packaging, and issue-report changes only; this is **not** a full-project security audit. The v6.4.7 audit did not analyze the full `diagnosing-superpowers` skill; this review covers only its changed issue-report flow, not transcript handling or the full skill. The latest comprehensive audit remains the v6.4.7 scan from 2026-10-09. The recorded `npm test` run did not pass completely; details and failing assertions are recorded in [CHANGELOG.md](CHANGELOG.md).
+
+### SDD repository and worktree boundary
+
+- Default workspace outputs resolve the repository from the executing working directory; a plan file's location does not select the repository. Workspace resolution fails closed outside a Git worktree rather than placing default state in a plugin cache or unrelated directory. `-C DIR` explicitly selects another checkout in entry points that support it; `task-start` and `task-done` remain current-directory based.
+- Explicit output paths are a separate case: `task-brief ... OUTFILE` writes to the caller-selected path without resolving a Git worktree, while `review-package ... OUTFILE` still resolves the repository and validates `BASE`, `HEAD`, ancestry, and a nonempty range. Helpers that record a base or review range require a resolvable `HEAD`; a new repository needs an initial commit before those operations can run.
+- These controls prevent accidental writes or review ranges against an unrelated default location; they do **not** sandbox helper execution, validate a plan as safe, or protect against malicious content in the selected repository. Helpers still run with the invoking user's permissions.
+
+### Task-brief input and installed skill content
+
+- `task-brief` accepts IDs made of alphanumeric segments separated by dots and requires at least one digit; it matches the exact English `Task` heading and full ID, avoiding prefix collisions. If an unclosed code fence could hide a task boundary or make the selected brief incomplete, extraction exits with status 4 and removes partial output. A fence that hides no task heading does not fail extraction; when opened inside the selected task it produces a warning. Bash and PowerShell implementations were updated in parallel; PowerShell tests were not run in this environment because `pwsh` is unavailable.
+- Five systematic-debugging pressure fixtures and their creation log were moved from `skills/` to `tests/systematic-debugging/pressure-scenarios/`. A structural regression test prevents these development-only fixtures from returning to the installed skill tree. This reduces accidental exposure as agent instructions; it is not a substitute for reviewing the skills that are installed.
+
+### Issue-report provenance
+
+- `diagnosing-superpowers` now requires filer context and a partner-authored summary under 200 words, blocks placeholder summaries, and points to upstream's current `bug_report.md` template. The exact issue text is shown to the partner and filed only after approval. The template requests human-scrubbed request and reproduction details but also asks for identifying provenance (such as model/harness, environment, session IDs, and bundle path); the issue flow does not scrub-audit the whole issue body or guarantee privacy. Scrubbing and scrub-audit apply to opt-in bundles only, and bundle contents still require human review before sharing.
+
+### Verification and limitations
+
+- `npm run build` passed. The SDD Bash suites, upstream-sync checks, SDD path guard, and no-development-fixtures guard passed.
+- The recorded `npm test` run failed: 15/23 suites passed, 7 PowerShell suites were skipped because `pwsh` was unavailable, and `tests/setup_test.js` had 3 failures (69 tests passed in that suite). The complete suite was not green in that run. No new full-project audit, CodeQL scan, or `npm audit` result is claimed here.
 
 ## v6.4.7 (2026-10-09) Full Project Security Scan Notes
 
@@ -334,7 +359,7 @@ Assertion census re-measured on this tree: **Node.js 238 + Bash 32 + PowerShell 
 - `localSkillPaths()` now skips OS junk (`.DS_Store`, `._*`, `Thumbs.db`, `desktop.ini`) via the new `isOsJunk` filter, so local Finder artifacts are never classified as fork-only skills (previously `skills/.DS_Store` appeared in the drift report).
 - `.DS_Store` was **never git-tracked** (root `.gitignore` line 20 already covers it); the stray on-disk copies were deleted. New `tests/drift_test.js` check 11 pins both the filter and the cleanup so the fork-only list stays truthful.
 
-## Current Security Status (v6.4.7 - Verified: 2026-10-09)
+## Historical Security Status (v6.4.7 - Verified: 2026-10-09)
 
 | Check | Status |
 | ----- | ------ |

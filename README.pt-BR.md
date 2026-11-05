@@ -189,7 +189,11 @@ Para ajudar você a escolher a skill certa, estruturamos as 15 skills ao longo d
 - **Higiene de erros ao cliente**: `read_skill`, templates de prompt e o guia de compositions retornam erros MCP genéricos; caminhos do sistema de arquivos ficam apenas em `stderr` (mcp_coverage Test 3c).
 - **Modelo de confiança e cadeia de suprimentos**: threat model em [SECURITY.md](SECURITY.md), avisos de instalação no README, notificações de confiança em `stderr` na inicialização e alertas nos instaladores via pipe/registry.
 - **Correções de cache de skills**: `forceReload` descarta corpos em cache antes do rescan sem perder a impressão digital do diretório; o orçamento de cache usa comprimento em bytes UTF-8.
-- Verificação: `npm test` verde **14/21 suites** (suites PowerShell omitidas sem `pwsh`), `npm run build` ok, `npm audit` **0** vulnerabilidades.
+- **Helpers SDD mais seguros e portáveis**: falham de forma segura fora de um worktree Git, resolvem caminhos com base no worktree em execução e, quando disponível, permitem selecionar outro checkout com `-C DIR`. Helpers que registram uma base exigem um `HEAD` Git resolvível (crie um commit inicial primeiro). As variantes PowerShell continuam compatíveis.
+- **Task briefs mais confiáveis**: IDs aceitam segmentos alfanuméricos separados por pontos (com pelo menos um dígito); se um bloco de código não fechado puder truncar o brief, a extração falha de forma segura.
+- **Pacote de skills mais limpo**: fixtures de pressão de systematic-debugging e seu registro de criação foram movidos para `tests/`, com uma verificação estrutural para impedir que sejam incluídos nas skills instaladas.
+- **Relatos de problemas melhores**: `diagnosing-superpowers` exige o contexto de quem relata e um resumo escrito por uma pessoa, rejeita resumos de placeholder e usa o template upstream atual `bug_report.md`.
+- Verificação (execução local): `npm run build` passou. `npm test` não está totalmente verde: 15/23 suites passaram, 7 suites PowerShell foram ignoradas porque `pwsh` não está disponível e `tests/setup_test.js` teve 3 falhas (69 testes passaram). Consulte os casos em [CHANGELOG.md](CHANGELOG.md); a suíte completa não passou nesta execução.
 
 ### v6.4.7
 

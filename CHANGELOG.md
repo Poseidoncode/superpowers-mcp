@@ -5,25 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Project-local packaging and runtime additions
-
-- **SDD helper safety and portability**: the local helper set fails closed outside a Git working tree, can target another checkout with `-C DIR` where supported, and consistently uses the executing worktree rather than the plan's location. `task-brief` handles alphanumeric/dotted task IDs and refuses briefs truncated by unclosed fences. PowerShell twins were kept and updated instead of adopting upstream's removal of them.
-- **Keep development fixtures out of installed skills**: systematic-debugging pressure scenarios and their creation log moved under `tests/`; a structural test prevents them from being repackaged as live skill files.
-
-### Selective upstream adoption — obra/superpowers v7.0.2
-
-- **Issue-report provenance**: `diagnosing-superpowers` now requires the filer context and a human-authored summary, refuses to file while that summary is a placeholder, and links to upstream's current `bug_report.md` template.
-
-The upstream drift baseline was not globally refreshed: other skill changes remain intentionally visible for a later reviewed sync. The baseline entries for the five relocated debugging fixtures were removed because those files are no longer shipped under `skills/`.
-
-### Tests
-
-- Added regression coverage for repository selection, `-C`, alphanumeric task IDs, unclosed fences, helper invocation paths, and installed-skill layout.
-- Verification in the current environment: SDD Bash suites and upstream-sync assertions pass. Full `npm test` still has unrelated setup-suite failures; PowerShell suites skip when `pwsh` is unavailable.
-
-## [6.4.8] - 2026-10-23
+## [6.4.8] - 2026-11-05
 
 Release hardening for MCP client payloads, skills-directory integrity, and
 operator-facing trust documentation. Full deployment notes are in
@@ -56,11 +38,24 @@ operator-facing trust documentation. Full deployment notes are in
 - **Content-cache byte accounting** — Cache budget now uses UTF-8 byte length instead
   of JavaScript string length.
 
+### Project-local packaging and runtime additions
+
+- **SDD helper safety and portability**: local helpers fail closed outside a Git working tree, resolve paths against the executing worktree rather than the plan's location, and support `-C DIR` where available. Helpers that record a base require a resolvable Git `HEAD`, so a new repository needs an initial commit. `task-brief` accepts alphanumeric task IDs with dot-separated segments and at least one digit, and refuses briefs truncated by unclosed fences. PowerShell twins were kept and updated instead of adopting upstream's removal of them.
+- **Keep development fixtures out of installed skills**: systematic-debugging pressure scenarios and their creation log moved under `tests/`; a structural test prevents them from being repackaged as live skill files.
+
+### Selective upstream adoption — issue-report flow
+
+- **Issue-report provenance**: `diagnosing-superpowers` now requires filer context and a human-authored summary under 200 words, refuses to file while that summary is a placeholder, and links to upstream's current `bug_report.md` template.
+
+The upstream drift baseline was not globally refreshed: other skill changes remain intentionally visible for a later reviewed sync. The baseline entries for the five relocated debugging fixtures were removed because those files are no longer shipped under `skills/`.
+
 ### Tests
 
 - `tests/client_truncation_test.js` added to `scripts/run-tests.js`.
 - mcp_coverage Test 3c (composition guide errors omit paths).
 - edge_cases Test 15 (replaced skills root).
+- Added regression coverage for repository selection, `-C`, alphanumeric task IDs, unclosed fences, helper invocation paths, and installed-skill layout.
+- Release-prep verification: `npm run build` passed. `npm test` failed: 15/23 suites passed; 7 PowerShell suites were skipped because `pwsh` is unavailable; `tests/setup_test.js` had 3 failures (69 passed). The failures were: the sandbox test expected `created` but received `error` (`tests/setup_test.js:966`); the concurrent-change test did not refuse a stale `expectedContent` write (`a stale expectedContent must refuse the write`); and the repeated YAML `--remove` test failed its first-install assertion (`hermes: first install must succeed`, `'error' !== 'created'`). The SDD Bash suites, upstream-sync, SDD path guard, and no-dev-fixtures checks passed.
 
 ## [6.4.7] - 2026-10-09
 

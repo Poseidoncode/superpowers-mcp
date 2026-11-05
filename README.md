@@ -189,7 +189,11 @@ To help you choose the right skill, we have structured all 15 skills across the 
 - **Client-facing error hygiene**: `read_skill`, prompt templates, and the compositions guide return generic MCP errors; filesystem paths stay on `stderr` only (mcp_coverage Test 3c).
 - **Trust & supply-chain docs**: [SECURITY.md](SECURITY.md) threat model, README install callouts, stderr trust notices on server start, and installer warnings for piped/registry setup.
 - **Skills cache fixes**: `forceReload` drops cached bodies before rescan without losing the directory fingerprint; content-cache limits use UTF-8 byte length.
-- Verification: `npm test` green **14/21 suites** (PowerShell suites skip when `pwsh` is absent), `npm run build` ok, `npm audit` **0** vulnerabilities.
+- **Safer SDD helper selection**: local helpers now fail closed outside a Git worktree, resolve paths against the executing worktree, and support `-C DIR` where available. Helpers that record a base require a resolvable `HEAD` (initialize the repository with a commit first). PowerShell variants remain supported.
+- **More reliable task briefs**: task IDs support alphanumeric segments separated by dots (with at least one digit), while an unclosed code fence that could truncate a brief causes extraction to fail closed.
+- **Cleaner skill packaging**: systematic-debugging pressure fixtures and their creation log moved under `tests/`, with a structural regression check keeping them out of installed skills.
+- **Better issue reports**: `diagnosing-superpowers` requires filer context and a human-authored summary, rejects placeholder summaries, and uses the current upstream `bug_report.md` template.
+- Verification (local run): `npm run build` passed. `npm test` is not green: 15/23 suites passed, 7 PowerShell suites were skipped because `pwsh` is unavailable, and `tests/setup_test.js` had 3 failures (69 passed). See [CHANGELOG.md](CHANGELOG.md) for the failing cases; the full test suite did not pass in this run.
 
 ### v6.4.7
 

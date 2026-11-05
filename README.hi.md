@@ -189,7 +189,11 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 - **क्लाइंट-फेसिंग त्रुटि स्वच्छता**: `read_skill`, प्रॉम्प्ट टेम्पलेट और compositions guide सामान्य MCP त्रुटि लौटाते हैं; फ़ाइलसिस्टम पथ केवल `stderr` पर (mcp_coverage Test 3c).
 - **विश्वास मॉडल और सप्लाई चेन**: [SECURITY.md](SECURITY.md) threat model, README इंस्टॉल कॉलआउट, सर्वर स्टार्ट पर stderr विश्वास सूचनाएँ, पाइप/registry इंस्टॉल चेतावनियाँ।
 - **स्किल कैश सुधार**: `forceReload` रीस्कैन से पहले बॉडी कैश हटाता है, डायरेक्टरी फ़िंगरप्रिंट बनाए रखता है; कैश बजट UTF-8 बाइट लंबाई पर।
-- सत्यापन: `npm test` हरा **14/21 सुइट** (`pwsh` न होने पर PowerShell सुइट skip), `npm run build` ok, `npm audit` **0** कमज़ोरियाँ।
+- **ज़्यादा सुरक्षित और portable SDD helpers**: Git worktree के बाहर local helpers fail closed होते हैं, paths को चल रहे worktree के आधार पर resolve करते हैं, और जहाँ समर्थित हो वहाँ `-C DIR` से दूसरा checkout चुना जा सकता है। Base दर्ज करने वाले helpers के लिए resolvable Git `HEAD` ज़रूरी है (पहले initial commit करें)। PowerShell variants समर्थित बने रहते हैं।
+- **ज़्यादा विश्वसनीय task brief**: task ID में अक्षर-अंक वाले segments और dot-separated हिस्से हो सकते हैं (कम-से-कम एक अंक आवश्यक); brief को काट सकने वाली unclosed code fence मिलने पर extraction fail closed होता है।
+- **साफ़ skill packaging**: systematic-debugging pressure fixtures और उनका creation log `tests/` में ले जाए गए; structural regression check उन्हें installed skills में शामिल होने से रोकता है।
+- **बेहतर issue reports**: `diagnosing-superpowers` filer context और मानव-लिखित summary मांगता है, placeholder summary अस्वीकार करता है, और upstream के मौजूदा `bug_report.md` template का उपयोग करता है।
+- स्थानीय सत्यापन: `npm run build` पास हुआ। `npm test` पूरी तरह पास नहीं हुआ: 23 में से 15 suites पास हुईं, `pwsh` उपलब्ध न होने से 7 PowerShell suites skip हुईं, और `tests/setup_test.js` में 3 failures थे (69 tests पास हुए)। असफल मामलों के लिए [CHANGELOG.md](CHANGELOG.md) देखें; इस परीक्षण में पूरी suite पास नहीं हुई।
 
 ### v6.4.7
 
