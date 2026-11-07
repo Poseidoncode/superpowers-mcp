@@ -2030,6 +2030,51 @@ function pruneOldBackups(targetFilePath: string, keep = 10): void {
 }
 
 /**
+ * Resolve a config path for containment checks. macOS often spells the same
+ * directory as `/var/folders/...` or `/private/var/folders/...`; comparing a
+ * realpathed root against an unresolved target rejects valid writes.
+ */
+function resolveConfigTargetPath(filePath: string): string {
+    const resolved = path.normalize(path.resolve(filePath));
+    try {
+        return fs.realpathSync(resolved);
+    } catch {
+        let probe = resolved;
+        for (;;) {
+            const parent = path.dirname(probe);
+            if (parent === probe) {
+                return resolved;
+            }
+            try {
+                const realParent = fs.realpathSync(parent);
+                return path.join(realParent, path.relative(parent, resolved));
+            } catch {
+                probe = parent;
+            }
+        }
+    }
+}
+
+function isUnderAllowedRoot(
+    targetPath: string,
+    allowedRoots: string[],
+    foldCase: (value: string) => string
+): boolean {
+    const resolvedTarget = resolveConfigTargetPath(targetPath);
+    return allowedRoots.some((rootPath) => {
+        if (!rootPath) return false;
+        let canonicalRoot = path.resolve(rootPath);
+        try {
+            canonicalRoot = fs.realpathSync(canonicalRoot);
+        } catch {
+            /* lexical fallback */
+        }
+        const relative = path.relative(foldCase(canonicalRoot), foldCase(resolvedTarget));
+        return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+    });
+}
+
+/**
  * Performs an atomic, conflict-detecting write within explicit allowed roots.
  * Final-file symlinks are preserved when their canonical target stays in-bounds.
  */
@@ -2127,13 +2172,7 @@ export function safeWriteConfig(
         if (isProtectedTarget(lexicalTarget)) {
             throw new Error(`Refusing to write to unsafe configuration target: ${targetFilePath}`);
         }
-        const lexicallyAllowed = allowedRoots.some((rootPath) => {
-            if (!rootPath) return false;
-            let canonicalRoot = path.resolve(rootPath);
-            try { canonicalRoot = fs.realpathSync(canonicalRoot); } catch (_rootErr) { /* lexical fallback */ }
-            const relative = path.relative(foldCase(canonicalRoot), foldCase(path.resolve(targetFilePath)));
-            return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
-        });
+        const lexicallyAllowed = isUnderAllowedRoot(targetFilePath, allowedRoots, foldCase);
         if (!lexicallyAllowed) {
             throw new Error(`Refusing to write configuration outside allowed roots: ${targetFilePath}`);
         }
@@ -2160,13 +2199,7 @@ export function safeWriteConfig(
     if (!insideTemp && protectedTarget) {
         throw new Error(`Refusing to write to unsafe configuration target: ${targetFilePath}`);
     }
-    const insideAllowedRoot = allowedRoots.some((rootPath) => {
-        if (!rootPath) return false;
-        let canonicalRoot = path.resolve(rootPath);
-        try { canonicalRoot = fs.realpathSync(canonicalRoot); } catch (_rootErr) { /* lexical fallback */ }
-        const relative = path.relative(foldCase(canonicalRoot), foldCase(targetFilePath));
-        return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
-    });
+    const insideAllowedRoot = isUnderAllowedRoot(targetFilePath, allowedRoots, foldCase);
     if (!insideAllowedRoot) {
         throw new Error(`Refusing to write configuration outside allowed roots: ${targetFilePath}`);
     }

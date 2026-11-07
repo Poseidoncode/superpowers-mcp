@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.4.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -183,7 +183,12 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.4.8（最新）
+### v6.4.9（最新）
+
+- **macOS セットアップの allowed-root チェック**：`safeWriteConfig` が最深の既存親ディレクトリ経由で設定パスを解決し、`/var/folders/...` と `/private/var/folders/...` を同一ツリーとして扱うようにした。macOS のユーザー temp 配下でのワンクリックセットアップ時に誤って `Refusing to write configuration outside allowed roots` となる問題を修正（`tests/setup_test.js` は **97/97**）。
+- 検証：`npm run build` 成功；`npm test` グリーン——**16/23** スイート（`pwsh` なしで PowerShell **7** 件スキップ）。
+
+### v6.4.8
 
 - **MCP クライアント向けレスポンス上限**：`read_skill`、`list_skills`、スキル resource、compositions guide のインライン本文を **20 KB** に制限し、巨大な 1 つの `SKILL.md` がエージェントのコンテキストを枯渇させないようにした（`tests/client_truncation_test.js`）。
 - **スキルルート差し替え検知**（`EROOTCHANGED`）：起動時にスキルディレクトリの inode を記録。MCP サーバーを再起動せず `SKILLS_PATH` が置き換わった場合、ホットパスの一覧・読み取りは fail-closed で再起動を促す（edge-cases Test 15）。

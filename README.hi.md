@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![संस्करण](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![संस्करण](https://img.shields.io/badge/version-6.4.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![लाइसेंस](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 यह दस्तावेज़ Superpowers skills लाइब्रेरी और स्वायत्त वर्कफ़्लो सिस्टम को एक स्वतंत्र, उच्च-प्रदर्शन और सुरक्षित **Model Context Protocol (MCP)** सर्वर के रूप में पैकेज करने की जानकारी और उपयोग निर्देशों का सारांश है।
@@ -182,7 +182,12 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 हाल के अपडेट
 
-### v6.4.8 (नवीनतम)
+### v6.4.9 (नवीनतम)
+
+- **macOS setup allowed-root जाँच**: `safeWriteConfig` अब सबसे गहरे मौजूदा पैरेंट के ज़रिए कॉन्फ़िग पथ हल करता है, ताकि `/var/folders/...` और `/private/var/folders/...` allowed-root में समान माने जाएँ। macOS पर उपयोगकर्ता temp के नीचे वन-क्लिक सेटअप में गलत `Refusing to write configuration outside allowed roots` ठीक (`tests/setup_test.js` **97/97**).
+- सत्यापन: `npm run build` पास; `npm test` हरा — **16/23** सुइट (`pwsh` के बिना PowerShell **7** स्किप).
+
+### v6.4.8
 
 - **MCP क्लाइंट प्रतिक्रिया सीमा**: `read_skill`, `list_skills`, स्किल resources और compositions guide के इनलाइन बॉडी **20 KB** पर सीमित, ताकि एक विशाल `SKILL.md` एजेंट संदर्भ न खत्म करे (`tests/client_truncation_test.js`).
 - **स्किल रूट बदलाव पहचान** (`EROOTCHANGED`): स्टार्टअप पर स्किल डायरेक्टरी inode ट्रैक; MCP सर्वर रीस्टार्ट के बिना `SKILLS_PATH` बदलने पर हॉट-पाथ लिस्ट/रीड fail-closed और रीस्टार्ट संकेत (edge-cases Test 15).

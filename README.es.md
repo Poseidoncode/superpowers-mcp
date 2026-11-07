@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versión](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versión](https://img.shields.io/badge/version-6.4.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licencia](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume la información y las instrucciones de uso para empaquetar las habilidades (skills) de Superpowers y el sistema de flujos de trabajo autónomos en un servidor **Model Context Protocol (MCP)** independiente, de alto rendimiento y seguro.
@@ -182,7 +182,12 @@ Para ayudarte a elegir el skill adecuado, hemos estructurado los 15 skills a lo 
 
 ## 🆕 Novedades recientes
 
-### v6.4.8 (última versión)
+### v6.4.9 (última versión)
+
+- **Comprobaciones allowed-root en macOS**: `safeWriteConfig` resuelve rutas de configuración mediante el ancestro padre existente más profundo, de modo que `/var/folders/...` y `/private/var/folders/...` coinciden en la contención de raíces permitidas. Corrige rechazos falsos al configurar con un clic bajo el árbol temp del usuario en macOS (`tests/setup_test.js` **97/97**).
+- Verificación: `npm run build` correcto; `npm test` en verde — **16/23** suites (**7** de PowerShell omitidas sin `pwsh`).
+
+### v6.4.8
 
 - **Límites de respuesta al cliente MCP**: el cuerpo inline de las skills se limita a **20 KB** en `read_skill`, `list_skills`, resources y la guía de compositions para que un `SKILL.md` enorme no agote el contexto del agente (`tests/client_truncation_test.js`).
 - **Detección de reemplazo del directorio raíz** (`EROOTCHANGED`): se registra el inode del directorio de skills al arrancar; si `SKILLS_PATH` se sustituye sin reiniciar el servidor MCP, listados y lecturas en caliente fallan de forma segura con aviso de reinicio (edge-cases Test 15).

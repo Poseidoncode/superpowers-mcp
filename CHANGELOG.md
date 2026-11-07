@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.4.9] - 2026-11-07
+
+### Fixed
+
+- **macOS setup allowed-root containment** — `safeWriteConfig` in `src/setup-runner.ts`
+  now resolves configuration targets through the deepest existing parent directory
+  before comparing against `allowedRoots`, so `/var/folders/...` and
+  `/private/var/folders/...` are treated as the same tree. This removes false
+  `Refusing to write configuration outside allowed roots` failures during one-click
+  setup (and in tests that mock `homeDir` under the per-user temp directory on macOS).
+
+### Tests
+
+- `tests/setup_test.js` **97/97** (previously 70 passed, 3 failed on macOS).
+- Release-prep verification: `npm run build` passed; `npm test` green — **16/23**
+  suites (**7** PowerShell suites skipped without `pwsh`).
+
 ## [6.4.8] - 2026-11-05
 
 Release hardening for MCP client payloads, skills-directory integrity, and

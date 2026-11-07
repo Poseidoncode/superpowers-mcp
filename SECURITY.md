@@ -6,6 +6,7 @@ The following versions of Superpowers MCP are currently supported with security 
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 6.4.9   | :white_check_mark: |
 | 6.4.8   | :white_check_mark: |
 | 6.4.x   | :white_check_mark: |
 | 6.3.x   | :white_check_mark: |
@@ -44,7 +45,49 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
+## v6.4.9 — macOS Setup Allowed-Root Containment (2026-11-07)
+
+> **Scope and status:** patch release for `safeWriteConfig` allowed-root containment in
+> `src/setup-runner.ts`. This is **not** a new full-project security audit. The v6.4.7
+> comprehensive scan notes and any still-open setup findings below remain in force; this
+> section records only the containment-comparison fix and its test regression.
+
+### Setup CLI: `/var` vs `/private/var` on macOS
+
+- **Symptom:** Configuration targets under the per-user temporary tree (`/var/folders/...`)
+  could be rejected with `Refusing to write configuration outside allowed roots` even when
+  the path lay under a caller-declared allowed root such as `homeDir`. During the pre-mkdir
+  gate, allowed roots were often `realpathSync`'d to `/private/var/folders/...` while the
+  target kept the unresolved `/var/folders/...` spelling, so `path.relative` treated them as
+  different trees.
+- **Impact class:** **fail-closed false positive** on a security gate — `runSetup` surfaced
+  `status: "error"` instead of creating or updating client MCP config. The flaw did **not**
+  relax containment or permit writes outside declared roots; it blocked legitimate installs
+  (including tests that mock `homeDir` under `os.tmpdir()` on macOS). Installs under typical
+  `/Users/...` homes were largely unaffected because both sides usually spell the home path the
+  same way.
+- **Fix:** `resolveConfigTargetPath()` realpath's the deepest existing ancestor when the file
+  does not exist yet; `isUnderAllowedRoot()` applies the same resolution to both the lexical
+  (pre-mkdir) and canonical (post-mkdir) containment checks.
+- **Regression:** `tests/setup_test.js` **97/97** (v6.4.8 recorded 70 passed / 3 failed on macOS
+  in this suite — see [CHANGELOG.md](CHANGELOG.md) `[6.4.8]` Tests).
+
+### Verification and limitations
+
+- `npm run build` passed; `npm test` green — **16/23** suites (**7** PowerShell suites skipped
+  because `pwsh` was unavailable).
+- No new CodeQL run, `npm audit` gate, or full-project audit is claimed for this patch. The
+  development tree may still report transitive **devDependency** advisories that are not
+  reachable from the shipped stdio bundle (`runtime dependencies` empty).
+- v6.4.7 setup findings (incomplete `--remove`, YAML duplicate-key install semantics,
+  `SKILLS_PATH` blocklist trust model, and related items in the table below) remain **open**
+  unless marked **Fixed** in an earlier release section.
+
 ## v6.4.8 — SDD Runtime Safety and Package Content Notes (2026-11-05)
+
+> **Post-release note (v6.4.9):** the three macOS `setup_test.js` failures recorded below were
+> caused by the allowed-root spelling mismatch fixed in v6.4.9; that suite is **97/97** on the
+> current tree.
 
 > **Scope and status:** targeted review of v6.4.8's SDD helper, task-brief, skill-packaging, and issue-report changes only; this is **not** a full-project security audit. The v6.4.7 audit did not analyze the full `diagnosing-superpowers` skill; this review covers only its changed issue-report flow, not transcript handling or the full skill. The latest comprehensive audit remains the v6.4.7 scan from 2026-10-09. The recorded `npm test` run did not pass completely; details and failing assertions are recorded in [CHANGELOG.md](CHANGELOG.md).
 
@@ -66,7 +109,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 ### Verification and limitations
 
 - `npm run build` passed. The SDD Bash suites, upstream-sync checks, SDD path guard, and no-development-fixtures guard passed.
-- The recorded `npm test` run failed: 15/23 suites passed, 7 PowerShell suites were skipped because `pwsh` was unavailable, and `tests/setup_test.js` had 3 failures (69 tests passed in that suite). The complete suite was not green in that run. No new full-project audit, CodeQL scan, or `npm audit` result is claimed here.
+- The recorded `npm test` run failed: 15/23 suites passed, 7 PowerShell suites were skipped because `pwsh` was unavailable, and `tests/setup_test.js` had 3 failures (69 tests passed in that suite). The complete suite was not green in that run. Those three setup failures were **fixed in v6.4.9** (macOS allowed-root path equivalence — see the v6.4.9 section above). No new full-project audit, CodeQL scan, or `npm audit` result is claimed here.
 
 ## v6.4.7 (2026-10-09) Full Project Security Scan Notes
 

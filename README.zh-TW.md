@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![版本](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.4.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -181,7 +181,12 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.4.8（最新版）
+### v6.4.9（最新版）
+
+- **macOS 安裝 allowed-root 檢查**：`safeWriteConfig` 會沿最深一層已存在的父目錄解析設定檔路徑，使 `/var/folders/...` 與 `/private/var/folders/...` 在允許根目錄比對中視為同一路徑，修正 macOS 使用者暫存目錄下一鍵安裝誤報「超出 allowed roots」的問題（`tests/setup_test.js` 現為 **97/97**）。
+- 驗證：`npm run build` 通過；`npm test` 全綠——**16/23** 套件（**7** 個 PowerShell 因無 `pwsh` 跳過）。
+
+### v6.4.8
 
 - **MCP 客戶端回應上限**：`read_skill`、`list_skills`、技能資源與 compositions guide 的內嵌技能正文上限為 **20 KB**，避免單一巨大 `SKILL.md` 撐爆 agent 上下文（`tests/client_truncation_test.js`）。
 - **技能根目錄替換偵測**（`EROOTCHANGED`）：啟動時記錄技能目錄 inode；若未重啟 MCP 即替換 `SKILLS_PATH`，熱路徑清單與讀取會 fail-closed 並提示重啟（edge-cases Test 15）。

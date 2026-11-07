@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -181,7 +181,12 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.4.8 (최신)
+### v6.4.9 (최신)
+
+- **macOS setup allowed-root 검사**: `safeWriteConfig`가 가장 깊은 기존 부모를 통해 설정 경로를 해석해 `/var/folders/...`와 `/private/var/folders/...`를 동일 트리로 취급. macOS 사용자 temp 아래 원클릭 설정 시 잘못된 `Refusing to write configuration outside allowed roots` 거부를 수정 (`tests/setup_test.js` **97/97**).
+- 검증: `npm run build` 통과; `npm test` 그린 — **16/23** 스위트 (`pwsh` 없음으로 PowerShell **7**개 스킵).
+
+### v6.4.8
 
 - **MCP 클라이언트 응답 한도**: `read_skill`, `list_skills`, 스킬 resource, compositions guide에 반환되는 인라인 스킬 본문을 **20 KB**로 제한해 하나의 큰 `SKILL.md`가 agent 컨텍스트를 고갈시키지 않도록 함 (`tests/client_truncation_test.js`).
 - **스킬 루트 교체 감지** (`EROOTCHANGED`): 시작 시 스킬 디렉터리 inode를 추적. MCP 서버를 재시작하지 않고 `SKILLS_PATH`가 바뀌면 핫 경로 목록/읽기가 fail-closed로 재시작을 안내 (edge-cases Test 15).

@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.8-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -182,7 +182,12 @@ To help you choose the right skill, we have structured all 15 skills across the 
 
 ## 🆕 Recent Updates
 
-### v6.4.8 (Latest)
+### v6.4.9 (Latest)
+
+- **macOS setup allowed-root checks**: `safeWriteConfig` resolves configuration paths through the deepest existing parent so `/var/folders/...` and `/private/var/folders/...` match under allowed-root containment. This fixes false `Refusing to write configuration outside allowed roots` errors during one-click setup when paths sit under the per-user temp tree on macOS (`tests/setup_test.js` now **97/97**).
+- Verification: `npm run build` passed; `npm test` green — **16/23** suites (**7** PowerShell suites skipped without `pwsh`).
+
+### v6.4.8
 
 - **MCP client response budgets**: Inline skill bodies are capped at **20 KB** for `read_skill`, `list_skills`, skill resources, and the compositions guide so one huge `SKILL.md` cannot exhaust agent context (`tests/client_truncation_test.js`).
 - **Skills root swap detection** (`EROOTCHANGED`): the skills directory inode is tracked at startup; if `SKILLS_PATH` is replaced without restarting the MCP server, hot-path listing and reads fail closed with a restart hint (edge-cases Test 15).
