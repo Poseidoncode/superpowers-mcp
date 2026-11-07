@@ -45,12 +45,31 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
-## v6.4.9 — macOS Setup Allowed-Root Containment (2026-11-07)
+## v6.4.9 — CodeQL Remediation & macOS Setup Containment (2026-11-07)
 
-> **Scope and status:** patch release for `safeWriteConfig` allowed-root containment in
-> `src/setup-runner.ts`. This is **not** a new full-project security audit. The v6.4.7
-> comprehensive scan notes and any still-open setup findings below remain in force; this
-> section records only the containment-comparison fix and its test regression.
+> **Scope and status:** patch release closing CodeQL-driven hardening in `src/server.ts` and
+> `src/setup-runner.ts` (`ab081af`) plus `safeWriteConfig` allowed-root containment. This is
+> **not** a new full-project security audit. The v6.4.7 comprehensive scan notes and any
+> still-open setup findings below remain in force.
+
+### MCP `list_skills` output hygiene
+
+- **Issue:** Skill `description` frontmatter is untrusted display text rendered into Markdown
+  for `list_skills`. A partial escape (`[`*#\[\]]`) still allowed emphasis, links, headings,
+  HTML delimiters, and multiline structure injection.
+- **Fix:** `escapeListMarkdown` escapes every ASCII punctuation character (including existing
+  backslashes) and collapses CR/LF/Unicode line breaks to spaces before rendering.
+- **Regression:** `tests/client_truncation_test.js` asserts escaped bold/italic/heading/link
+  syntax, HTML delimiters, backslashes, and multiline heading injection.
+
+### YAML setup: bare mapping-key scan (CodeQL #11)
+
+- **Issue:** While scanning preserved nested YAML lines, `/:\s*(?:#.*)?$/` could backtrack
+  polynomially on long comment-like prefixes (CWE-1333 / setup DoS on malicious config).
+- **Fix:** `isBareYamlMappingKey()` recognizes bare `key:` lines (optionally followed by an
+  inline comment) in a single linear pass with the same line-level semantics.
+- **Regression:** `tests/setup_test.js` case `should scan preserved nested YAML lines without
+  a backtracking regex (CodeQL #11)` (timing + preserved nested keys).
 
 ### Setup CLI: `/var` vs `/private/var` on macOS
 

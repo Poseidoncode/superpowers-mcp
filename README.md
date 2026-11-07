@@ -184,6 +184,7 @@ To help you choose the right skill, we have structured all 15 skills across the 
 
 ### v6.4.9 (Latest)
 
+- **CodeQL remediation (`list_skills` + YAML setup)**: `escapeListMarkdown` escapes all ASCII punctuation and collapses line breaks so untrusted skill descriptions cannot inject Markdown or raw HTML in `list_skills` output (`tests/client_truncation_test.js`). YAML nested-key detection uses linear `isBareYamlMappingKey()` instead of a backtracking `/:\s*(?:#.*)?$/` regex (CodeQL alert #11; pinned in `tests/setup_test.js`).
 - **macOS setup allowed-root checks**: `safeWriteConfig` resolves configuration paths through the deepest existing parent so `/var/folders/...` and `/private/var/folders/...` match under allowed-root containment. This fixes false `Refusing to write configuration outside allowed roots` errors during one-click setup when paths sit under the per-user temp tree on macOS (`tests/setup_test.js` now **97/97**).
 - Verification: `npm run build` passed; `npm test` green — **16/23** suites (**7** PowerShell suites skipped without `pwsh`).
 

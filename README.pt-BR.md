@@ -184,6 +184,7 @@ Para ajudar você a escolher a skill certa, estruturamos as 15 skills ao longo d
 
 ### v6.4.9 (atual)
 
+- **Remediação CodeQL (`list_skills` + YAML setup)**: `escapeListMarkdown` escapa toda pontuação ASCII e colapsa quebras de linha para impedir injeção de Markdown ou HTML bruto em `list_skills` (`tests/client_truncation_test.js`). Detecção de chaves YAML aninhadas usa `isBareYamlMappingKey()` linear no lugar do regex com backtracking `/:\s*(?:#.*)?$/` (alerta CodeQL #11; fixado em `tests/setup_test.js`).
 - **Checagens allowed-root no macOS**: `safeWriteConfig` resolve caminhos de configuração pelo ancestral pai existente mais profundo, para que `/var/folders/...` e `/private/var/folders/...` coincidam na contenção de raízes permitidas. Corrige recusas falsas `Refusing to write configuration outside allowed roots` na configuração com um clique sob o temp por usuário no macOS (`tests/setup_test.js` **97/97**).
 - Verificação: `npm run build` ok; `npm test` verde — **16/23** suítes (**7** PowerShell ignoradas sem `pwsh`).
 

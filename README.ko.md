@@ -183,6 +183,7 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ### v6.4.9 (최신)
 
+- **CodeQL 수정 (`list_skills` + YAML setup)**: `escapeListMarkdown`이 ASCII 문장부호를 모두 이스케이프하고 줄바꿈을 접어 신뢰할 수 없는 skill 설명이 `list_skills` 출력에 Markdown·원시 HTML을 주입하지 못하게 함 (`tests/client_truncation_test.js`). YAML 중첩 키 판별은 선형 `isBareYamlMappingKey()`로 대체, 백트래킹 `/:\s*(?:#.*)?$/` 제거 (CodeQL alert #11; `tests/setup_test.js` 고정).
 - **macOS setup allowed-root 검사**: `safeWriteConfig`가 가장 깊은 기존 부모를 통해 설정 경로를 해석해 `/var/folders/...`와 `/private/var/folders/...`를 동일 트리로 취급. macOS 사용자 temp 아래 원클릭 설정 시 잘못된 `Refusing to write configuration outside allowed roots` 거부를 수정 (`tests/setup_test.js` **97/97**).
 - 검증: `npm run build` 통과; `npm test` 그린 — **16/23** 스위트 (`pwsh` 없음으로 PowerShell **7**개 스킵).
 

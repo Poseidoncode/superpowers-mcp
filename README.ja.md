@@ -185,6 +185,7 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ### v6.4.9（最新）
 
+- **CodeQL 対応（`list_skills` + YAML setup）**：`escapeListMarkdown` が ASCII 句読点をすべてエスケープし改行を折りたたむため、信頼できない skill 説明が `list_skills` 出力に Markdown や生 HTML を注入できない（`tests/client_truncation_test.js`）。YAML のネストキー判定は線形の `isBareYamlMappingKey()` に置き換え、バックトラックする `/:\s*(?:#.*)?$/` を廃止（CodeQL alert #11；`tests/setup_test.js` で固定）。
 - **macOS セットアップの allowed-root チェック**：`safeWriteConfig` が最深の既存親ディレクトリ経由で設定パスを解決し、`/var/folders/...` と `/private/var/folders/...` を同一ツリーとして扱うようにした。macOS のユーザー temp 配下でのワンクリックセットアップ時に誤って `Refusing to write configuration outside allowed roots` となる問題を修正（`tests/setup_test.js` は **97/97**）。
 - 検証：`npm run build` 成功；`npm test` グリーン——**16/23** スイート（`pwsh` なしで PowerShell **7** 件スキップ）。
 

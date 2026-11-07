@@ -184,6 +184,7 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ### v6.4.9 (नवीनतम)
 
+- **CodeQL उपाय (`list_skills` + YAML setup)**: `escapeListMarkdown` सभी ASCII विराम चिह्नों को escape करके लाइन ब्रेक समेटता है, ताकि अविश्वसनीय skill विवरण `list_skills` आउटपुट में Markdown या कच्चा HTML न घुसा सकें (`tests/client_truncation_test.js`)। YAML नेस्टेड-की पहचान रैखिक `isBareYamlMappingKey()` से, बैकट्रैकिंग वाले `/:\s*(?:#.*)?$/` regex की जगह (CodeQL alert #11; `tests/setup_test.js` में पिन)।
 - **macOS setup allowed-root जाँच**: `safeWriteConfig` अब सबसे गहरे मौजूदा पैरेंट के ज़रिए कॉन्फ़िग पथ हल करता है, ताकि `/var/folders/...` और `/private/var/folders/...` allowed-root में समान माने जाएँ। macOS पर उपयोगकर्ता temp के नीचे वन-क्लिक सेटअप में गलत `Refusing to write configuration outside allowed roots` ठीक (`tests/setup_test.js` **97/97**).
 - सत्यापन: `npm run build` पास; `npm test` हरा — **16/23** सुइट (`pwsh` के बिना PowerShell **7** स्किप).
 

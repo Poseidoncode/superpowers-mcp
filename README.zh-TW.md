@@ -183,6 +183,7 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ### v6.4.9（最新版）
 
+- **CodeQL 修復（`list_skills` + YAML setup）**：`escapeListMarkdown` 會跳脫所有 ASCII 標點並折疊換行，避免不受信任的技能描述在 `list_skills` 輸出中注入 Markdown 或原始 HTML（`tests/client_truncation_test.js`）。YAML 巢狀鍵偵測改為線性 `isBareYamlMappingKey()`，取代會回溯的 `/:\s*(?:#.*)?$/` 正則（CodeQL alert #11；`tests/setup_test.js` 釘住）。
 - **macOS 安裝 allowed-root 檢查**：`safeWriteConfig` 會沿最深一層已存在的父目錄解析設定檔路徑，使 `/var/folders/...` 與 `/private/var/folders/...` 在允許根目錄比對中視為同一路徑，修正 macOS 使用者暫存目錄下一鍵安裝誤報「超出 allowed roots」的問題（`tests/setup_test.js` 現為 **97/97**）。
 - 驗證：`npm run build` 通過；`npm test` 全綠——**16/23** 套件（**7** 個 PowerShell 因無 `pwsh` 跳過）。
 

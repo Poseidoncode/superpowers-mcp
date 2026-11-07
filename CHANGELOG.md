@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [6.4.9] - 2026-11-07
 
+### Security
+
+- **`list_skills` Markdown hygiene** — `escapeListMarkdown` in `src/server.ts` now escapes
+  every ASCII punctuation character (including input backslashes) and collapses line breaks
+  to spaces so untrusted skill `description` frontmatter cannot inject headings, links, or
+  raw HTML into the rendered list. Pinned by expanded assertions in
+  `tests/client_truncation_test.js`.
+- **YAML nested-key scan linearization (CodeQL #11)** — `updateYamlConfig` uses
+  `isBareYamlMappingKey()` instead of `/:\s*(?:#.*)?$/` when deciding whether a preserved
+  nested line opens a mapping, removing polynomial backtracking on long attacker-controlled
+  comment-like runs. Pinned by `tests/setup_test.js` (timing + semantics).
+
 ### Fixed
 
 - **macOS setup allowed-root containment** — `safeWriteConfig` in `src/setup-runner.ts`
@@ -18,7 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
-- `tests/setup_test.js` **97/97** (previously 70 passed, 3 failed on macOS).
+- `tests/setup_test.js` **97/97** (previously 70 passed, 3 failed on macOS; includes the
+  CodeQL #11 YAML timing guard).
+- `tests/client_truncation_test.js` covers `list_skills` escaping plus `read_skill` truncation.
 - Release-prep verification: `npm run build` passed; `npm test` green — **16/23**
   suites (**7** PowerShell suites skipped without `pwsh`).
 
