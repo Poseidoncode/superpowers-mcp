@@ -611,6 +611,40 @@ function containsJsoncSyntax(content: string): boolean {
 const WHITESPACE_CHAR = /\s/;
 
 /**
+ * Detects a bare YAML mapping key, optionally followed by a comment, in one
+ * linear pass. The old `/:\s*(?:#.*)?$/` pattern backtracked over attacker-
+ * controlled lines; this state machine preserves its line-level recognition
+ * without running a regular expression over the entire input.
+ */
+function isBareYamlMappingKey(line: string): boolean {
+    let afterColon = false;
+    let inComment = false;
+    for (let i = 0; i < line.length; i++) {
+        const character = line[i];
+        if (inComment) {
+            // `.*` in the former pattern could not cross a line break. If one
+            // occurs before the end, discard this candidate but keep scanning
+            // for a later colon that may independently form a bare key.
+            if (LINE_BREAK.test(character)) {
+                inComment = false;
+                afterColon = false;
+            }
+            continue;
+        }
+        if (character === ":") {
+            afterColon = true;
+        } else if (afterColon && WHITESPACE_CHAR.test(character)) {
+            continue;
+        } else if (afterColon && character === "#") {
+            inComment = true;
+        } else {
+            afterColon = false;
+        }
+    }
+    return afterColon || inComment;
+}
+
+/**
  * Returns a YAML line's trailing inline comment, including the whitespace run directly
  * before it (e.g. `"  superpowers: # note"` -> `" # note"`), or an empty string when the
  * line has no inline comment.
@@ -1155,7 +1189,7 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             // A kept bare `key:` (no inline value) opens a nested mapping:
             // deeper lines belong to it, not to `superpowers:`. Comment-only
             // lines never open a mapping (`# note:` is not a key).
-            if (!line.trimStart().startsWith("#") && /:\s*(?:#.*)?$/.test(line)) {
+            if (!line.trimStart().startsWith("#") && isBareYamlMappingKey(line)) {
                 keptKeyStack.push(childIndent);
             }
             keptChildren.push(line);

@@ -1213,13 +1213,27 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 /**
- * Escape markdown metacharacters in skill descriptions rendered into the
- * list_skills markdown output, so a description cannot inject formatting,
- * headings, or links. Names are never escaped: they are used verbatim for
- * lookups and must round-trip exactly.
+ * Escape untrusted descriptions as plain text in list_skills markdown output.
+ * Escape every ASCII punctuation character (including existing backslashes) and
+ * collapse line breaks so descriptions cannot add Markdown structure. Names are
+ * never escaped: they are used verbatim for lookups and must round-trip exactly.
  */
+const LIST_MARKDOWN_PUNCTUATION = new Set("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
+
 function escapeListMarkdown(value: string): string {
-    return value.replace(/([`*#\[\]])/g, "\\$1");
+    let escaped = "";
+    let previousWasLineBreak = false;
+    for (const character of value.trim()) {
+        if (character === "\r" || character === "\n" || character === "\u2028" || character === "\u2029") {
+            if (!previousWasLineBreak) escaped += " ";
+            previousWasLineBreak = true;
+            continue;
+        }
+        previousWasLineBreak = false;
+        if (LIST_MARKDOWN_PUNCTUATION.has(character)) escaped += "\\";
+        escaped += character;
+    }
+    return escaped;
 }
 
 interface ReadSkillArguments {

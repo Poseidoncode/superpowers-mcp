@@ -603,6 +603,23 @@ it("should preserve nested keys that share managed names (yaml direct-child only
     assert.ok(gooseUpdated.includes("enabled: false"), "Must preserve enabled");
 });
 
+it("should scan preserved nested YAML lines without a backtracking regex (CodeQL #11)", () => {
+    // Repeated comment-like fragments followed by a non-final Unicode line break
+    // made the former unanchored regex rescan suffixes quadratically. The line is
+    // still user-controlled YAML and must not be treated as an open mapping.
+    const nearMatch = `    ${": #x ".repeat(16_000)}\u2028z`;
+    const existing = `mcp_servers:\n  superpowers:\n${nearMatch}\n      command: stale\n    env: # user mapping\n      command: nested-command\n  other:\n    command: other-server\n`;
+    const started = Date.now();
+    const updated = updateYamlConfig(existing, "npx", ["-y"], false, "mcp");
+    const elapsed = Date.now() - started;
+
+    assert.ok(updated.includes(nearMatch), "malformed user lines must be preserved verbatim");
+    assert.ok(!updated.includes("command: stale"), "a non-matching line must not make the following owned key look nested");
+    assert.ok(updated.includes("command: nested-command"), "nested managed-name keys under a real mapping must survive");
+    assert.ok(updated.includes("other-server"), "sibling servers must survive");
+    assert.ok(elapsed < 1500, `large YAML mapping-like lines must stay bounded (took ${elapsed}ms)`);
+});
+
 it("should preserve user-customized goose name on update", () => {
     const existing = `extensions:
   superpowers:
