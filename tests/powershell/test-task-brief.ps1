@@ -114,19 +114,20 @@ This task is cut off by an unclosed fence.
 ## Task 1: Hidden
 '@ | Set-Content -LiteralPath $hiddenPlan -Encoding utf8
         $hiddenOutput = Join-Path $root "hidden-task-brief.md"
-        $hiddenErr = (& $scriptPath $hiddenPlan 1 $hiddenOutput 2>&1 | Out-String)
+        $hiddenErr = (& pwsh -NoProfile -File "$scriptPath" $hiddenPlan 1 $hiddenOutput 2>&1 | Out-String)
         Assert-ExitCode $LASTEXITCODE 4 "unclosed fence hiding the requested task exits 4"
         Assert-True ($hiddenErr -match "never closes" -and -not (Test-Path -LiteralPath $hiddenOutput)) "hidden task is reported and no incomplete brief is written"
 
         $translatedPlan = Join-Path $repo "translated-plan.md"
         Set-Content -LiteralPath $translatedPlan -Value "## Tarea 1: Trabajo`nTexto.`n" -NoNewline
         $translatedOutput = Join-Path $root "translated-brief.md"
-        $translatedErr = (& $scriptPath $translatedPlan 1 $translatedOutput 2>&1 | Out-String)
+        $translatedErr = (& pwsh -NoProfile -File "$scriptPath" $translatedPlan 1 $translatedOutput 2>&1 | Out-String)
         Assert-ExitCode $LASTEXITCODE 3 "translated task heading exits 3"
         Assert-True ($translatedErr -match "English word.*Task") "explains that headings use the English word Task"
 
         Push-Location $root
         try {
+            $global:LASTEXITCODE = 0  # the script ends without an explicit exit, so a stale code from the previous child process would leak through
             & $scriptPath -C $repo "plan.md" 1 $custom > $null
             Assert-ExitCode $LASTEXITCODE 0 "-C selects the repository for a relative plan path"
             Assert-True (Test-Path -LiteralPath $custom) "-C writes the task brief"

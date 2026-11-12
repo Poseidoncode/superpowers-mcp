@@ -67,7 +67,9 @@ function Get-PhysicalDirectoryPath($path) {
     $orig = Get-Location
     try {
         Set-Location -LiteralPath $path
-        $pwdCmd = (Get-Command -Type Application pwd -ErrorAction SilentlyContinue).Source
+        # Some distros ship both /usr/bin/pwd and /bin/pwd; .Source would then be
+        # an array that stringifies to a bogus "a b" path. Take the first match.
+        $pwdCmd = @(Get-Command -Type Application pwd -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source)[0]
         if ($pwdCmd) {
             return (& $pwdCmd -P).Trim()
         } else {

@@ -27,7 +27,8 @@ v6.4.7, bounds untrusted input echoed by the server, and adds repository securit
   re-copying the whole buffer on every `data` event (quadratic copying on large fragmented
   frames); the 10 MB frame cap is still checked before any chunk is retained.
 - **Repository automation** — new `.github/dependabot.yml` (npm + GitHub Actions, weekly) and
-  `.github/workflows/codeql.yml` (JavaScript/TypeScript, push/PR/weekly). Dev-dependency
+  the CI workflow `.github/workflows/ci.yml` (code scanning relies on GitHub's CodeQL default
+  setup; a separate CodeQL workflow conflicts with it and was removed). Dev-dependency
   lockfile refreshed (`body-parser` 2.4.0, `content-type` 2.1.0, `iconv-lite` 0.7.3,
   `qs` 6.16.1).
 
@@ -39,6 +40,9 @@ v6.4.7, bounds untrusted input echoed by the server, and adds repository securit
   (`superpowers: { command: … }`), leaves a nested `mcp_servers:` under another parent
   untouched, and keeps scanning past a child entry that happens to share the root key's name.
   Regression tests in `tests/setup_test.js`.
+- **`sdd-workspace.ps1` crashed on Debian/Ubuntu** — `Get-Command -Type Application pwd`
+  returns both `/usr/bin/pwd` and `/bin/pwd` there, so `.Source` was an array that
+  stringified into a bogus `"/usr/bin/pwd /bin/pwd"` command. Only the first match is used now.
 
 ### Changed
 
@@ -65,8 +69,14 @@ v6.4.7, bounds untrusted input echoed by the server, and adds repository securit
 - `tests/setup_test.js` **100/100** (previously 97).
 - `tests/mcp_coverage_test.js` adds oversized `skill_name` / URI cases (`-32602` / `-32600`,
   message under 1000 chars).
+- PowerShell suites now pass on Linux with `pwsh` (**23/23** with `--fail-on-skip`): error
+  output of `[Console]::Error` is captured via a child `pwsh -File` process, the
+  `review-package` outside-repo assertion accepts the current message, and a stale
+  `$LASTEXITCODE` no longer leaks into the `-C` relative-plan check.
 - Release-prep verification: `npm run build` passed; `npm test` green — **16/23** suites
-  (**7** PowerShell suites skipped without `pwsh`).
+  on macOS (**7** PowerShell suites skipped without `pwsh`), **23/23** on Linux with `pwsh`.
+- CI: the separate CodeQL workflow was dropped because it conflicts with GitHub's CodeQL
+  default setup (code scanning stays enabled through the default setup).
 
 ## [6.4.9] - 2026-11-07
 

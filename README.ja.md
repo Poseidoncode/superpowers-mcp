@@ -189,7 +189,7 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 - **`SKILLS_PATH` の所有者チェック**（CWE-22 / CWE-668）：POSIX ではルートが既存のディレクトリで、現在のユーザーが所有し、グループ／その他に書き込み権限がないことが必須です。**動作変更：** Linux の `/tmp`（`SKILLS_PATH=$(mktemp -d)` を含む）は拒否され、同梱スキルにフォールバックします。ホーム配下のディレクトリを使用してください。macOS の `/private/var/folders` は引き続き利用できます。
 - **信頼できない入力の制限**：256 文字を超える `skill_name` と `skill://` URI は拒否され、エラーメッセージと `stderr` に出力される入力は 80 文字に切り詰められます。巨大な名前によるレスポンス増幅を防ぎます（`tests/mcp_coverage_test.js`）。
 - **メモリ使用量とブロッキングの低減**：brainstorm WebSocket は分割フレームのチャンクごとにバッファを再コピーしなくなり、コンテンツキャッシュの予算は各本文を再計測せず stat スナップショットのサイズを使用し、`sdd-task-reviewer` / `sdd-re-review` のレビューファイル比較もイベントループをブロックしません。
-- **リポジトリの自動化**：`.github/` に Dependabot（npm + GitHub Actions）と CodeQL ワークフローを追加しました。
+- **リポジトリの自動化**：`.github/` に Dependabot（npm + GitHub Actions）と CI ワークフローを追加しました。
 - 検証：`npm run build` 成功、`npm test` 全て成功 — **16/23** スイート（`pwsh` がないため PowerShell **7** スイートはスキップ）。
 
 ### v6.4.9

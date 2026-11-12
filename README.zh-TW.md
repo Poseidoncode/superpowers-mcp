@@ -187,7 +187,7 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 - **`SKILLS_PATH` 擁有者檢查**（CWE-22 / CWE-668）：在 POSIX 上，根目錄必須是現存、由目前使用者擁有且群組／其他人皆無寫入權限的目錄。**行為變更：** Linux 的 `/tmp`（包含 `SKILLS_PATH=$(mktemp -d)`）會被拒絕並退回內建技能，請改用家目錄底下的資料夾。macOS 的 `/private/var/folders` 仍可使用。
 - **限制不受信任的輸入**：超過 256 字元的 `skill_name` 與 `skill://` URI 會被拒絕，錯誤訊息與 `stderr` 回顯的輸入最多截為 80 字元，避免超大名稱造成回應放大（`tests/mcp_coverage_test.js`）。
 - **降低記憶體與阻塞**：brainstorm WebSocket 不再於分段訊框的每個區塊重複複製緩衝區；內容快取預算改用 stat 快照的檔案大小，不再逐一重新計算內容位元組；`sdd-task-reviewer` / `sdd-re-review` 的 review 檔案比對也不再阻塞事件迴圈。
-- **儲存庫自動化**：`.github/` 新增 Dependabot（npm + GitHub Actions）與 CodeQL 工作流程。
+- **儲存庫自動化**：`.github/` 新增 Dependabot（npm + GitHub Actions）與 CI 工作流程。
 - 驗證：`npm run build` 通過；`npm test` 全綠——**16/23** 套件（**7** 個 PowerShell 因無 `pwsh` 跳過）。
 
 ### v6.4.9

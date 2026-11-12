@@ -188,7 +188,7 @@ Para ayudarte a elegir el skill adecuado, hemos estructurado los 15 skills a lo 
 - **Comprobación de propietario de `SKILLS_PATH`** (CWE-22 / CWE-668): en POSIX la raíz debe ser un directorio existente, propiedad del usuario actual y sin permisos de escritura para grupo/otros. **Cambio de comportamiento:** `/tmp` en Linux (incluido `SKILLS_PATH=$(mktemp -d)`) se rechaza y se usan las skills incluidas; usa un directorio dentro de tu home. Las raíces `/private/var/folders` de macOS siguen funcionando.
 - **Entrada no confiable acotada**: los `skill_name` y URI `skill://` de más de 256 caracteres se rechazan, y los mensajes de error y `stderr` recortan a 80 caracteres cualquier entrada repetida, evitando la amplificación de respuestas con nombres de varios megabytes (`tests/mcp_coverage_test.js`).
 - **Menos memoria y bloqueos**: el WebSocket de brainstorm ya no recopia su búfer en cada fragmento de un marco fragmentado, el presupuesto de la caché de contenido usa el tamaño de la instantánea stat en lugar de volver a medir cada cuerpo, y la comparación de archivos de revisión de `sdd-task-reviewer` / `sdd-re-review` ya no bloquea el bucle de eventos.
-- **Automatización del repositorio**: se añadieron Dependabot (npm + GitHub Actions) y un workflow de CodeQL en `.github/`.
+- **Automatización del repositorio**: se añadieron Dependabot (npm + GitHub Actions) y un workflow de CI en `.github/`.
 - Verificación: `npm run build` correcto; `npm test` en verde — **16/23** suites (**7** suites de PowerShell omitidas sin `pwsh`).
 
 ### v6.4.9

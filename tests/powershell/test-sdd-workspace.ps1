@@ -122,7 +122,7 @@ try {
     } else {
         Push-Location $gf
         try {
-            $gfErr = (& $scriptPath $gfPlan 2>&1 | Out-String)
+            $gfErr = (& pwsh -NoProfile -File "$scriptPath" $gfPlan 2>&1 | Out-String)
             Assert-ExitCode $LASTEXITCODE 2 "sdd-workspace outside a repo exits 2"
             Assert-True ($gfErr -match "must run from inside the git working tree" -and $gfErr -match "git said:") "explains the repository requirement"
             Assert-True (-not (Test-Path -LiteralPath (Join-Path $gf ".superpowers"))) "does not write a workspace outside a repo"

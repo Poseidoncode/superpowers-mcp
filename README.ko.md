@@ -187,7 +187,7 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 - **`SKILLS_PATH` 소유자 검사** (CWE-22 / CWE-668): POSIX에서는 루트가 존재하는 디렉터리이고 현재 사용자 소유이며 그룹/기타 쓰기 권한이 없어야 합니다. **동작 변경:** Linux의 `/tmp`(`SKILLS_PATH=$(mktemp -d)` 포함)는 거부되어 번들 스킬로 대체되므로 홈 디렉터리 아래 폴더를 사용하세요. macOS의 `/private/var/folders`는 계속 사용할 수 있습니다.
 - **신뢰할 수 없는 입력 제한**: 256자를 넘는 `skill_name`과 `skill://` URI는 거부되며, 오류 메시지와 `stderr`에 되풀이되는 입력은 80자로 잘립니다. 매우 큰 이름으로 인한 응답 증폭을 방지합니다 (`tests/mcp_coverage_test.js`).
 - **메모리 및 블로킹 감소**: brainstorm WebSocket은 분할된 프레임의 청크마다 버퍼를 다시 복사하지 않고, 콘텐츠 캐시 예산은 본문을 매번 다시 측정하는 대신 stat 스냅샷의 크기를 사용하며, `sdd-task-reviewer` / `sdd-re-review`의 리뷰 파일 비교도 이벤트 루프를 막지 않습니다.
-- **저장소 자동화**: `.github/`에 Dependabot(npm + GitHub Actions)과 CodeQL 워크플로를 추가했습니다.
+- **저장소 자동화**: `.github/`에 Dependabot(npm + GitHub Actions)과 CI 워크플로를 추가했습니다.
 - 검증: `npm run build` 통과, `npm test` 모두 성공 — **16/23** 스위트 (`pwsh`가 없어 PowerShell **7**개 스위트는 건너뜀).
 
 ### v6.4.9

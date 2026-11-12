@@ -188,7 +188,7 @@ To help you choose the right skill, we have structured all 15 skills across the 
 - **`SKILLS_PATH` ownership check** (CWE-22 / CWE-668): on POSIX the root must be an existing directory owned by the current user with no group/world write bits. **Behavior change:** Linux `/tmp` (including `SKILLS_PATH=$(mktemp -d)`) is rejected and falls back to the bundled skills — use a directory under your home. macOS `/private/var/folders` roots still work.
 - **Bounded untrusted input**: `skill_name` and `skill://` URIs over 256 characters are rejected, and error messages / `stderr` clip any echoed input to 80 characters, removing response amplification from multi-megabyte names (`tests/mcp_coverage_test.js`).
 - **Lower memory / blocking**: the brainstorm WebSocket no longer re-copies its buffer on every chunk of a fragmented frame, the content cache budget reads sizes from the stat snapshot instead of re-measuring every body, and review-file comparison for `sdd-task-reviewer` / `sdd-re-review` no longer blocks the event loop.
-- **Repository automation**: Dependabot (npm + GitHub Actions) and a CodeQL workflow are now configured under `.github/`.
+- **Repository automation**: Dependabot (npm + GitHub Actions) and a CI workflow are now configured under `.github/`.
 - Verification: `npm run build` passed; `npm test` green — **16/23** suites (**7** PowerShell suites skipped without `pwsh`).
 
 ### v6.4.9

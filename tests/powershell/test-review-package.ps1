@@ -94,7 +94,7 @@ try {
             $gfRc = $LASTEXITCODE
             $ErrorActionPreference = $prevEap
             Assert-ExitCode $gfRc 2 "review-package outside a repo exits 2"
-            Assert-True ($gfErr -match "must run from inside the git working tree") "review-package outside a repo errors actionably"
+            Assert-True ($gfErr -match "(must run from inside the git working tree|need a git working tree)") "review-package outside a repo errors actionably"
             Assert-True ($gfErr -match "git said:") "review-package includes git's diagnostic"
         }
         finally {
