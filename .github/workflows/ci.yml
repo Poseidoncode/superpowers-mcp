@@ -29,11 +29,18 @@ jobs:
 
       - name: Install Graphviz
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --yes graphviz
+        # Runner package mirrors are occasionally unavailable; retry instead of failing the job.
+        run: |
+          for attempt in 1 2 3; do
+            if sudo apt-get update && sudo apt-get install --yes graphviz; then exit 0; fi
+            echo "apt attempt $attempt failed; retrying in 10s"
+            sleep 10
+          done
+          exit 1
 
       - name: Install Graphviz
         if: runner.os == 'Windows'
-        run: choco install graphviz --no-progress --yes
+        run: choco install graphviz --no-progress --yes --limit-output
 
       - name: Install dependencies
         run: npm ci

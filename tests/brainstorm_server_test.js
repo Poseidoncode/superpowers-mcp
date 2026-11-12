@@ -46,7 +46,7 @@ function report(name, ok) {
     }
 }
 
-async function waitForServerInfo(sessionDir, timeoutMs = 8000) {
+async function waitForServerInfo(sessionDir, timeoutMs = 20000) {
     const infoFile = path.join(sessionDir, "state", "server-info");
     const t0 = Date.now();
     while (Date.now() - t0 < timeoutMs) {

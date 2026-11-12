@@ -296,7 +296,7 @@ disown "$SERVER_PID" 2>/dev/null
 echo "$SERVER_PID" > "$PID_FILE"
 
 # Wait for server-started message (check log file)
-for _ in {1..50}; do
+for _ in {1..150}; do
   if grep -q "server-started" "$LOG_FILE" 2>/dev/null; then
     # Verify server is still alive after a short window (catches process reapers)
     alive="true"
@@ -318,5 +318,5 @@ for _ in {1..50}; do
 done
 
 # Timeout - server didn't start
-echo '{"error": "Server failed to start within 5 seconds"}'
+echo '{"error": "Server failed to start within 15 seconds"}'
 exit 1

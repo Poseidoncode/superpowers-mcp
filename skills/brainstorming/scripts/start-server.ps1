@@ -322,7 +322,7 @@ $process = Start-Process `
 Set-Content -Path $pidFile -Value ([string]$process.Id) -NoNewline -Encoding ascii
 Protect-PathForCurrentUser -Path $pidFile
 
-$deadline = (Get-Date).AddSeconds(5)
+$deadline = (Get-Date).AddSeconds(15)
 $reported = $false
 while ((Get-Date) -lt $deadline) {
     if ($process.HasExited) {
@@ -340,6 +340,6 @@ while ((Get-Date) -lt $deadline) {
 }
 
 if (-not $reported) {
-    Write-JsonError "Server failed to start within 5 seconds"
+    Write-JsonError "Server failed to start within 15 seconds"
     exit 1
 }
