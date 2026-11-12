@@ -32,8 +32,14 @@ function getSafeSkillsPath(): string {
         const resolved = path.resolve(envPath);
         let canonical = resolved;
         let canonicalized = true;
+        let permissionsSafe = false;
         try {
             canonical = fs.realpathSync(resolved);
+            const rootStat = fs.statSync(canonical);
+            permissionsSafe = rootStat.isDirectory() && (
+                process.platform === "win32" ||
+                (rootStat.uid === process.getuid?.() && (rootStat.mode & 0o022) === 0)
+            );
         } catch (_realpathErr: unknown) {
             canonicalized = false;
         }
@@ -83,17 +89,18 @@ function getSafeSkillsPath(): string {
         );
 
         const isUnsafe =
-            !isUnderTempRoot &&
-            (!canonicalized ||
-                uncPath ||
-                normalized === root ||
-                windowsSystemDirPattern.test(matchPath) ||
-                unsafePrefixes.some(
-                    (p) => {
-                        const prefix = foldCase(path.normalize(p));
-                        return matchPath === prefix || matchPath.startsWith(prefix + path.sep);
-                    }
-                ));
+            !permissionsSafe ||
+            (!isUnderTempRoot &&
+                (!canonicalized ||
+                    uncPath ||
+                    normalized === root ||
+                    windowsSystemDirPattern.test(matchPath) ||
+                    unsafePrefixes.some(
+                        (p) => {
+                            const prefix = foldCase(path.normalize(p));
+                            return matchPath === prefix || matchPath.startsWith(prefix + path.sep);
+                        }
+                    )));
 
         if (isUnsafe) {
             process.stderr.write(`Warning: Potentially unsafe SKILLS_PATH: "${envPath}". Fallback to default.\n`);
@@ -144,6 +151,16 @@ const MAX_LIST_SKILLS_CHARS = 20000;
 const MAX_INLINE_SKILL_CHARS = 20000;
 // 單一技能描述上限：避免一個巨大描述耗盡整個 list_skills 預算，排擠掉其他技能。
 const MAX_SKILL_ENTRY_CHARS = 500;
+
+// 技能名稱上限：實際技能目錄名稱遠短於此；超長輸入直接拒絕，避免在錯誤訊息
+// 與 stderr 中回顯巨量資料（記憶體/回應放大）。
+const MAX_SKILL_NAME_LENGTH = 256;
+const MAX_ECHOED_INPUT_CHARS = 80;
+
+/** Truncates untrusted input before it is echoed in an error message or log line. */
+function clipForEcho(value: string): string {
+    return value.length <= MAX_ECHOED_INPUT_CHARS ? value : `${value.slice(0, MAX_ECHOED_INPUT_CHARS)}…[${value.length - MAX_ECHOED_INPUT_CHARS} more chars]`;
+}
 
 function normalizeSkillName(value: string): string {
     return value.trim().replace(/^superpowers:/i, "");
@@ -207,6 +224,7 @@ async function readSkillContentForClient(skillPath: string) {
 function isUnsafeSkillName(name: string): boolean {
     return (
         name === "" ||
+        name.length > MAX_SKILL_NAME_LENGTH ||
         name === "." ||
         name === ".." ||
         name.includes("/") ||
@@ -300,7 +318,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const match = uri.match(/^skill:\/\/superpowers\/(.+)$/);
 
     if (!match) {
-        throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
+        throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${clipForEcho(uri)}`);
     }
 
     let skillName: string;
@@ -309,7 +327,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     } catch (_decodeErr: unknown) {
         // Malformed percent-encoding (e.g. %zz) — report as a client error
         // instead of letting the URIError surface as an internal error.
-        throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
+        throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${clipForEcho(uri)}`);
     }
     // Reject traversal / separator payloads after decoding: the URI matcher runs
     // before percent-decoding, so "%2F"/"%2E%2E" would otherwise slip through.
@@ -317,12 +335,12 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     // the name actually looked up — the same order the read_skill tool uses.
     const normalizedSkillName = normalizeSkillName(skillName);
     if (isUnsafeSkillName(normalizedSkillName)) {
-        throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${uri}`);
+        throw new McpError(ErrorCode.InvalidRequest, `Invalid skill URI: ${clipForEcho(uri)}`);
     }
     const skill = await findSkillForClient(normalizedSkillName);
 
     if (!skill) {
-        throw new McpError(ErrorCode.InvalidRequest, `Skill not found: ${skillName}`);
+        throw new McpError(ErrorCode.InvalidRequest, `Skill not found: ${clipForEcho(skillName)}`);
     }
 
     try {
@@ -338,13 +356,13 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         };
     } catch (readErr: unknown) {
         const detail = readErr instanceof Error ? readErr.message : String(readErr);
-        process.stderr.write(`[superpowers-mcp] Failed to read resource "${uri}": ${detail}\n`);
+        process.stderr.write(`[superpowers-mcp] Failed to read resource "${clipForEcho(uri)}": ${detail}\n`);
         if ((readErr as { code?: string }).code === "ENOENT") {
-            throw new McpError(ErrorCode.InvalidRequest, `Skill not found: ${skillName}`);
+            throw new McpError(ErrorCode.InvalidRequest, `Skill not found: ${clipForEcho(skillName)}`);
         }
         throw new McpError(
             ErrorCode.InternalError,
-            `Failed to read skill content for "${skillName}".`
+            `Failed to read skill content for "${clipForEcho(skillName)}".`
         );
     }
 });
@@ -372,21 +390,21 @@ function siblingReviewFile(file: string, suffix: string): string {
  * directory than for the server's, and unicode normalisation differences can
  * still evade it — callers must not rely on it to prevent overwrites.
  */
-function sameFilePath(a: string, b: string): boolean {
+async function sameFilePath(a: string, b: string): Promise<boolean> {
     if (!a || !b) {
         return false;
     }
-    const normalize = (file: string): string => {
+    const normalize = async (file: string): Promise<string> => {
         // Resolve `.`/`..`/duplicate separators lexically first so non-existent
         // paths (the review file usually doesn't exist yet) still compare sanely.
         let resolved = path.resolve(file);
         // Where the path exists (or its parent does), canonicalize symlinks so
         // symlinked spellings of the same file compare equal.
         try {
-            resolved = fs.realpathSync(resolved);
+            resolved = await fs.promises.realpath(resolved);
         } catch {
             try {
-                const parent = fs.realpathSync(path.dirname(resolved));
+                const parent = await fs.promises.realpath(path.dirname(resolved));
                 resolved = path.join(parent, path.basename(resolved));
             } catch {
                 // Fall back to the lexical resolution above.
@@ -400,7 +418,7 @@ function sameFilePath(a: string, b: string): boolean {
         }
         return process.platform === "darwin" || process.platform === "win32" ? resolved.toLowerCase() : resolved;
     };
-    return normalize(a) === normalize(b);
+    return (await normalize(a)) === (await normalize(b));
 }
 
 /**
@@ -412,8 +430,8 @@ function sameFilePath(a: string, b: string): boolean {
  * implementer's report. Returns "" when nothing safe can be derived, in which
  * case the template keeps its [REVIEW_FILE] placeholder.
  */
-function deriveReviewFile(requested: string, reportFile: string, briefFile: string): string {
-    if (requested && !sameFilePath(requested, reportFile) && !sameFilePath(requested, briefFile)) {
+async function deriveReviewFile(requested: string, reportFile: string, briefFile: string): Promise<string> {
+    if (requested && !(await sameFilePath(requested, reportFile)) && !(await sameFilePath(requested, briefFile))) {
         return requested;
     }
     const derived = siblingReviewFile(reportFile, "-report.md") || siblingReviewFile(briefFile, "-brief.md");
@@ -912,7 +930,7 @@ ${skillContent}
         const briefFile = getStringArg("brief_file");
         const reportFile = getStringArg("report_file");
         const diffFile = getStringArg("diff_file") || getStringArg("review_target");
-        const reviewFile = deriveReviewFile(getStringArg("review_file"), reportFile, briefFile);
+        const reviewFile = await deriveReviewFile(getStringArg("review_file"), reportFile, briefFile);
         const baseSha = getStringArg("base_sha");
         const headSha = getStringArg("head_sha");
         const globalConstraints = getStringArg("global_constraints");
@@ -965,7 +983,7 @@ ${skillContent}
         const reportFile = getStringArg("report_file");
         const diffFile = getStringArg("diff_file");
         // Re-reviews append to the same review file the task reviewer wrote.
-        const reviewFile = deriveReviewFile(getStringArg("review_file"), reportFile, briefFile);
+        const reviewFile = await deriveReviewFile(getStringArg("review_file"), reportFile, briefFile);
         const findings = getStringArg("previous_findings");
         const baseSha = getStringArg("base_sha") || getStringArg("fix_base_sha");
         const fixBaseSha = getStringArg("fix_base_sha") || baseSha;
@@ -1293,14 +1311,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             throw new McpError(ErrorCode.InvalidParams, "skill_name is required");
         }
         if (isUnsafeSkillName(skillName)) {
-            throw new McpError(ErrorCode.InvalidParams, `Invalid skill name: "${skillName}"`);
+            throw new McpError(ErrorCode.InvalidParams, `Invalid skill name: "${clipForEcho(skillName)}"`);
         }
 
         const skill = await findSkillForClient(skillName);
         if (!skill) {
             throw new McpError(
                 ErrorCode.InvalidParams,
-                `Skill "${skillName}" not found. Use the list_skills tool to see available skills.`
+                `Skill "${clipForEcho(skillName)}" not found. Use the list_skills tool to see available skills.`
             );
         }
 
@@ -1316,18 +1334,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             };
         } catch (toolErr: unknown) {
             const detail = toolErr instanceof Error ? toolErr.message : String(toolErr);
-            process.stderr.write(`[superpowers-mcp] read_skill("${skillName}") failed: ${detail}\n`);
+            process.stderr.write(`[superpowers-mcp] read_skill("${clipForEcho(skillName)}") failed: ${detail}\n`);
             if ((toolErr as { code?: string }).code === "ENOENT") {
                 throw new McpError(
                     ErrorCode.InvalidParams,
-                    `Skill "${skillName}" not found. Use the list_skills tool to see available skills.`
+                    `Skill "${clipForEcho(skillName)}" not found. Use the list_skills tool to see available skills.`
                 );
             }
             // 回傳給客戶端的訊息刻意不帶 detail：它可能內含檔案系統絕對路徑等
             // 細節；完整資訊已寫入 stderr 供伺服器端除錯。
             throw new McpError(
                 ErrorCode.InternalError,
-                `Failed to read skill "${skillName}".`
+                `Failed to read skill "${clipForEcho(skillName)}".`
             );
         }
     }

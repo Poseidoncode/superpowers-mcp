@@ -285,7 +285,10 @@ async function main() {
         // A user-owned temp directory must be usable as SKILLS_PATH. On macOS the
         // standard temp dir lives under /private/var, which used to trip the
         // system-path guard and silently fall back to the bundled skills.
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "spmcp-coverage-"));
+        // Linux's /tmp is deliberately blocked, so there the "private root" case is
+        // exercised from a user-owned directory under the repo instead.
+        const tempBase = process.platform === "linux" ? ROOT : os.tmpdir();
+        const tempDir = fs.mkdtempSync(path.join(tempBase, "spmcp-coverage-"));
         try {
             const skillDir = path.join(tempDir, "probe-skill");
             fs.mkdirSync(skillDir, { recursive: true });
@@ -299,7 +302,21 @@ async function main() {
                 honored.text.includes("probe-skill"),
                 `SKILLS_PATH in the OS temp dir must be honored (got: ${honored.text.slice(0, 80)})`
             );
+
+            // A temp-root exception is safe only while the selected directory is
+            // private and owned by this user; never trust a shared/writable root.
+            // POSIX only: Windows has no mode bits and the check is skipped there.
+            if (process.platform !== "win32") {
+                fs.chmodSync(tempDir, 0o777);
+                const writable = probe(tempDir);
+                assert.ok(
+                    writable.text.includes("brainstorming"),
+                    "group/world-writable SKILLS_PATH must fall back to bundled skills"
+                );
+                fs.chmodSync(tempDir, 0o700);
+            }
         } finally {
+            try { fs.chmodSync(tempDir, 0o700); } catch {}
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
 
@@ -417,6 +434,15 @@ async function main() {
         assert.strictEqual(badName.code, -32602, "read_skill must report InvalidParams");
         const badUri = rpc("resources/read", { uri: "skill://superpowers/a..b" });
         assert.strictEqual(badUri.code, -32600, "resources/read must report InvalidRequest");
+
+        // Oversized names are rejected without being echoed back in full.
+        const hugeName = "A".repeat(100000);
+        const hugeTool = rpc("tools/call", { name: "read_skill", arguments: { skill_name: hugeName } });
+        assert.strictEqual(hugeTool.code, -32602, "oversized skill_name must report InvalidParams");
+        assert.ok(String(hugeTool.message).length < 1000, "error must not echo the oversized skill_name");
+        const hugeUri = rpc("resources/read", { uri: "skill://superpowers/" + hugeName });
+        assert.strictEqual(hugeUri.code, -32600, "oversized skill URI must report InvalidRequest");
+        assert.ok(String(hugeUri.message).length < 1000, "error must not echo the oversized URI");
 
         const ok = rpc("tools/call", { name: "read_skill", arguments: { skill_name: "brainstorming" } });
         assert.strictEqual(ok.code, 200, `brainstorming must still load (got: ${ok.message})`);

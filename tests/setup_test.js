@@ -476,6 +476,14 @@ command = "other"
     assert.ok(untouched.includes("[mcp_servers.other]"), "Remove without our table must leave content unchanged");
 });
 
+it("should remove every TOML superpowers array table and its array subtables", () => {
+    const existing = '[[mcp_servers.superpowers]]\ncommand = "one"\n\n[[mcp_servers.superpowers.env]]\nTOKEN = "secret"\n\n[[mcp_servers.superpowers]]\ncommand = "two"\n\n[mcp_servers.other]\ncommand = "keep"\n';
+    const removed = updateTomlConfig(existing, "npx", [], true);
+    assert.ok(!removed.includes("superpowers"), `all managed array tables must be removed: ${JSON.stringify(removed)}`);
+    assert.ok(!removed.includes("secret"), "managed array subtables must not be orphaned");
+    assert.ok(removed.includes("[mcp_servers.other]"), "unrelated tables must survive");
+});
+
 it("should reject TOML shapes the updater cannot preserve safely", () => {
     assert.throws(
         () => updateTomlConfig("[mcp_servers.superpowers]\ncommand = \"a\"\n[mcp_servers.superpowers]\ncommand = \"b\"\n", "npx", []),
@@ -1912,6 +1920,25 @@ it("should correctly resolve paths for macOS, Windows, Linux", () => {
             `--remove must clear the flow-mapping child too: ${JSON.stringify(out)}`
         );
         assert.ok(out.includes("other:"), "sibling entries must be preserved");
+    });
+
+    it("should remove populated YAML flow maps and leave nested parents untouched", () => {
+        const flow = 'mcp_servers:\n  superpowers: { command: "npx", args: ["-y"] }\n  other: { command: "keep" }\n';
+        const removed = updateYamlConfig(flow, "npx", [], true, "mcp");
+        assert.ok(!removed.includes("superpowers:"), `flow entry must be removed: ${JSON.stringify(removed)}`);
+        assert.ok(removed.includes('other: { command: "keep" }'), "sibling flow map must survive");
+
+        const nested = 'settings:\n  mcp_servers:\n    superpowers:\n      env:\n        TOKEN: keep\n';
+        assert.strictEqual(updateYamlConfig(nested, "npx", [], true, "mcp"), nested,
+            "nested mcp_servers entries belong to another parent and must remain untouched");
+    });
+
+    it("should keep removing after a child entry named like the root key", () => {
+        const doc = 'mcp_servers:\n  mcp_servers:\n    command: keep\n  superpowers:\n    command: "npx"\n  other:\n    command: keep\n';
+        const removed = updateYamlConfig(doc, "npx", [], true, "mcp");
+        assert.ok(!removed.includes("superpowers:"), `managed entry after a same-named child must be removed: ${JSON.stringify(removed)}`);
+        assert.ok(removed.includes("  mcp_servers:\n    command: keep"), "same-named child must survive");
+        assert.ok(removed.includes("  other:"), "sibling must survive");
     });
 
     it("should never replace an unresolvable symlink with a regular file", () => {

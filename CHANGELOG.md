@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.4.10] - 2026-11-13
+
+Hardening release: closes the setup-removal and `SKILLS_PATH` findings left open since
+v6.4.7, bounds untrusted input echoed by the server, and adds repository security automation.
+
+### Security
+
+- **`SKILLS_PATH` is now an ownership/permission check** (CWE-22 / CWE-668) —
+  `getSafeSkillsPath` in `src/server.ts` requires the root to be an existing directory owned
+  by the current user with no group/world write bits (POSIX). Linux `/tmp` (including
+  `mktemp -d` output) is rejected and falls back to the bundled skills; use a directory under
+  your home instead. Private roots under `/private/var/folders` on macOS are still honored.
+- **Oversized input is rejected and no longer echoed** — `skill_name` and `skill://` URIs are
+  capped at 256 characters (`MAX_SKILL_NAME_LENGTH`), and every client error and `stderr` line
+  that repeats untrusted input goes through `clipForEcho()` (80 chars + length marker). This
+  removes the response/log amplification from multi-megabyte names (response time for a 5 MB
+  name 261 ms → 61 ms). Pinned by `tests/mcp_coverage_test.js`.
+- **Brainstorm companion WebSocket** (`skills/brainstorming/scripts/server.cjs`) — incoming
+  chunks are queued and concatenated once the announced frame length is available instead of
+  re-copying the whole buffer on every `data` event (quadratic copying on large fragmented
+  frames); the 10 MB frame cap is still checked before any chunk is retained.
+- **Repository automation** — new `.github/dependabot.yml` (npm + GitHub Actions, weekly) and
+  `.github/workflows/codeql.yml` (JavaScript/TypeScript, push/PR/weekly). Dev-dependency
+  lockfile refreshed (`body-parser` 2.4.0, `content-type` 2.1.0, `iconv-lite` 0.7.3,
+  `qs` 6.16.1).
+
+### Fixed
+
+- **`--remove` completeness** (CWE-459, v6.4.7 findings 1–2) — TOML removes every
+  `[[mcp_servers.superpowers]]` array table plus its `[[…superpowers.*]]` subtables; JSON
+  removes every equivalent root entry; YAML removes populated flow-map entries
+  (`superpowers: { command: … }`), leaves a nested `mcp_servers:` under another parent
+  untouched, and keeps scanning past a child entry that happens to share the root key's name.
+  Regression tests in `tests/setup_test.js`.
+
+### Changed
+
+- **Content cache budget uses the stat snapshot's size** — `enforceContentCacheLimits`
+  (`src/skills-manager.ts`) takes each entry's size from the file stat snapshot instead of
+  re-running `Buffer.byteLength` over every cached body on each insert. File size is an upper
+  bound on the parsed body, so the 20 MB budget is slightly conservative; it falls back to
+  `Buffer.byteLength` when no snapshot exists.
+- **Non-blocking review-file comparison** — `sameFilePath` / `deriveReviewFile` use
+  `fs.promises.realpath`, so `sdd-task-reviewer` and `sdd-re-review` no longer block the event
+  loop during prompt rendering. Comparison semantics are unchanged.
+
+### Known limitations (unchanged by design)
+
+- The brainstorm WebSocket accepts connections without an `Origin` header (non-browser
+  clients); the per-session token is still required.
+- stdio has no application-level auth and `SKILL.md` content is trusted — see
+  [SECURITY.md](SECURITY.md#threat-model--deployment).
+- A multi-megabyte `skill_name` still causes a temporary RSS spike inside the MCP SDK's message
+  parsing; bounding it needs a transport-level size limit.
+
+### Tests
+
+- `tests/setup_test.js` **100/100** (previously 97).
+- `tests/mcp_coverage_test.js` adds oversized `skill_name` / URI cases (`-32602` / `-32600`,
+  message under 1000 chars).
+- Release-prep verification: `npm run build` passed; `npm test` green — **16/23** suites
+  (**7** PowerShell suites skipped without `pwsh`).
+
 ## [6.4.9] - 2026-11-07
 
 ### Security

@@ -193,9 +193,13 @@ export class SkillsManager {
     private enforceContentCacheLimits(cache: Map<string, string>, stat: Map<string, FileStatSnapshot>): void {
         // LRU-ish cap: Map preserves insertion order, so evict oldest first until
         // both entry-count and total-bytes budgets hold.
+        // 以 stat 快照的檔案大小作預算依據（>= 解析後 body 的位元組數，屬保守
+        // 上界）：避免每次插入都對所有 body 重跑 Buffer.byteLength。快照缺失
+        // 時才退回逐字串計算。
+        const sizeOf = (key: string, body: string): number => stat.get(key)?.size ?? Buffer.byteLength(body, "utf-8");
         let totalBytes = 0;
-        for (const body of cache.values()) {
-            totalBytes += Buffer.byteLength(body, "utf-8");
+        for (const [key, body] of cache) {
+            totalBytes += sizeOf(key, body);
         }
         while (cache.size > MAX_CONTENT_CACHE_ENTRIES || totalBytes > MAX_CONTENT_CACHE_BYTES) {
             const oldest = cache.keys().next();
@@ -203,7 +207,7 @@ export class SkillsManager {
             const key = oldest.value as string;
             const body = cache.get(key);
             if (body !== undefined) {
-                totalBytes -= Buffer.byteLength(body, "utf-8");
+                totalBytes -= sizeOf(key, body);
             }
             cache.delete(key);
             stat.delete(key);

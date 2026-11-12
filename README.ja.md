@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.4.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.4.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -183,7 +183,16 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.4.9（最新）
+### v6.4.10（最新）
+
+- **セットアップの `--remove` が完全に**（CWE-459）：TOML は管理対象の `[[mcp_servers.superpowers]]` 配列テーブルとサブテーブルをすべて削除し、JSON は同等のルートエントリをすべて削除、YAML は値入りの flow map エントリを削除しつつ、別の親の下にあるネストした `mcp_servers:` には触れません（`tests/setup_test.js` は **100/100**）。
+- **`SKILLS_PATH` の所有者チェック**（CWE-22 / CWE-668）：POSIX ではルートが既存のディレクトリで、現在のユーザーが所有し、グループ／その他に書き込み権限がないことが必須です。**動作変更：** Linux の `/tmp`（`SKILLS_PATH=$(mktemp -d)` を含む）は拒否され、同梱スキルにフォールバックします。ホーム配下のディレクトリを使用してください。macOS の `/private/var/folders` は引き続き利用できます。
+- **信頼できない入力の制限**：256 文字を超える `skill_name` と `skill://` URI は拒否され、エラーメッセージと `stderr` に出力される入力は 80 文字に切り詰められます。巨大な名前によるレスポンス増幅を防ぎます（`tests/mcp_coverage_test.js`）。
+- **メモリ使用量とブロッキングの低減**：brainstorm WebSocket は分割フレームのチャンクごとにバッファを再コピーしなくなり、コンテンツキャッシュの予算は各本文を再計測せず stat スナップショットのサイズを使用し、`sdd-task-reviewer` / `sdd-re-review` のレビューファイル比較もイベントループをブロックしません。
+- **リポジトリの自動化**：`.github/` に Dependabot（npm + GitHub Actions）と CodeQL ワークフローを追加しました。
+- 検証：`npm run build` 成功、`npm test` 全て成功 — **16/23** スイート（`pwsh` がないため PowerShell **7** スイートはスキップ）。
+
+### v6.4.9
 
 - **CodeQL 対応（`list_skills` + YAML setup）**：`escapeListMarkdown` が ASCII 句読点をすべてエスケープし改行を折りたたむため、信頼できない skill 説明が `list_skills` 出力に Markdown や生 HTML を注入できない（`tests/client_truncation_test.js`）。YAML のネストキー判定は線形の `isBareYamlMappingKey()` に置き換え、バックトラックする `/:\s*(?:#.*)?$/` を廃止（CodeQL alert #11；`tests/setup_test.js` で固定）。
 - **macOS セットアップの allowed-root チェック**：`safeWriteConfig` が最深の既存親ディレクトリ経由で設定パスを解決し、`/var/folders/...` と `/private/var/folders/...` を同一ツリーとして扱うようにした。macOS のユーザー temp 配下でのワンクリックセットアップ時に誤って `Refusing to write configuration outside allowed roots` となる問題を修正（`tests/setup_test.js` は **97/97**）。

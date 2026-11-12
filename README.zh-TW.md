@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![版本](https://img.shields.io/badge/version-6.4.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.4.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -181,7 +181,16 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.4.9（最新版）
+### v6.4.10（最新版）
+
+- **安裝程式 `--remove` 現已完整**（CWE-459）：TOML 會移除所有受管的 `[[mcp_servers.superpowers]]` 陣列表及其子表，JSON 會移除所有等價的根層項目，YAML 會移除已填入的 flow map 項目，並保留其他父層底下的巢狀 `mcp_servers:`（`tests/setup_test.js` 現為 **100/100**）。
+- **`SKILLS_PATH` 擁有者檢查**（CWE-22 / CWE-668）：在 POSIX 上，根目錄必須是現存、由目前使用者擁有且群組／其他人皆無寫入權限的目錄。**行為變更：** Linux 的 `/tmp`（包含 `SKILLS_PATH=$(mktemp -d)`）會被拒絕並退回內建技能，請改用家目錄底下的資料夾。macOS 的 `/private/var/folders` 仍可使用。
+- **限制不受信任的輸入**：超過 256 字元的 `skill_name` 與 `skill://` URI 會被拒絕，錯誤訊息與 `stderr` 回顯的輸入最多截為 80 字元，避免超大名稱造成回應放大（`tests/mcp_coverage_test.js`）。
+- **降低記憶體與阻塞**：brainstorm WebSocket 不再於分段訊框的每個區塊重複複製緩衝區；內容快取預算改用 stat 快照的檔案大小，不再逐一重新計算內容位元組；`sdd-task-reviewer` / `sdd-re-review` 的 review 檔案比對也不再阻塞事件迴圈。
+- **儲存庫自動化**：`.github/` 新增 Dependabot（npm + GitHub Actions）與 CodeQL 工作流程。
+- 驗證：`npm run build` 通過；`npm test` 全綠——**16/23** 套件（**7** 個 PowerShell 因無 `pwsh` 跳過）。
+
+### v6.4.9
 
 - **CodeQL 修復（`list_skills` + YAML setup）**：`escapeListMarkdown` 會跳脫所有 ASCII 標點並折疊換行，避免不受信任的技能描述在 `list_skills` 輸出中注入 Markdown 或原始 HTML（`tests/client_truncation_test.js`）。YAML 巢狀鍵偵測改為線性 `isBareYamlMappingKey()`，取代會回溯的 `/:\s*(?:#.*)?$/` 正則（CodeQL alert #11；`tests/setup_test.js` 釘住）。
 - **macOS 安裝 allowed-root 檢查**：`safeWriteConfig` 會沿最深一層已存在的父目錄解析設定檔路徑，使 `/var/folders/...` 與 `/private/var/folders/...` 在允許根目錄比對中視為同一路徑，修正 macOS 使用者暫存目錄下一鍵安裝誤報「超出 allowed roots」的問題（`tests/setup_test.js` 現為 **97/97**）。

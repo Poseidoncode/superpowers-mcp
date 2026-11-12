@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.4.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -181,7 +181,16 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.4.9 (최신)
+### v6.4.10 (최신)
+
+- **설치 `--remove`가 완전해졌습니다** (CWE-459): TOML은 관리되는 모든 `[[mcp_servers.superpowers]]` 배열 테이블과 하위 테이블을, JSON은 동등한 모든 루트 항목을 제거하며, YAML은 값이 채워진 flow map 항목을 제거하고 다른 부모 아래의 중첩된 `mcp_servers:`는 건드리지 않습니다 (`tests/setup_test.js` **100/100**).
+- **`SKILLS_PATH` 소유자 검사** (CWE-22 / CWE-668): POSIX에서는 루트가 존재하는 디렉터리이고 현재 사용자 소유이며 그룹/기타 쓰기 권한이 없어야 합니다. **동작 변경:** Linux의 `/tmp`(`SKILLS_PATH=$(mktemp -d)` 포함)는 거부되어 번들 스킬로 대체되므로 홈 디렉터리 아래 폴더를 사용하세요. macOS의 `/private/var/folders`는 계속 사용할 수 있습니다.
+- **신뢰할 수 없는 입력 제한**: 256자를 넘는 `skill_name`과 `skill://` URI는 거부되며, 오류 메시지와 `stderr`에 되풀이되는 입력은 80자로 잘립니다. 매우 큰 이름으로 인한 응답 증폭을 방지합니다 (`tests/mcp_coverage_test.js`).
+- **메모리 및 블로킹 감소**: brainstorm WebSocket은 분할된 프레임의 청크마다 버퍼를 다시 복사하지 않고, 콘텐츠 캐시 예산은 본문을 매번 다시 측정하는 대신 stat 스냅샷의 크기를 사용하며, `sdd-task-reviewer` / `sdd-re-review`의 리뷰 파일 비교도 이벤트 루프를 막지 않습니다.
+- **저장소 자동화**: `.github/`에 Dependabot(npm + GitHub Actions)과 CodeQL 워크플로를 추가했습니다.
+- 검증: `npm run build` 통과, `npm test` 모두 성공 — **16/23** 스위트 (`pwsh`가 없어 PowerShell **7**개 스위트는 건너뜀).
+
+### v6.4.9
 
 - **CodeQL 수정 (`list_skills` + YAML setup)**: `escapeListMarkdown`이 ASCII 문장부호를 모두 이스케이프하고 줄바꿈을 접어 신뢰할 수 없는 skill 설명이 `list_skills` 출력에 Markdown·원시 HTML을 주입하지 못하게 함 (`tests/client_truncation_test.js`). YAML 중첩 키 판별은 선형 `isBareYamlMappingKey()`로 대체, 백트래킹 `/:\s*(?:#.*)?$/` 제거 (CodeQL alert #11; `tests/setup_test.js` 고정).
 - **macOS setup allowed-root 검사**: `safeWriteConfig`가 가장 깊은 기존 부모를 통해 설정 경로를 해석해 `/var/folders/...`와 `/private/var/folders/...`를 동일 트리로 취급. macOS 사용자 temp 아래 원클릭 설정 시 잘못된 `Refusing to write configuration outside allowed roots` 거부를 수정 (`tests/setup_test.js` **97/97**).

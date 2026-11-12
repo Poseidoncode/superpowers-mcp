@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versão](https://img.shields.io/badge/version-6.4.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versão](https://img.shields.io/badge/version-6.4.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licença](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume as informações e instruções de uso para empacotar as skills do Superpowers e o sistema de fluxos de trabalho autônomos em um servidor **Model Context Protocol (MCP)** independente, de alta performance e seguro.
@@ -182,7 +182,16 @@ Para ajudar você a escolher a skill certa, estruturamos as 15 skills ao longo d
 
 ## 🆕 Novidades recentes
 
-### v6.4.9 (atual)
+### v6.4.10 (atual)
+
+- **`--remove` da instalação agora é completo** (CWE-459): TOML remove todas as tabelas de array `[[mcp_servers.superpowers]]` gerenciadas e suas subtabelas, JSON remove todas as entradas raiz equivalentes e YAML remove entradas de flow map preenchidas, preservando um `mcp_servers:` aninhado sob outro pai (`tests/setup_test.js` agora **100/100**).
+- **Verificação de proprietário de `SKILLS_PATH`** (CWE-22 / CWE-668): em POSIX, a raiz deve ser um diretório existente, pertencente ao usuário atual e sem permissão de escrita para grupo/outros. **Mudança de comportamento:** `/tmp` no Linux (incluindo `SKILLS_PATH=$(mktemp -d)`) é rejeitado e as skills incluídas são usadas; use um diretório dentro do seu home. As raízes `/private/var/folders` do macOS continuam funcionando.
+- **Entrada não confiável limitada**: `skill_name` e URIs `skill://` com mais de 256 caracteres são rejeitados, e mensagens de erro e `stderr` cortam em 80 caracteres qualquer entrada repetida, evitando a amplificação de respostas com nomes de vários megabytes (`tests/mcp_coverage_test.js`).
+- **Menos memória e bloqueio**: o WebSocket do brainstorm não recopia mais o buffer a cada fragmento de um frame fragmentado, o orçamento do cache de conteúdo usa o tamanho do snapshot de stat em vez de remedir cada corpo, e a comparação de arquivos de revisão de `sdd-task-reviewer` / `sdd-re-review` não bloqueia mais o event loop.
+- **Automação do repositório**: Dependabot (npm + GitHub Actions) e um workflow do CodeQL foram adicionados em `.github/`.
+- Verificação: `npm run build` passou; `npm test` verde — **16/23** suítes (**7** suítes de PowerShell ignoradas sem `pwsh`).
+
+### v6.4.9
 
 - **Remediação CodeQL (`list_skills` + YAML setup)**: `escapeListMarkdown` escapa toda pontuação ASCII e colapsa quebras de linha para impedir injeção de Markdown ou HTML bruto em `list_skills` (`tests/client_truncation_test.js`). Detecção de chaves YAML aninhadas usa `isBareYamlMappingKey()` linear no lugar do regex com backtracking `/:\s*(?:#.*)?$/` (alerta CodeQL #11; fixado em `tests/setup_test.js`).
 - **Checagens allowed-root no macOS**: `safeWriteConfig` resolve caminhos de configuração pelo ancestral pai existente mais profundo, para que `/var/folders/...` e `/private/var/folders/...` coincidam na contenção de raízes permitidas. Corrige recusas falsas `Refusing to write configuration outside allowed roots` na configuração com um clique sob o temp por usuário no macOS (`tests/setup_test.js` **97/97**).

@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![संस्करण](https://img.shields.io/badge/version-6.4.9-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![संस्करण](https://img.shields.io/badge/version-6.4.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![लाइसेंस](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 यह दस्तावेज़ Superpowers skills लाइब्रेरी और स्वायत्त वर्कफ़्लो सिस्टम को एक स्वतंत्र, उच्च-प्रदर्शन और सुरक्षित **Model Context Protocol (MCP)** सर्वर के रूप में पैकेज करने की जानकारी और उपयोग निर्देशों का सारांश है।
@@ -182,7 +182,16 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 हाल के अपडेट
 
-### v6.4.9 (नवीनतम)
+### v6.4.10 (नवीनतम)
+
+- **सेटअप `--remove` अब पूर्ण है** (CWE-459): TOML सभी प्रबंधित `[[mcp_servers.superpowers]]` ऐरे टेबल और उनकी उप-तालिकाएँ हटाता है, JSON सभी समतुल्य रूट प्रविष्टियाँ हटाता है, और YAML भरे हुए flow map प्रविष्टियाँ हटाता है तथा किसी अन्य पैरेंट के अंतर्गत नेस्टेड `mcp_servers:` को अछूता छोड़ता है (`tests/setup_test.js` अब **100/100**)।
+- **`SKILLS_PATH` स्वामित्व जाँच** (CWE-22 / CWE-668): POSIX पर रूट एक मौजूदा डायरेक्टरी होनी चाहिए, जो वर्तमान उपयोगकर्ता की हो और जिस पर group/other के लिए लिखने की अनुमति न हो। **व्यवहार परिवर्तन:** Linux का `/tmp` (`SKILLS_PATH=$(mktemp -d)` सहित) अस्वीकार हो जाता है और बंडल्ड स्किल्स पर लौट आता है — होम के अंतर्गत कोई डायरेक्टरी उपयोग करें। macOS के `/private/var/folders` रूट अब भी काम करते हैं।
+- **अविश्वसनीय इनपुट पर सीमा**: 256 अक्षरों से लंबे `skill_name` और `skill://` URI अस्वीकार किए जाते हैं, और त्रुटि संदेश व `stderr` में दोहराया गया इनपुट 80 अक्षरों तक काट दिया जाता है, जिससे कई मेगाबाइट के नामों से होने वाला रिस्पॉन्स एम्प्लिफिकेशन रुकता है (`tests/mcp_coverage_test.js`)।
+- **कम मेमोरी और ब्लॉकिंग**: brainstorm WebSocket अब खंडित फ्रेम के हर चंक पर बफ़र को दोबारा कॉपी नहीं करता, कंटेंट कैश बजट हर बॉडी को दोबारा नापने की बजाय stat स्नैपशॉट के आकार का उपयोग करता है, और `sdd-task-reviewer` / `sdd-re-review` की रिव्यू फ़ाइल तुलना अब इवेंट लूप को ब्लॉक नहीं करती।
+- **रिपॉज़िटरी ऑटोमेशन**: `.github/` में Dependabot (npm + GitHub Actions) और CodeQL वर्कफ़्लो जोड़े गए हैं।
+- सत्यापन: `npm run build` सफल; `npm test` सब हरा — **16/23** सूट (`pwsh` न होने से **7** PowerShell सूट छोड़े गए)।
+
+### v6.4.9
 
 - **CodeQL उपाय (`list_skills` + YAML setup)**: `escapeListMarkdown` सभी ASCII विराम चिह्नों को escape करके लाइन ब्रेक समेटता है, ताकि अविश्वसनीय skill विवरण `list_skills` आउटपुट में Markdown या कच्चा HTML न घुसा सकें (`tests/client_truncation_test.js`)। YAML नेस्टेड-की पहचान रैखिक `isBareYamlMappingKey()` से, बैकट्रैकिंग वाले `/:\s*(?:#.*)?$/` regex की जगह (CodeQL alert #11; `tests/setup_test.js` में पिन)।
 - **macOS setup allowed-root जाँच**: `safeWriteConfig` अब सबसे गहरे मौजूदा पैरेंट के ज़रिए कॉन्फ़िग पथ हल करता है, ताकि `/var/folders/...` और `/private/var/folders/...` allowed-root में समान माने जाएँ। macOS पर उपयोगकर्ता temp के नीचे वन-क्लिक सेटअप में गलत `Refusing to write configuration outside allowed roots` ठीक (`tests/setup_test.js` **97/97**).

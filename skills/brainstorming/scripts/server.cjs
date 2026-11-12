@@ -49,6 +49,18 @@ function encodeFrame(opcode, payload) {
   return Buffer.concat([header, payload]);
 }
 
+// Total byte length of the frame whose header starts `buffer`, or one byte more
+// than we have when the header itself is still incomplete. Only called after
+// decodeFrame() returned null (frame incomplete and header valid).
+function expectedFrameLength(buffer) {
+  if (buffer.length < 2) return buffer.length + 1;
+  const len7 = buffer[1] & 0x7F;
+  if (len7 < 126) return 2 + 4 + len7;
+  if (len7 === 126) return buffer.length < 4 ? buffer.length + 1 : 4 + 4 + buffer.readUInt16BE(2);
+  if (buffer.length < 10) return buffer.length + 1;
+  return 10 + 4 + Number(buffer.readBigUInt64BE(2));
+}
+
 function decodeFrame(buffer) {
   if (buffer.length < 2) return null;
 
@@ -777,6 +789,12 @@ function handleUpgrade(req, socket) {
   );
 
   let buffer = Buffer.alloc(0);
+  // Chunks received while a frame is still incomplete. They are only merged
+  // into `buffer` once enough bytes have arrived to finish the pending frame,
+  // so a large frame trickling in doesn't re-copy the whole buffer per chunk.
+  let pendingChunks = [];
+  let pendingBytes = 0;
+  let awaitBytes = 0;
   let closed = false;
   let partialFrameTimer = null;
   let fragmentedOpcode = null;
@@ -818,11 +836,20 @@ function handleUpgrade(req, socket) {
     // frames — a peer could otherwise keep writing events (and extending
     // its activity influence) in the window before destruction.
     if (closed) return;
-    buffer = Buffer.concat([buffer, chunk]);
-    if (buffer.length > MAX_FRAME_PAYLOAD_BYTES + 14) {
+    if (buffer.length + pendingBytes + chunk.length > MAX_FRAME_PAYLOAD_BYTES + 14) {
       closeSocket(1009);
       return;
     }
+    pendingChunks.push(chunk);
+    pendingBytes += chunk.length;
+    if (buffer.length + pendingBytes < awaitBytes) {
+      armPartialFrameTimer();
+      return;
+    }
+    buffer = Buffer.concat([buffer, ...pendingChunks], buffer.length + pendingBytes);
+    pendingChunks = [];
+    pendingBytes = 0;
+    awaitBytes = 0;
     while (buffer.length > 0) {
       let result;
       try {
@@ -832,6 +859,7 @@ function handleUpgrade(req, socket) {
         return;
       }
       if (!result) {
+        awaitBytes = expectedFrameLength(buffer);
         armPartialFrameTimer();
         return;
       }

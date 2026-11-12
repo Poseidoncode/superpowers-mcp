@@ -6,6 +6,7 @@ The following versions of Superpowers MCP are currently supported with security 
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 6.4.10  | :white_check_mark: |
 | 6.4.9   | :white_check_mark: |
 | 6.4.8   | :white_check_mark: |
 | 6.4.x   | :white_check_mark: |
@@ -44,6 +45,38 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Acknowledgment**: Within 48 hours
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
+
+## v6.4.10 — Setup Removal, `SKILLS_PATH` Ownership & Input Bounds (2026-11-13)
+
+> **Scope and status:** targeted remediation plus a focused performance / security / memory
+> pass over `src/server.ts`, `src/skills-manager.ts`, `src/setup-runner.ts` and the
+> brainstorming companion server. This is **not** a new full-project security audit.
+
+- **Setup `--remove` completeness (CWE-459)** — closes v6.4.7 findings 1–2. TOML removes all
+  managed `[[mcp_servers.superpowers]]` array tables and their array subtables; JSON removes
+  every equivalent root entry; YAML removes recognized flow-map entries, treats only the
+  root-level (column 0) `mcp_servers:` as managed, and never traverses a nested same-named key
+  belonging to another parent.
+- **`SKILLS_PATH` containment (CWE-22 / CWE-668)** — closes v6.4.7 finding 3. On POSIX the root
+  must be an existing directory owned by the current user with no group/world write bits.
+  Shared roots, sensitive system roots and unresolvable paths fail closed and fall back to the
+  bundled skills. **Behavior change:** Linux `/tmp` (including `SKILLS_PATH=$(mktemp -d)`) is
+  rejected; use a directory under your home. macOS private roots under `/private/var/folders`
+  remain supported.
+- **Bounded echo of untrusted input (CWE-400)** — `skill_name` and `skill://` URIs longer than
+  256 characters are rejected, and every client error / `stderr` line that repeats untrusted
+  input is clipped to 80 characters plus a length marker. Regression:
+  `tests/mcp_coverage_test.js` (oversized name and URI).
+- **Brainstorm WebSocket buffering** — fragmented frames are queued and joined once the announced
+  length is available rather than re-copied per `data` event; the 10 MB cap is enforced before
+  a chunk is retained.
+- **Repository automation** — Dependabot (npm + GitHub Actions) and a CodeQL workflow
+  (`javascript-typescript`; push, PR, weekly) are now configured under `.github/`.
+- **Accepted / unchanged:** the brainstorm WebSocket still accepts handshakes without an
+  `Origin` header (non-browser clients; the session token is still required); stdio has no
+  app-level authentication and `SKILL.md` content is trusted; a multi-megabyte `skill_name`
+  can still cause a temporary RSS spike in the MCP SDK's message parsing (needs a
+  transport-level limit).
 
 ## v6.4.9 — CodeQL Remediation & macOS Setup Containment (2026-11-07)
 
@@ -99,8 +132,8 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
   development tree may still report transitive **devDependency** advisories that are not
   reachable from the shipped stdio bundle (`runtime dependencies` empty).
 - v6.4.7 setup findings (incomplete `--remove`, YAML duplicate-key install semantics,
-  `SKILLS_PATH` blocklist trust model, and related items in the table below) remain **open**
-  unless marked **Fixed** in an earlier release section.
+  `SKILLS_PATH` blocklist trust model, and related items below) were re-reviewed against the
+  the v6.4.10 tree; remediations are recorded in the v6.4.10 section above.
 
 ## v6.4.8 — SDD Runtime Safety and Package Content Notes (2026-11-05)
 
@@ -144,7 +177,7 @@ Five-role parallel audit (attack-surface mapping, auth/data-trust, runtime & sup
 | - | ------- | --- | ------ |
 | 1 | **`--remove` reports success while a live MCP entry survives.** TOML: two `[[mcp_servers.superpowers]]` array tables → only the last is removed (`arrayHeaderIndex` is a single index overwritten in the loop, `src/setup-runner.ts:1022`); `[[mcp_servers.superpowers.env]]` is orphaned, leaving `TOKEN = "…"` in place (`TOML_SUPERPOWERS_SUBTABLE` cannot match a double bracket). JSON: only the first root key holding a `superpowers` entry is cleared (`updateJsonConfig`, `rootKey = JSON_SERVER_ROOT_KEYS.find(…)`, deletion applied to that key alone). YAML: removal is a **complete no-op** on a populated flow map `superpowers: {command: …}` — the new `managedEntryPattern` matches only the *empty* flow map. | CWE-459 | New guard narrows, does not close |
 | 2 | **YAML `--remove` deletes a `superpowers:` entry owned by a different parent.** The uncommitted change guards the empty-map rewrite with `if (mcpIndent === 0)` (`:685`) but the entry deletion (`:700-706`) still keys off the *root* declaration's first-child indent, so a nested `mcp_servers:` under another top-level key has its `superpowers` subtree deleted — including user keys such as `env`. | CWE-459 | Pre-existing; comment at `:683-684` describes it as handled |
-| 3 | **`SKILLS_PATH` containment is a blocklist plus an existence check, not an allowlist.** Verified: `~/.ssh`, `~/.config/gh` and `/Users/Shared` are **accepted**; `~/.aws` is rejected only because it does not exist (`realpathSync` throws → `canonicalized = false`). Separately, the temp-root allowance documented in the source comment (`:51-54`, which names `SKILLS_PATH=$(mktemp -d)` as a supported flow) resolves on macOS to a per-user `0700` directory but on **Linux to `/tmp` (mode `1777`, world-writable + sticky)** — a local unprivileged user on a shared Linux host can pre-create `<dir>/<skill>/SKILL.md` and have it served as trusted skill instructions. | CWE-22 / CWE-668 | Pre-existing |
+| 3 | **`SKILLS_PATH` containment is a blocklist plus an existence check, not an allowlist.** Verified: `~/.ssh`, `~/.config/gh` and `/Users/Shared` are **accepted**; `~/.aws` is rejected only because it does not exist (`realpathSync` throws → `canonicalized = false`). Separately, the temp-root allowance documented in the source comment (`:51-54`, which names `SKILLS_PATH=$(mktemp -d)` as a supported flow) resolves on macOS to a per-user `0700` directory but on **Linux to `/tmp` (mode `1777`, world-writable + sticky)** — a local unprivileged user on a shared Linux host can pre-create `<dir>/<skill>/SKILL.md` and have it served as trusted skill instructions. **Update:** remediated in v6.4.10 — POSIX roots must be an existing directory owned by the current user with no group/world write bits, and Linux `/tmp` (including `mktemp -d` output) is rejected and falls back to the bundled skills; macOS roots under `/private/var/folders` are still honored (`src/server.ts` `getSafeSkillsPath`). | CWE-22 / CWE-668 | Pre-existing (fixed in v6.4.10) |
 | 4 | **`[MODEL]` was silently dropped for `sdd-task-reviewer` and `sdd-re-review`.** Both templates wrote `model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; …]`, which does **not** contain the literal token `[MODEL]`; the only literal occurrence was the `**Placeholders:**` appendix bullet, which the new appendix guard (`isAppendixEntry`, `:353`) skips. Executed proof: with `model = "sonnet"`, the value appeared **0 times** in the rendered prompt. The new stderr diagnostic could not see it because it tests the *unfiltered* template (`template.includes("[MODEL]")` is true via the appendix). The same anti-pattern had already been fixed in `implementer-prompt.md` (`:8` is now `model: [MODEL]` plus `#` comment lines). **Fixed in this release**: both reviewer templates now use the same `model: [MODEL]` + `#` comment form, pinned by two new assertions in `tests/prompts_compositions_test.js` that require the supplied value to reach the dispatchable `model:` line and forbid a surviving `[MODEL` in the prompt body (verified fail-without / pass-with). | CWE-20 | **Fixed** in v6.4.7 |
 | 5 | **YAML install can emit duplicate keys.** On a populated flow map it appends a second `superpowers:` beside the existing one (duplicate-key YAML resolves last-wins in permissive parsers, so the stale entry wins and the install silently no-ops; strict parsers reject the file). When the entry's child indent differs from the root's first-child indent, `directChildIndent = spIndent + indent.length` (`:800`) emits a second `command:` / `args:` pair. | CWE-407 | Flow-map case pre-existing |
 | 6 | **Prompt arguments are interpolated into agent instructions unescaped.** The only sanitisation is `.trim()` plus a 32 KiB cap (`:619-637`); newlines survive, and `renderFeaturePipeline` splices the raw value into the prompt body. The diff hardened `feature_name` (collapses CR/LF) and `requirements` (strips CR only) — roughly 13 other free-text arguments are unchanged. The confused-deputy path is documented by the templates themselves: `[GLOBAL_CONSTRAINTS]` is "copied verbatim from the plan's Global Constraints section" and `[FINDINGS]` "copied verbatim, one per bullet". | CWE-1427 | Same-principal data trust, by design |
@@ -423,11 +456,14 @@ Assertion census re-measured on this tree: **Node.js 238 + Bash 32 + PowerShell 
 
 ## Historical Security Status (v6.4.7 - Verified: 2026-10-09)
 
+> Historical findings below reflect the v6.4.7 tree. The setup-removal, YAML duplicate-key,
+> and `SKILLS_PATH` findings are remediated in v6.4.10.
+
 | Check | Status |
 | ----- | ------ |
-| Uninstall Integrity (`--remove` completeness) | :warning: Open — a removal can report success while a live `mcp_servers.superpowers` entry survives: TOML keeps all but the last `[[mcp_servers.superpowers]]` array table and orphans `[[mcp_servers.superpowers.env]]`; JSON clears only the first root key holding the entry; YAML removal is a no-op on a populated flow map. CWE-459 (v6.4.7 finding 1) |
-| YAML Cross-Parent Deletion on `--remove` | :warning: Open — the root-level guard covers the empty-map rewrite (`:685`) but not the entry deletion (`:700-706`), so a nested `mcp_servers:` under another top-level key loses its `superpowers` subtree. CWE-459 (v6.4.7 finding 2) |
-| `SKILLS_PATH` Containment | :warning: Blocklist, not allowlist — `~/.ssh`, `~/.config/gh`, `/Users/Shared` accepted because they exist; `~/.aws` rejected only for non-existence. The documented `SKILLS_PATH=$(mktemp -d)` flow resolves to per-user `0700` on macOS but to world-writable `/tmp` (mode `1777`) on Linux. CWE-22 / CWE-668 (v6.4.7 finding 3) |
+| Uninstall Integrity (`--remove` completeness) | Historical v6.4.7 finding — **remediated in v6.4.10**: TOML removes all managed table/subtable ranges; JSON removes every equivalent-root entry; YAML removes recognized flow-map entries. |
+| YAML Cross-Parent Deletion on `--remove` | Historical v6.4.7 finding — **remediated in v6.4.10**: nested declarations are preserved and never traversed as the managed root. |
+| `SKILLS_PATH` Containment | Historical v6.4.7 finding — **remediated in v6.4.10**: POSIX roots must be owned by the current user and not group/world-writable; system and shared roots fail closed. |
 | Prompt Placeholder Interpolation | :white_check_mark: Fixed — all five templated prompts now carry a literal token for every key the server supplies. The `[MODEL]` slot in `task-reviewer-prompt.md` and `re-review-prompt.md` was silently dropped (both wrote `model: [MODEL — REQUIRED: …]`, so the only real token sat in an appendix bullet the guard skips); both now use `model: [MODEL]` + a `#` comment, pinned by fail-without / pass-with assertions. CWE-20 (v6.4.7 finding 4) |
 | YAML Duplicate-Key Emission | :warning: Install can emit a second `superpowers:` (populated flow map) or a second `command:` / `args:` pair (child indent ≠ root indent). Last-wins parsers silently keep the stale entry. CWE-407 (v6.4.7 finding 5) |
 | Prompt Argument Escaping | :white_check_mark: By design, same-principal — `.trim()` + 32 KiB cap (`:619-637`); newlines preserved. `feature_name` and `requirements` hardened in this change; ~13 other free-text args unchanged. CWE-1427 accepted as a data-trust property, not a server-side vulnerability (v6.4.7 finding 6) |

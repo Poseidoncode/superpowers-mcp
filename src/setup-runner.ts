@@ -933,8 +933,9 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             throw new Error(`Cannot safely update YAML unless ${spec.rootKey} is a root-level block mapping`);
         }
     } else if (mcpDeclarations.length > 0) {
-        // mcp_servers exists but only nested under another key — there is no root
-        // mapping to update, and we must not inject into the nested one.
+        // A nested declaration belongs to another parent. Removal must leave it
+        // untouched (rather than treating it as the managed root or failing).
+        if (remove) return existingContent;
         throw new Error(`Cannot safely update YAML unless ${spec.rootKey} is a root-level block mapping`);
     }
 
@@ -969,13 +970,24 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
             const line = lines[i];
             const mcpMatch = line.match(rootHeaderPattern);
             if (mcpMatch) {
-                inMcpServers = true;
-                mcpIndent = mcpMatch[1].length;
-                // Only the root-level header owns the empty-map rewrite; a nested
-                // header of the same name belongs to a different parent.
-                if (mcpIndent === 0) headerIndex = newLines.length;
-                newLines.push(line);
-                continue;
+                if (mcpMatch[1].length === 0) {
+                    // Only the root-level header owns the managed mapping and the
+                    // empty-map rewrite.
+                    mcpIndent = 0;
+                    inMcpServers = true;
+                    headerIndex = newLines.length;
+                    newLines.push(line);
+                    continue;
+                }
+                // A nested same-named key is not a new root. Outside the managed
+                // mapping it belongs to another parent and is left untouched;
+                // inside it, it is just an ordinary child entry (e.g. a server
+                // literally named like the root key) and must not end the scan, or
+                // managed entries after it would survive the removal.
+                if (!inMcpServers) {
+                    newLines.push(line);
+                    continue;
+                }
             }
 
             if (inMcpServers) {
@@ -1318,6 +1330,7 @@ const TOML_SUPERPOWERS_SUBTABLE = /^\s*\[\s*mcp_servers\s*\.\s*superpowers\s*\./
  * place by a removal that reported success.
  */
 const TOML_SUPERPOWERS_ARRAY_HEADER = /^\s*\[\[\s*mcp_servers\s*\.\s*superpowers\s*\]\]/;
+const TOML_SUPERPOWERS_ARRAY_SUBTABLE = /^\s*\[\[\s*mcp_servers\s*\.\s*superpowers\s*\./;
 
 /**
  * Quoted table-name variants we cannot reason about safely — fail closed on sight.
@@ -1554,12 +1567,12 @@ export function updateTomlConfig(existingContent: string, cmd: string, args: str
     }
 
     const headerIndexes: number[] = [];
-    let arrayHeaderIndex = -1;
+    const arrayHeaderIndexes: number[] = [];
     for (let i = 0; i < lines.length; i++) {
         if (isQuotedManagedTableHeader(lines[i])) {
             throw new Error("Cannot safely update TOML with quoted mcp_servers.superpowers table names");
         }
-        if (TOML_SUPERPOWERS_ARRAY_HEADER.test(lines[i])) arrayHeaderIndex = i;
+        if (TOML_SUPERPOWERS_ARRAY_HEADER.test(lines[i])) arrayHeaderIndexes.push(i);
         if (TOML_SUPERPOWERS_HEADER.test(lines[i])) headerIndexes.push(i);
     }
     if (headerIndexes.length > 1) {
@@ -1572,14 +1585,14 @@ export function updateTomlConfig(existingContent: string, cmd: string, args: str
     const blockEnd = (start: number): number => {
         let end = start + 1;
         while (end < lines.length) {
-            if (isTomlTableHeader(lines[end]) && !TOML_SUPERPOWERS_SUBTABLE.test(lines[end])) break;
+            if (isTomlTableHeader(lines[end]) && !TOML_SUPERPOWERS_SUBTABLE.test(lines[end]) && !TOML_SUPERPOWERS_ARRAY_SUBTABLE.test(lines[end])) break;
             end++;
         }
         return end;
     };
 
     if (remove) {
-        const ranges = [...headerIndexes, ...(arrayHeaderIndex === -1 ? [] : [arrayHeaderIndex])]
+        const ranges = [...headerIndexes, ...arrayHeaderIndexes]
             .map((start) => [start, blockEnd(start)] as const)
             .sort((a, b) => a[0] - b[0]);
         if (ranges.length === 0) return existingContent;
@@ -1590,7 +1603,7 @@ export function updateTomlConfig(existingContent: string, cmd: string, args: str
         return withEol(lines.filter((_, i) => !dropped.has(i)).join("\n"));
     }
 
-    if (arrayHeaderIndex !== -1) {
+    if (arrayHeaderIndexes.length > 0) {
         throw new Error(
             "Cannot safely update TOML: [[mcp_servers.superpowers]] is an array-of-tables, which cannot coexist with a [mcp_servers.superpowers] table. Remove it first."
         );

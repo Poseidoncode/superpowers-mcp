@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [18, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install Graphviz
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes graphviz
+
+      - name: Install Graphviz
+        if: runner.os == 'Windows'
+        run: choco install graphviz --no-progress --yes
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and run all available tests
+        run: npm test -- --fail-on-skip
