@@ -12,7 +12,18 @@ try {
 
     # 1. start in background: reports server info, writes session state
     $out = & $startScript --project-dir $projectDir --background
-    Assert-ExitCode $LASTEXITCODE 0 "start-server exits 0"
+    $startExit = $LASTEXITCODE
+    Assert-ExitCode $startExit 0 "start-server exits 0"
+    if ($startExit -ne 0) {
+        # CI otherwise only shows the exit code; print why startup failed.
+        Write-Host "--- start-server output ---"
+        foreach ($line in @($out)) { Write-Host $line }
+        $logs = Get-ChildItem -LiteralPath $projectDir -Recurse -Filter "server.log" -Force -ErrorAction SilentlyContinue
+        foreach ($log in @($logs)) {
+            Write-Host "--- $($log.FullName) (last 40 lines) ---"
+            foreach ($line in @(Get-Content -LiteralPath $log.FullName | Select-Object -Last 40)) { Write-Host $line }
+        }
+    }
     $infoLine = ($out | Select-Object -First 1)
     Assert-True ($infoLine -match "url") "server-info line reports a url"
 

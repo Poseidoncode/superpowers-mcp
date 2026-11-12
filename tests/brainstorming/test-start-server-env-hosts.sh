@@ -15,9 +15,23 @@ STOP="$ROOT/skills/brainstorming/scripts/stop-server.sh"
 PASS=0
 FAIL=0
 pass() { PASS=$((PASS + 1)); printf '  [PASS] %s\n' "$1"; }
-fail() { FAIL=$((FAIL + 1)); printf '  [FAIL] %s\n' "$1"; }
-
 TMP="$(mktemp -d)"
+
+# On the first failure, print every server log under $TMP so a flaky startup
+# (seen on Windows runners) can be diagnosed from the CI log alone.
+DIAGNOSTICS_SHOWN=0
+dump_diagnostics() {
+  [ "$DIAGNOSTICS_SHOWN" -eq 0 ] || return 0
+  DIAGNOSTICS_SHOWN=1
+  local log
+  while IFS= read -r log; do
+    printf '  --- %s (last 40 lines) ---\n' "$log"
+    tail -n 40 "$log" 2>/dev/null | sed 's/^/  | /' || true
+  done < <(find "$TMP" -name server.log 2>/dev/null)
+  return 0
+}
+
+fail() { FAIL=$((FAIL + 1)); printf '  [FAIL] %s\n' "$1"; dump_diagnostics; }
 
 cleanup() {
   local session
