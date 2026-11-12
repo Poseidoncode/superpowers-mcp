@@ -33,6 +33,12 @@ function Assert-ExitCode {
     if ($Actual -eq $Expected) { Pass $Name } else { Fail "$Name (expected exit $Expected, got $Actual)" }
 }
 
+function Test-SamePath {
+    # Join-Path / git / .NET disagree on separators on Windows; compare slash-normalised.
+    param([string]$Actual, [string]$Expected)
+    return (($Actual -replace '\\', '/').TrimEnd('/') -eq ($Expected -replace '\\', '/').TrimEnd('/'))
+}
+
 function New-TestRoot {
     # One scratch directory per test file; removed by Remove-TestRoot.
     $root = Join-Path ([System.IO.Path]::GetTempPath()) ("superpowers-ps1-test-" + [guid]::NewGuid().ToString("N"))

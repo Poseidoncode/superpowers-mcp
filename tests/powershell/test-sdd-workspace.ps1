@@ -29,7 +29,7 @@ try {
     # /var -> /private/var symlink; resolve the expected path the same way.
     $realRepo = (& git -C $repo rev-parse --show-toplevel).Trim()
     $expected = Join-Path $realRepo ".superpowers/sdd/plan"
-    Assert-True ($workspace -eq $expected) "prints .superpowers/sdd/plan absolute path"
+    Assert-True (Test-SamePath $workspace $expected) "prints .superpowers/sdd/plan absolute path"
     Assert-True (Test-Path -LiteralPath (Join-Path $repo ".superpowers/sdd/plan")) "workspace dir exists"
     Assert-True (Test-Path -LiteralPath (Join-Path $repo ".superpowers/sdd/.gitignore")) ".gitignore written"
 
@@ -52,7 +52,7 @@ try {
     Assert-ExitCode $LASTEXITCODE 0 "plan.txt exits 0"
     $workspace2 = ($out2 | Select-Object -First 1).Trim()
     $expected2 = Join-Path $realRepo ".superpowers/sdd/plan.txt"
-    Assert-True ($workspace2 -eq $expected2) "slug keeps non-.md extension"
+    Assert-True (Test-SamePath $workspace2 $expected2) "slug keeps non-.md extension"
     Assert-True (Test-Path -LiteralPath (Join-Path $repo ".superpowers/sdd/plan.txt")) "plan.txt workspace dir exists"
 
     # 5. Ownership markers: two plans with the same basename
@@ -77,7 +77,7 @@ try {
     Set-Content -Path (Join-Path $fooDir "progress.md") -Value "ledger" -NoNewline
     $dirFoo = (& $scriptPath $fooPlan | Select-Object -First 1).Trim()
     $expectedFoo = Join-Path $realRepo ".superpowers/sdd/foo"
-    Assert-True ($dirFoo -eq $expectedFoo) "legacy markerless workspace is adopted in place"
+    Assert-True (Test-SamePath $dirFoo $expectedFoo) "legacy markerless workspace is adopted in place"
     $markerFoo = Join-Path $expectedFoo "plan-path"
     $markerFooContent = if (Test-Path -LiteralPath $markerFoo) { (Get-Content -LiteralPath $markerFoo -Raw).Trim() } else { "<missing>" }
     Assert-True ($markerFooContent -eq "foo.md") "legacy workspace is marked (got '$markerFooContent')"
@@ -94,7 +94,7 @@ try {
     Set-Content -Path (Join-Path $bazSuffixed "plan-path") -Value "other2/baz.md" -NoNewline
     $dirBaz = (& $scriptPath $bazPlan | Select-Object -First 1).Trim()
     $expectedBaz = Join-Path $realRepo ".superpowers/sdd/baz-$repoName-2"
-    Assert-True ($dirBaz -eq $expectedBaz) "double conflict falls back to a counter suffix"
+    Assert-True (Test-SamePath $dirBaz $expectedBaz) "double conflict falls back to a counter suffix"
 
     # Unicode marker content must round-trip so repeat calls resolve to the
     # same workspace instead of allocating suffixes indefinitely.

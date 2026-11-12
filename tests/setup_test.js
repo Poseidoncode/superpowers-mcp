@@ -13,6 +13,10 @@ const {
     runSetup,
 } = require("../out/setup-runner.js");
 
+// Hermetic: CI runners (e.g. GitHub ubuntu) export XDG_CONFIG_HOME, which would
+// redirect every mocked-home config path away from the expected ~/.config layout.
+delete process.env.XDG_CONFIG_HOME;
+
 console.log("==================================================");
 console.log("🧪 Running Superpowers Global Setup Comprehensive Tests");
 console.log("==================================================");

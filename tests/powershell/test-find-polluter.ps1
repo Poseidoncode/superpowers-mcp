@@ -13,9 +13,16 @@ try {
 
     # Stub npm: running any test creates the pollution marker, so the first
     # test file executed is always identified as the polluter.
-    $npmStub = Join-Path $project "bin/npm"
-    Set-Content -Path $npmStub -Value "#!/usr/bin/env bash`ntouch pollution.marker`n" -NoNewline
-    if (Get-Command chmod -ErrorAction SilentlyContinue) { & chmod +x $npmStub }
+    # On Windows an extensionless bash script is not runnable from PowerShell,
+    # so the stubs are .cmd files there.
+    if ($IsWindows) {
+        $npmStub = Join-Path $project "bin/npm.cmd"
+        Set-Content -Path $npmStub -Value "@echo off`r`ntype nul > pollution.marker`r`n" -NoNewline
+    } else {
+        $npmStub = Join-Path $project "bin/npm"
+        Set-Content -Path $npmStub -Value "#!/usr/bin/env bash`ntouch pollution.marker`n" -NoNewline
+        if (Get-Command chmod -ErrorAction SilentlyContinue) { & chmod +x $npmStub }
+    }
 
     # 1. usage error
     & $scriptPath > $null 2>&1
@@ -54,9 +61,14 @@ try {
         $spaceDir = Join-Path $project "src/space folder"
         New-Item -ItemType Directory -Path $spaceDir -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $spaceDir "special.test.ts") -Value "test('space')" -NoNewline
-        $runnerStub = Join-Path $project "bin/test-one"
-        Set-Content -LiteralPath $runnerStub -Value "#!/usr/bin/env bash`nprintf '%s' `"`$1`" > runner-arg`ntouch pollution.marker`n" -NoNewline
-        if (Get-Command chmod -ErrorAction SilentlyContinue) { & chmod +x $runnerStub }
+        if ($IsWindows) {
+            $runnerStub = Join-Path $project "bin/test-one.cmd"
+            Set-Content -LiteralPath $runnerStub -Value "@echo off`r`n<nul set /p=`"%~1`" > runner-arg`r`ntype nul > pollution.marker`r`n" -NoNewline
+        } else {
+            $runnerStub = Join-Path $project "bin/test-one"
+            Set-Content -LiteralPath $runnerStub -Value "#!/usr/bin/env bash`nprintf '%s' `"`$1`" > runner-arg`ntouch pollution.marker`n" -NoNewline
+            if (Get-Command chmod -ErrorAction SilentlyContinue) { & chmod +x $runnerStub }
+        }
         $out = & $scriptPath "pollution.marker" "src/space folder/*.test.ts" $runnerStub 2>&1
         Assert-ExitCode $LASTEXITCODE 1 "custom single-test runner exits after finding polluter"
         $runnerArg = Get-Content -LiteralPath (Join-Path $project "runner-arg") -Raw

@@ -16,6 +16,10 @@ FAILURES=0
 pass() { echo "  [PASS] $1"; }
 fail() { echo "  [FAIL] $1"; FAILURES=$((FAILURES + 1)); }
 
+# Git for Windows reports mixed-style paths (C:/Users/...) while bash uses
+# MSYS paths (/c/Users/...); compare them in one canonical spelling.
+norm() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
+
 REPO="$TEST_ROOT/repo"
 mkdir -p "$REPO"
 git -C "$REPO" init -q
@@ -75,7 +79,7 @@ set -e
 expected="$REPO/.superpowers/sdd/plan/task-1-brief.md"
 head=$(git rev-parse HEAD)
 if [[ $rc -eq 0 ]]; then pass "task 1 exits 0"; else fail "task 1 exits 0 (got $rc)"; fi
-if printf '%s\n' "$out" | grep -qxF "brief: $expected"; then pass "prints brief path line"; else fail "prints brief path line (got: $out)"; fi
+if printf '%s\n' "$out" | grep -qxF "brief: $(norm "$expected")"; then pass "prints brief path line"; else fail "prints brief path line (got: $out)"; fi
 if printf '%s\n' "$out" | grep -qxF "base: $head"; then pass "prints base SHA line"; else fail "prints base SHA line (got: $out)"; fi
 if [[ -f "$expected" ]]; then pass "brief file written to plan-scoped workspace"; else fail "brief file written to plan-scoped workspace"; fi
 
@@ -85,7 +89,7 @@ out_a1=$("$TASK_START" "$PLAN" A1 2>&1)
 rc_a1=$?
 set -e
 expected_a1="$REPO/.superpowers/sdd/plan/task-A1-brief.md"
-if [[ $rc_a1 -eq 0 && -s "$expected_a1" && "$out_a1" == *"brief: $expected_a1"* ]]; then
+if [[ $rc_a1 -eq 0 && -s "$expected_a1" && "$out_a1" == *"brief: $(norm "$expected_a1")"* ]]; then
     pass "alphanumeric Task A1 produces a brief and BASE"
 else
     fail "alphanumeric Task A1 produces a brief and BASE (rc=$rc_a1, output=$out_a1)"

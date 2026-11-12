@@ -13,6 +13,10 @@ FAILURES=0
 pass() { echo "  [PASS] $1"; }
 fail() { echo "  [FAIL] $1"; FAILURES=$((FAILURES + 1)); }
 
+# Git for Windows reports mixed-style paths (C:/Users/...) while bash uses
+# MSYS paths (/c/Users/...); compare them in one canonical spelling.
+norm() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
+
 # Test 1: Usage and argument validation
 set +e
 "$SDD_SCRIPTS/sdd-workspace" >/dev/null 2>&1
@@ -88,7 +92,7 @@ mkdir -p "$repo/.superpowers/sdd/foo"
 echo "legacy ledger" > "$repo/.superpowers/sdd/foo/progress.md"
 
 dir_foo="$(cd "$repo" && "$SDD_SCRIPTS/sdd-workspace" foo.md)"
-if [[ "$dir_foo" == "$repo/.superpowers/sdd/foo" && "$(cat "$repo/.superpowers/sdd/foo/plan-path" 2>/dev/null)" == "foo.md" ]]; then
+if [[ "$(norm "$dir_foo")" == "$(norm "$repo/.superpowers/sdd/foo")" && "$(cat "$repo/.superpowers/sdd/foo/plan-path" 2>/dev/null)" == "foo.md" ]]; then
     pass "legacy markerless workspace is adopted in place and marked"
 else
     fail "legacy markerless workspace is adopted in place"
@@ -106,7 +110,7 @@ echo "other/baz.md" > "$repo/.superpowers/sdd/baz/plan-path"
 echo "other2/baz.md" > "$repo/.superpowers/sdd/baz-$repo_name/plan-path"
 
 dir_baz="$(cd "$repo" && "$SDD_SCRIPTS/sdd-workspace" baz.md)"
-if [[ "$dir_baz" == "$repo/.superpowers/sdd/baz-$repo_name-2" ]]; then
+if [[ "$(norm "$dir_baz")" == "$(norm "$repo/.superpowers/sdd/baz-$repo_name-2")" ]]; then
     pass "double conflict falls back to counter suffix (-2)"
 else
     fail "double conflict falls back to counter suffix (-2) (got $dir_baz)"
@@ -353,7 +357,7 @@ else
     git init -q -b main "$gf"
     gf_phys="$(cd "$gf" && pwd -P)"
     gf_dir="$(cd "$gf" && "$SDD_SCRIPTS/sdd-workspace" plan-a.md)"
-    if [[ "$gf_dir" == "$gf_phys/.superpowers/sdd/plan-a" ]]; then
+    if [[ "$(norm "$gf_dir")" == "$(norm "$gf_phys/.superpowers/sdd/plan-a")" ]]; then
         pass "sdd-workspace works after git init, before the first commit"
     else
         fail "sdd-workspace after git init (got $gf_dir)"
