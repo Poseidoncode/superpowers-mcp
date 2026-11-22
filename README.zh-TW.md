@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![版本](https://img.shields.io/badge/version-6.4.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.5.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -181,7 +181,14 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.4.10（最新版）
+### v6.5.0（最新版）
+
+- **`read_skill` 可載入技能的參考文件**：新增選用參數 `reference`（例如 `read_skill("subagent-driven-development", reference="fix-loop")`），附有 `references/` 的技能內容結尾會列出索引，讓只能透過 MCP 存取的用戶端（沒有檔案系統權限）也能取得 `SKILL.md` 所指向的細節。只有該技能自己 `references/` 目錄中列出的 `*.md` 檔可讀取——不會用用戶端輸入組路徑、略過符號連結，錯誤訊息也不含檔案系統路徑（`tests/mcp_coverage_test.js`）。
+- **上游同步（obra/superpowers v7.0.0 → v7.0.2）**：所有 `SKILL.md` 現都低於 Claude Code 壓縮後重新載入的 20,000 字元上限——`subagent-driven-development`（42.8 KB → 19.9 KB）、`executing-plans`（24 KB → 19.7 KB）、`brainstorming`（23.8 KB → 19.7 KB）把情境性細節搬進 `references/`，並新增 `tests/skill-size/test-skill-size.sh` 強制檢查。`writing-skills` 也重整到 `references/`（新增 `bulletproofing`、`discovery`、`flowcharts`）。上游 7.0.x 的 brainstorming 重寫刻意未採用。
+- **YAML 安裝修正**：對 `args:` 清單採 PyYAML 風格（`- item` 與 `args:` 同縮排）的 Hermes/Goose 設定重跑 setup，過去會留下舊項目（YAML 無效）；現在會連同該 key 一併移除（`tests/setup_test.js`）。
+- 驗證：`npm run build` 通過；`npm test` 全綠——**17/24** 套件（**7** 個 PowerShell 因無 `pwsh` 跳過）。
+
+### v6.4.10
 
 - **安裝程式 `--remove` 現已完整**（CWE-459）：TOML 會移除所有受管的 `[[mcp_servers.superpowers]]` 陣列表及其子表，JSON 會移除所有等價的根層項目，YAML 會移除已填入的 flow map 項目，並保留其他父層底下的巢狀 `mcp_servers:`（`tests/setup_test.js` 現為 **100/100**）。
 - **`SKILLS_PATH` 擁有者檢查**（CWE-22 / CWE-668）：在 POSIX 上，根目錄必須是現存、由目前使用者擁有且群組／其他人皆無寫入權限的目錄。**行為變更：** Linux 的 `/tmp`（包含 `SKILLS_PATH=$(mktemp -d)`）會被拒絕並退回內建技能，請改用家目錄底下的資料夾。macOS 的 `/private/var/folders` 仍可使用。

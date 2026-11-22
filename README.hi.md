@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![संस्करण](https://img.shields.io/badge/version-6.4.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![संस्करण](https://img.shields.io/badge/version-6.5.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![लाइसेंस](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 यह दस्तावेज़ Superpowers skills लाइब्रेरी और स्वायत्त वर्कफ़्लो सिस्टम को एक स्वतंत्र, उच्च-प्रदर्शन और सुरक्षित **Model Context Protocol (MCP)** सर्वर के रूप में पैकेज करने की जानकारी और उपयोग निर्देशों का सारांश है।
@@ -182,7 +182,14 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 हाल के अपडेट
 
-### v6.4.10 (नवीनतम)
+### v6.5.0 (नवीनतम)
+
+- **`read_skill` अब किसी स्किल के संदर्भ दस्तावेज़ लोड कर सकता है**: नया वैकल्पिक आर्ग्युमेंट `reference` (जैसे `read_skill("subagent-driven-development", reference="fix-loop")`); जिन स्किल्स में `references/` है, उनकी सामग्री के अंत में अब सूची जुड़ती है, ताकि केवल MCP से जुड़े क्लाइंट (बिना फ़ाइल-सिस्टम एक्सेस) भी `SKILL.md` जिस विवरण की ओर इशारा करता है वहाँ पहुँच सकें। केवल उसी स्किल की `references/` डायरेक्टरी में सूचीबद्ध `*.md` फ़ाइलें ही पढ़ी जा सकती हैं — क्लाइंट इनपुट से कोई पाथ नहीं बनाया जाता, सिमलिंक छोड़ दिए जाते हैं, और त्रुटियों में फ़ाइल-सिस्टम पाथ कभी शामिल नहीं होते (`tests/mcp_coverage_test.js`)।
+- **अपस्ट्रीम सिंक (obra/superpowers v7.0.0 → v7.0.2)**: हर `SKILL.md` अब Claude Code की कंपैक्शन के बाद दोबारा जोड़ी जाने वाली 20,000 अक्षरों की सीमा के भीतर है — `subagent-driven-development` (42.8 KB → 19.9 KB), `executing-plans` (24 KB → 19.7 KB) और `brainstorming` (23.8 KB → 19.7 KB) ने परिस्थिति-विशेष विवरण `references/` में भेजे, और नया `tests/skill-size/test-skill-size.sh` सीमा लागू करता है। `writing-skills` को `references/` के अंतर्गत पुनर्गठित किया गया (नए `bulletproofing`, `discovery`, `flowcharts`)। अपस्ट्रीम 7.0.x की brainstorming पुनर्लेखन जानबूझकर नहीं अपनाई गई।
+- **YAML सेटअप सुधार**: जिस Hermes/Goose कॉन्फ़िग में `args:` सूची PyYAML शैली (`- item`, `args:` के समान इंडेंट पर) में है, उस पर setup दोबारा चलाने से पुराने आइटम बचे रह जाते थे (अमान्य YAML); अब वे कुंजी के साथ हट जाते हैं (`tests/setup_test.js`)।
+- सत्यापन: `npm run build` सफल; `npm test` हरा — **17/24** सूट (**7** PowerShell सूट `pwsh` न होने से छोड़े गए)।
+
+### v6.4.10
 
 - **सेटअप `--remove` अब पूर्ण है** (CWE-459): TOML सभी प्रबंधित `[[mcp_servers.superpowers]]` ऐरे टेबल और उनकी उप-तालिकाएँ हटाता है, JSON सभी समतुल्य रूट प्रविष्टियाँ हटाता है, और YAML भरे हुए flow map प्रविष्टियाँ हटाता है तथा किसी अन्य पैरेंट के अंतर्गत नेस्टेड `mcp_servers:` को अछूता छोड़ता है (`tests/setup_test.js` अब **100/100**)।
 - **`SKILLS_PATH` स्वामित्व जाँच** (CWE-22 / CWE-668): POSIX पर रूट एक मौजूदा डायरेक्टरी होनी चाहिए, जो वर्तमान उपयोगकर्ता की हो और जिस पर group/other के लिए लिखने की अनुमति न हो। **व्यवहार परिवर्तन:** Linux का `/tmp` (`SKILLS_PATH=$(mktemp -d)` सहित) अस्वीकार हो जाता है और बंडल्ड स्किल्स पर लौट आता है — होम के अंतर्गत कोई डायरेक्टरी उपयोग करें। macOS के `/private/var/folders` रूट अब भी काम करते हैं।

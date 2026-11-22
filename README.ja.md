@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.4.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.5.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -183,7 +183,14 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.4.10（最新）
+### v6.5.0（最新）
+
+- **`read_skill` がスキルの参照ドキュメントを読み込めるように**：任意の `reference` 引数を追加（例：`read_skill("subagent-driven-development", reference="fix-loop")`）。`references/` を持つスキルの本文末尾には索引が付くため、MCP 経由でしかアクセスできないクライアント（ファイルシステム権限なし）でも `SKILL.md` が指す詳細に到達できます。読めるのはそのスキル自身の `references/` に一覧された `*.md` のみで、クライアント入力からパスを組み立てず、シンボリックリンクは無視し、エラーにファイルシステムのパスを含めません（`tests/mcp_coverage_test.js`）。
+- **アップストリーム同期（obra/superpowers v7.0.0 → v7.0.2）**：すべての `SKILL.md` が Claude Code の圧縮後再読込上限（20,000 文字）未満になりました。`subagent-driven-development`（42.8 KB → 19.9 KB）、`executing-plans`（24 KB → 19.7 KB）、`brainstorming`（23.8 KB → 19.7 KB）は状況依存の詳細を `references/` へ移し、新しい `tests/skill-size/test-skill-size.sh` が上限を検証します。`writing-skills` も `references/` 配下に再編しました（`bulletproofing`・`discovery`・`flowcharts` を追加）。アップストリーム 7.0.x の brainstorming 書き直しは意図的に取り込んでいません。
+- **YAML セットアップ修正**：`args:` のリストが PyYAML 形式（`- item` が `args:` と同じインデント）の Hermes/Goose 設定で setup を再実行すると、古い項目が残って YAML が不正になっていました。キーと一緒に削除されるようになりました（`tests/setup_test.js`）。
+- 検証：`npm run build` 成功、`npm test` 全て成功——**17/24** スイート（**7** 件の PowerShell スイートは `pwsh` が無いためスキップ）。
+
+### v6.4.10
 
 - **セットアップの `--remove` が完全に**（CWE-459）：TOML は管理対象の `[[mcp_servers.superpowers]]` 配列テーブルとサブテーブルをすべて削除し、JSON は同等のルートエントリをすべて削除、YAML は値入りの flow map エントリを削除しつつ、別の親の下にあるネストした `mcp_servers:` には触れません（`tests/setup_test.js` は **100/100**）。
 - **`SKILLS_PATH` の所有者チェック**（CWE-22 / CWE-668）：POSIX ではルートが既存のディレクトリで、現在のユーザーが所有し、グループ／その他に書き込み権限がないことが必須です。**動作変更：** Linux の `/tmp`（`SKILLS_PATH=$(mktemp -d)` を含む）は拒否され、同梱スキルにフォールバックします。ホーム配下のディレクトリを使用してください。macOS の `/private/var/folders` は引き続き利用できます。

@@ -1180,7 +1180,12 @@ export function updateYamlConfig(existingContent: string, cmd: string, args: str
                 continue;
             }
             const childIndent = line.match(/^(\s*)/)?.[1].length ?? 0;
-            if (skipIndent !== -1 && childIndent > skipIndent) {
+            // An indentless block sequence (PyYAML style) keeps its `- item`
+            // lines at the SAME indent as the owning `args:` key; without this
+            // they would be orphaned after the rewritten `args: [...]` line.
+            const isIndentlessSeqItem =
+                childIndent === skipIndent && /^\s*-(\s|$)/.test(line);
+            if (skipIndent !== -1 && (childIndent > skipIndent || isIndentlessSeqItem)) {
                 // 被移除欄位的巢狀子行（例如 command 底下的映射）一併移除
                 continue;
             }

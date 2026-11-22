@@ -10,6 +10,8 @@ export interface SkillMeta {
 }
 
 const MAX_SKILL_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_SKILL_REFERENCES = 100;
+const SKILL_REFERENCE_FILE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.md$/;
 // 熱路徑：此區間內的連續呼叫直接回傳記憶體快取，完全不觸碰磁碟。
 // findSkill() 每次都經過 listSkills()，因此熱路徑內幾乎零成本即可完成重驗證。
 // 冷路徑則以目錄指紋（readdir + lstat）確認是否需要重掃。
@@ -885,6 +887,49 @@ export class SkillsManager {
                 // 忽略：原始錯誤（若有）優先傳遞。
             }
         }
+    }
+
+    /**
+     * Lists the reference documents a skill ships in its `references/` directory
+     * (plain `*.md` files only, sorted, capped). Clients that can only reach a
+     * skill through MCP use this index to fetch the detail `SKILL.md` points to.
+     * Symlinked directories/files are skipped (lstat/Dirent, never followed), and
+     * the actual read still goes through the no-follow, root-bounded reader.
+     */
+    public async listSkillReferences(skillPath: string): Promise<string[]> {
+        await this.assertSkillsRootUnchanged();
+        const resolvedSkillPath = path.isAbsolute(skillPath)
+            ? path.resolve(skillPath)
+            : path.resolve(this.skillsPath, skillPath);
+        const referencesDir = path.join(path.dirname(resolvedSkillPath), "references");
+        try {
+            const dirStat = await fs.lstat(referencesDir);
+            if (!dirStat.isDirectory()) return [];
+            const entries = await fs.readdir(referencesDir, { withFileTypes: true });
+            return entries
+                .filter((entry) => entry.isFile() && SKILL_REFERENCE_FILE_PATTERN.test(entry.name))
+                .map((entry) => entry.name)
+                .sort()
+                .slice(0, MAX_SKILL_REFERENCES);
+        } catch (err) {
+            if ((err as { code?: string }).code === "ENOENT" || (err as { code?: string }).code === "ENOTDIR") {
+                return [];
+            }
+            throw err;
+        }
+    }
+
+    /** Reads one reference document previously returned by listSkillReferences. */
+    public async readSkillReference(skillPath: string, referenceFile: string): Promise<string> {
+        if (!SKILL_REFERENCE_FILE_PATTERN.test(referenceFile)) {
+            const invalid = new Error("Invalid reference name") as Error & { code?: string };
+            invalid.code = "EINVALREF";
+            throw invalid;
+        }
+        const resolvedSkillPath = path.isAbsolute(skillPath)
+            ? path.resolve(skillPath)
+            : path.resolve(this.skillsPath, skillPath);
+        return this.readSkillContent(path.join(path.dirname(resolvedSkillPath), "references", referenceFile));
     }
 
     /**

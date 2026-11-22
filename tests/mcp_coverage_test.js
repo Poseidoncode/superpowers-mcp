@@ -448,6 +448,60 @@ async function main() {
         assert.strictEqual(ok.code, 200, `brainstorming must still load (got: ${ok.message})`);
     });
 
+    // read_skill must expose references/ so MCP-only clients (no filesystem access)
+    // can reach the detail SKILL.md points to.
+    check("read_skill serves skill reference documents", () => {
+        const call = (args) => {
+            const child = spawnSync("node", [path.join(ROOT, "out", "server.js")], {
+                input: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read_skill", arguments: args } }) + "\n",
+                encoding: "utf8",
+                timeout: 15000,
+            });
+            const line = (child.stdout || "").split("\n").find((l) => l.trim().startsWith("{") && l.includes('"id":1'));
+            assert.ok(line, "server must answer");
+            const parsed = JSON.parse(line);
+            return { code: parsed.error?.code ?? 200, message: parsed.error?.message || "", text: parsed.result?.content?.[0]?.text || "" };
+        };
+        const refDir = path.join(SKILLS_DIR, "subagent-driven-development", "references");
+        const expected = fs.readdirSync(refDir).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, ""));
+        assert.ok(expected.includes("fix-loop"), "fixture: fix-loop reference must exist");
+
+        // The skill body advertises every reference.
+        const body = call({ skill_name: "subagent-driven-development" });
+        assert.strictEqual(body.code, 200);
+        for (const name of expected) {
+            assert.ok(body.text.includes(name), `index must list reference "${name}"`);
+        }
+
+        // Each listed reference is readable and matches the file on disk (with or without .md).
+        for (const name of expected) {
+            const viaName = call({ skill_name: "subagent-driven-development", reference: name });
+            assert.strictEqual(viaName.code, 200, `reference "${name}" must load: ${viaName.message}`);
+            const disk = fs.readFileSync(path.join(refDir, `${name}.md`), "utf8").trim();
+            assert.ok(viaName.text.includes(disk.slice(0, 80).trim()), `reference "${name}" must carry the file's content`);
+        }
+        assert.strictEqual(call({ skill_name: "subagent-driven-development", reference: "fix-loop.md" }).code, 200);
+
+        // Unlisted names, traversal and wrong types are rejected as InvalidParams without leaking paths.
+        for (const bad of ["nope", "../SKILL", "..", "../../package", "a/b", "a\\b", "fix-loop\u0000", "", " "]) {
+            const res = call({ skill_name: "subagent-driven-development", reference: bad });
+            if (bad.trim() === "") {
+                assert.strictEqual(res.code, 200, "blank reference falls back to the skill body");
+                continue;
+            }
+            assert.strictEqual(res.code, -32602, `reference ${JSON.stringify(bad)} must be InvalidParams, got ${res.code}`);
+            assert.ok(!res.message.includes(ROOT), "error must not leak filesystem paths");
+        }
+        assert.strictEqual(call({ skill_name: "subagent-driven-development", reference: 5 }).code, -32602);
+        assert.strictEqual(call({ skill_name: "subagent-driven-development", reference: "A".repeat(100000) }).code, -32602);
+
+        // A skill without references gets no index and a clear error.
+        const plain = call({ skill_name: "verification-before-completion" });
+        assert.ok(!plain.text.includes("Reference documents for this skill"), "no index for skills without references");
+        const none = call({ skill_name: "verification-before-completion", reference: "x" });
+        assert.strictEqual(none.code, -32602);
+    });
+
     finished = true;
     clearTimeout(watchdog); // success path must clear the ref'd timer (finding #1)
     server.kill();

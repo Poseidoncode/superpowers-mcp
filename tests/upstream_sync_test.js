@@ -4,7 +4,19 @@ const assert = require("assert");
 const { SkillsManager } = require("../out/skills-manager.js");
 
 const SKILLS_DIR = path.join(__dirname, "..", "skills");
-const readSkill = (name) => fs.readFileSync(path.join(SKILLS_DIR, name, "SKILL.md"), "utf-8");
+// SKILL.md plus its references/*.md: since v7.0.1 skills stay under the 20,000-byte
+// post-compaction re-attach limit by moving situational detail into references/.
+const readSkill = (name) => {
+    const dir = path.join(SKILLS_DIR, name);
+    let text = fs.readFileSync(path.join(dir, "SKILL.md"), "utf-8");
+    const refs = path.join(dir, "references");
+    if (fs.existsSync(refs)) {
+        for (const f of fs.readdirSync(refs).filter((n) => n.endsWith(".md")).sort()) {
+            text += "\n" + fs.readFileSync(path.join(refs, f), "utf-8");
+        }
+    }
+    return text;
+};
 const readSkillFile = (name, relPath) => fs.readFileSync(path.join(SKILLS_DIR, name, relPath), "utf-8");
 
 const failures = [];
@@ -145,14 +157,18 @@ async function runUpstreamSyncTests() {
     // Test 8: PR #2271 — planning-handoff review replaces the spec self-review
     check("8 (PR #2271: planning-handoff review)", () => {
         const brain = readSkill("brainstorming");
+        // The review body lives in references/ (SKILL.md must stay under the
+        // 20,000-byte compaction cut); SKILL.md keeps the pointer and the graph.
+        const review = readSkillFile("brainstorming", "references/planning-handoff-review.md");
         expectContains(brain, "**Planning-Handoff Review:**");
-        expectContains(brain, "planning-handoff readiness from 0.0–9.9");
-        expectContains(brain, "burden ledger");
-        expectContains(brain, "**minor (1):**");
-        expectContains(brain, "**major (2):**");
-        expectContains(brain, "never grants permission to begin planning");
+        expectContains(brain, "references/planning-handoff-review.md");
+        expectContains(review, "planning-handoff readiness from 0.0–9.9");
+        expectContains(review, "burden ledger");
+        expectContains(review, "**minor (1):**");
+        expectContains(review, "**major (2):**");
+        expectContains(review, "never grants permission to begin planning");
         // Fork-local refinement (see CHANGELOG): the selected draft must be committed.
-        expectContains(brain, "commit the selected draft");
+        expectContains(review, "commit the selected draft");
         // The handoff node must exist as the declaration AND both graph edges - a
         // bare substring check would stay green if the edges were dropped.
         expectContains(brain, '(rate; burden ledger; bounded branch)" [shape=box];');

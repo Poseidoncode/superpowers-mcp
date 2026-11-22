@@ -221,6 +221,26 @@ async function readSkillContentForClient(skillPath: string) {
     }
 }
 
+/**
+ * Appends an index of the skill's reference documents so clients that only reach
+ * skills through MCP know they can fetch what `SKILL.md` points to with
+ * `read_skill(skill_name, reference)`. Failures degrade to "no index".
+ */
+async function withReferenceIndex(skillName: string, skillPath: string, body: string): Promise<string> {
+    try {
+        const refs = await skillsManager.listSkillReferences(skillPath);
+        if (refs.length === 0) return body;
+        const names = refs.map((file) => file.replace(/\.md$/, "")).join(", ");
+        return (
+            `${body}\n\n---\n\n**Reference documents for this skill** (the \`references/<name>.md\` files named above): ${names}.\n` +
+            `Load one with \`read_skill\` using skill_name "${skillName}" and reference "<name>".`
+        );
+    } catch (err: unknown) {
+        rethrowIfSkillsRootChanged(err);
+        return body;
+    }
+}
+
 function isUnsafeSkillName(name: string): boolean {
     return (
         name === "" ||
@@ -344,7 +364,11 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     }
 
     try {
-        const content = truncateSkillBodyForClient(await readSkillContentForClient(skill.skillPath));
+        const content = await withReferenceIndex(
+            skill.name,
+            skill.skillPath,
+            truncateSkillBodyForClient(await readSkillContentForClient(skill.skillPath))
+        );
         return {
             contents: [
                 {
@@ -1222,6 +1246,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                             type: "string",
                             description: 'Name of the skill to read (e.g. "brainstorming", "test-driven-development", "systematic-debugging")',
                         },
+                        reference: {
+                            type: "string",
+                            description:
+                                'Optional. Name of one of the skill\'s reference documents (the "references/<name>.md" files a skill points to), e.g. "fix-loop". The skill body lists which references exist. Omit to read the skill itself.',
+                        },
                     },
                     required: ["skill_name"],
                 },
@@ -1256,6 +1285,7 @@ function escapeListMarkdown(value: string): string {
 
 interface ReadSkillArguments {
     skill_name?: unknown;
+    reference?: unknown;
 }
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -1322,8 +1352,58 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             );
         }
 
+        const rawReference = readArgs?.reference;
+        if (rawReference !== undefined && rawReference !== null && typeof rawReference !== "string") {
+            throw new McpError(ErrorCode.InvalidParams, "reference must be a string");
+        }
+        const referenceName =
+            typeof rawReference === "string" ? rawReference.trim().replace(/\.md$/i, "") : "";
+        if (referenceName.length > MAX_SKILL_NAME_LENGTH) {
+            throw new McpError(ErrorCode.InvalidParams, "reference is too long");
+        }
+
         try {
-            const content = truncateSkillBodyForClient(await readSkillContentForClient(skill.skillPath));
+            if (referenceName !== "") {
+                // Only names the skill's own references/ directory actually lists
+                // are readable, so the client string never builds a path.
+                let available: string[];
+                try {
+                    available = await skillsManager.listSkillReferences(skill.skillPath);
+                } catch (err: unknown) {
+                    rethrowIfSkillsRootChanged(err);
+                    throw err;
+                }
+                const file = available.find((entry) => entry === `${referenceName}.md`);
+                if (!file) {
+                    const names = available.map((entry) => entry.replace(/\.md$/, ""));
+                    throw new McpError(
+                        ErrorCode.InvalidParams,
+                        `Skill "${clipForEcho(skill.name)}" has no reference "${clipForEcho(referenceName)}".` +
+                            (names.length > 0 ? ` Available references: ${names.join(", ")}.` : " It has no reference documents.")
+                    );
+                }
+                let referenceBody: string;
+                try {
+                    referenceBody = await skillsManager.readSkillReference(skill.skillPath, file);
+                } catch (err: unknown) {
+                    rethrowIfSkillsRootChanged(err);
+                    throw err;
+                }
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: `# Skill: ${skill.name} — reference: ${referenceName}\n\n${truncateSkillBodyForClient(referenceBody)}`,
+                        },
+                    ],
+                };
+            }
+
+            const content = await withReferenceIndex(
+                skill.name,
+                skill.skillPath,
+                truncateSkillBodyForClient(await readSkillContentForClient(skill.skillPath))
+            );
             return {
                 content: [
                     {
@@ -1333,6 +1413,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 ],
             };
         } catch (toolErr: unknown) {
+            // Already a client-safe protocol error (bad reference, root replaced).
+            if (toolErr instanceof McpError) {
+                throw toolErr;
+            }
             const detail = toolErr instanceof Error ? toolErr.message : String(toolErr);
             process.stderr.write(`[superpowers-mcp] read_skill("${clipForEcho(skillName)}") failed: ${detail}\n`);
             if ((toolErr as { code?: string }).code === "ENOENT") {

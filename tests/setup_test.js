@@ -208,6 +208,35 @@ it("should preserve commented YAML declarations through install, update and remo
     assert.throws(() => updateYamlConfig('mcp_servers: # one\nmcp_servers: # two\n', 'npx', []), /duplicate/);
 });
 
+it("should not orphan indentless block-sequence items when rewriting managed YAML args", () => {
+    // PyYAML-style lists keep `- item` at the same indent as `args:`. The update
+    // path used to leave them behind, producing invalid YAML.
+    const original = [
+        "mcp_servers:",
+        "  superpowers:",
+        "    command: old",
+        "    args:",
+        "    - -y",
+        "    - old-pkg",
+        "    env:",
+        "      KEEP: me",
+        "  other:",
+        "    command: x",
+        "    args:",
+        "    - keep-this",
+        "",
+    ].join("\n");
+    const updated = updateYamlConfig(original, "npx", ["-y", "superpowers-mcp"]);
+    assert.ok(!updated.includes("old-pkg"), "stale sequence item must be removed");
+    assert.strictEqual((updated.match(/^    - -y$/gm) || []).length, 0, "no orphan list items");
+    assert.ok(updated.includes('args: ["-y","superpowers-mcp"]'));
+    assert.ok(updated.includes("KEEP: me"), "user env preserved");
+    assert.ok(updated.includes("- keep-this"), "other servers' sequences untouched");
+    assert.strictEqual(updateYamlConfig(updated, "npx", ["-y", "superpowers-mcp"]), updated);
+    const removed = updateYamlConfig(original, "npx", [], true);
+    assert.ok(!removed.includes("old-pkg") && removed.includes("- keep-this"));
+});
+
 it("should stay linear on YAML padded with long whitespace runs", () => {
     // Regression guard for js/polynomial-redos: the old `\s*(.*?)\s*$` key match and the
     // unanchored `\s+#.*$` comment extraction both blew up on whitespace-padded input.

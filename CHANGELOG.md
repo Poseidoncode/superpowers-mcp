@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.5.0] - 2026-11-22
+
+Upstream sync with obra/superpowers v7.0.1 / v7.0.2 (baseline `bb92a77` → `22f0b46`), MCP access to skill
+reference documents, and a YAML setup fix.
+
+### Added
+
+- **`read_skill` can load a skill's `references/` documents** — new optional `reference` argument
+  (e.g. `read_skill("subagent-driven-development", reference="fix-loop")`), and every skill body that has
+  references now ends with an index of them. MCP-only clients (no filesystem access) can therefore reach
+  the content moved out of `SKILL.md` below. Only `*.md` files actually listed in that skill's own
+  `references/` directory are readable (no path built from client input; symlinks skipped; reads go
+  through the existing no-follow, root-bounded reader; errors never include filesystem paths).
+  Pinned by `tests/mcp_coverage_test.js`.
+- **`tests/skill-size/test-skill-size.sh`** (from upstream, wired into `npm test`) — fails if any
+  `SKILL.md` reaches 20,000 bytes.
+
+### Changed
+
+- **Skills stay under Claude Code's 20,000-character post-compaction re-attach limit** — situational
+  detail moved into `references/` for `subagent-driven-development` (11 files; 42.8 KB → 19.9 KB),
+  `executing-plans` (`final-review.md`; 24 KB → 19.7 KB) and `brainstorming`
+  (`planning-handoff-review.md`; 23.8 KB → 19.7 KB). Text was moved, not rewritten.
+- **`writing-skills` reorganized** — `anthropic-best-practices`, `persuasion-principles`,
+  `testing-skills-with-subagents`, `CLAUDE_MD_TESTING` and `graphviz-conventions.dot` moved to
+  `references/`; new `bulletproofing`, `discovery` and `flowcharts` references; `SKILL.md` trimmed.
+- `tests/upstream_sync_test.js` now reads a skill's `SKILL.md` together with its `references/`;
+  the upstream drift baseline (`tests/upstream-sync-baseline.json`) is recorded at v7.0.2.
+
+### Fixed
+
+- **YAML setup no longer corrupts indentless `args` lists** — re-running setup on a Hermes/Goose
+  config whose `args:` list uses PyYAML-style `- item` lines at the same indent as `args:` left the
+  old items orphaned after the rewritten `args: [...]` (invalid YAML). They are now removed with the key
+  (`src/setup-runner.ts`, pinned by `tests/setup_test.js`).
+
+### Not adopted
+
+- The upstream 7.0.x brainstorming rewrite (this fork keeps its intent-gated router), plus upstream
+  hook/Pi/Hermes/OpenCode/Muse/Copilot bootstrap changes. The SDD/executing-plans helper fixes
+  (`-C DIR`, `sdd-repo`, task-ID handling, `cygpath`) were already in the fork, and the fork's stricter
+  `task-brief` behavior (exit 4 whenever an open code fence hides the requested heading) is kept.
+
+### Verification
+
+- `npm run build` passed; `npm test` green — 17/24 suites (7 PowerShell suites skipped without `pwsh`).
+- `npm audit`: 0 vulnerabilities; `npx tsc --noEmit` clean.
+
 ## [6.4.10] - 2026-11-13
 
 Hardening release: closes the setup-removal and `SKILLS_PATH` findings left open since

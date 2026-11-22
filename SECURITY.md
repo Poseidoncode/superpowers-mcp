@@ -6,6 +6,7 @@ The following versions of Superpowers MCP are currently supported with security 
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 6.5.x   | :white_check_mark: |
 | 6.4.10  | :white_check_mark: |
 | 6.4.9   | :white_check_mark: |
 | 6.4.8   | :white_check_mark: |
@@ -45,6 +46,45 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Acknowledgment**: Within 48 hours
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
+
+## v6.5.0 — Skill References over MCP & YAML Setup Fix (2026-11-22)
+
+> **Scope and status:** a focused review, **not** a new full-project security audit. `src/setup-runner.ts`
+> was read in full; `src/server.ts` (prompt-argument handling, `read_skill`), the caches in
+> `src/skills-manager.ts`, and `skills/brainstorming/scripts/server.cjs` (WebSocket framing, auth, `/files/`
+> route) were checked in the parts that matter for the changes below; the remaining shell and PowerShell
+> helpers were spot-checked only. `npm audit` reported 0 vulnerabilities, `npx tsc --noEmit` was clean,
+> every bash script passed `bash -n` (`shellcheck` and `pwsh` were not available, so the PowerShell
+> twins and `tests/powershell/*` were not run).
+
+- **New surface: `read_skill(skill_name, reference)`** — lets MCP-only clients read the `references/*.md`
+  files a skill points to. Controls: the client string is never used to build a path; it must equal a
+  file name returned by listing that skill's own `references/` directory (plain `*.md`, name pattern
+  `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.md$`, at most 100 entries, symlinked directories/files skipped);
+  the read then goes through the existing no-follow, root-bounded reader (realpath boundary, `O_NOFOLLOW`,
+  single-link, inode/stat checks, 10 MB cap), output is truncated at the same 20,000-character budget as
+  `SKILL.md`, and invalid/unknown/oversized/non-string references return `InvalidParams` without
+  filesystem paths. Regression: `tests/mcp_coverage_test.js` (`read_skill serves skill reference documents`,
+  includes `../`, `..`, slashes, NUL, wrong type and 100 000-character names). As before, skill content under
+  `SKILLS_PATH` is trusted agent instructions; references widen what a client can read only within a skill's
+  own `references/` directory.
+- **YAML setup integrity (config corruption, not a code-execution issue)** — updating a managed `superpowers`
+  entry whose `args:` used an indentless block sequence left the old `- item` lines behind, producing invalid
+  YAML in the user's client config (found by executing `updateYamlConfig`; the TOML and JSON paths and
+  `--remove` were not affected). Fixed in `src/setup-runner.ts`, pinned by `tests/setup_test.js`.
+- **Docs-only/structure changes** — `SKILL.md` files were split into `references/` (no code paths changed);
+  `tests/skill-size/test-skill-size.sh` keeps them under 20,000 bytes.
+- **Reviewed, no change needed** — v6.4.9/6.4.10 prompt-argument fixes hold (`getStringArg` rejects
+  non-string or >32 KB values; `fix_base_sha` is mapped separately); content caches stay bounded
+  (100 entries / 20 MB, 10 MB per file); brainstorm server caps WebSocket frames at 10 MB and clients at 16,
+  compares the session token in constant time, and loopback-only binding is enforced.
+- **Observed, accepted (low):** the brainstorm server unmasks WebSocket frames byte-by-byte in JavaScript
+  (CPU cost bounded by the 10 MB frame cap and the authenticated loopback client); a wrong `?key=` is rejected
+  without falling back to the cookie; `install.sh` / `install.ps1` still run an unpinned
+  `npx -y superpowers-mcp` when no local clone exists (warned at run time; pin a release tag or SHA as
+  described above); JSON config updates re-serialize the file (comments dropped with a warning and automatic
+  backup; integers beyond 2^53 lose precision); an unavoidable small race window remains between the
+  content comparison and the final `rename` in `safeWriteConfig`.
 
 ## v6.4.10 — Setup Removal, `SKILLS_PATH` Ownership & Input Bounds (2026-11-13)
 

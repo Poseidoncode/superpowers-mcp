@@ -65,6 +65,7 @@ const SUITES = [
     "tests/sdd/test-sdd-workspace.sh",
     "tests/sdd/test-sdd-helper-paths.sh",
     "tests/sdd/test-no-dev-files-in-skills.sh",
+    "tests/skill-size/test-skill-size.sh",
     "tests/writing-skills/test-render-graphs.sh",
     "tests/brainstorming/test-start-server-env-hosts.sh",
     // Intentionally excluded: tests/perf_benchmark.js (timing benchmark, not a

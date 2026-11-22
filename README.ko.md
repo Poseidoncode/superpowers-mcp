@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.4.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.5.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -181,7 +181,14 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.4.10 (최신)
+### v6.5.0 (최신)
+
+- **`read_skill`이 스킬의 참조 문서를 불러올 수 있습니다**: 선택 인자 `reference`를 추가했습니다(예: `read_skill("subagent-driven-development", reference="fix-loop")`). `references/`가 있는 스킬은 본문 끝에 색인이 붙어, MCP로만 접근하는 클라이언트(파일 시스템 권한 없음)도 `SKILL.md`가 가리키는 세부 내용에 닿을 수 있습니다. 해당 스킬의 `references/`에 실제로 있는 `*.md`만 읽을 수 있으며, 클라이언트 입력으로 경로를 만들지 않고, 심볼릭 링크는 건너뛰고, 오류 메시지에 파일 시스템 경로를 포함하지 않습니다(`tests/mcp_coverage_test.js`).
+- **업스트림 동기화(obra/superpowers v7.0.0 → v7.0.2)**: 모든 `SKILL.md`가 Claude Code의 압축 후 재첨부 한도(20,000자) 아래로 내려왔습니다. `subagent-driven-development`(42.8 KB → 19.9 KB), `executing-plans`(24 KB → 19.7 KB), `brainstorming`(23.8 KB → 19.7 KB)은 상황별 세부 내용을 `references/`로 옮겼고, 새 `tests/skill-size/test-skill-size.sh`가 한도를 검사합니다. `writing-skills`도 `references/` 아래로 재구성했습니다(`bulletproofing`, `discovery`, `flowcharts` 추가). 업스트림 7.0.x의 brainstorming 재작성은 의도적으로 가져오지 않았습니다.
+- **YAML 설치 수정**: `args:` 목록이 PyYAML 방식(`- item`이 `args:`와 같은 들여쓰기)인 Hermes/Goose 설정에서 setup을 다시 실행하면 이전 항목이 남아 YAML이 깨졌습니다. 이제 키와 함께 제거됩니다(`tests/setup_test.js`).
+- 검증: `npm run build` 통과, `npm test` 모두 통과 — **17/24** 스위트(**7**개 PowerShell 스위트는 `pwsh`가 없어 건너뜀).
+
+### v6.4.10
 
 - **설치 `--remove`가 완전해졌습니다** (CWE-459): TOML은 관리되는 모든 `[[mcp_servers.superpowers]]` 배열 테이블과 하위 테이블을, JSON은 동등한 모든 루트 항목을 제거하며, YAML은 값이 채워진 flow map 항목을 제거하고 다른 부모 아래의 중첩된 `mcp_servers:`는 건드리지 않습니다 (`tests/setup_test.js` **100/100**).
 - **`SKILLS_PATH` 소유자 검사** (CWE-22 / CWE-668): POSIX에서는 루트가 존재하는 디렉터리이고 현재 사용자 소유이며 그룹/기타 쓰기 권한이 없어야 합니다. **동작 변경:** Linux의 `/tmp`(`SKILLS_PATH=$(mktemp -d)` 포함)는 거부되어 번들 스킬로 대체되므로 홈 디렉터리 아래 폴더를 사용하세요. macOS의 `/private/var/folders`는 계속 사용할 수 있습니다.

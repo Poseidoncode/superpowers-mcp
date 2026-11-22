@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versión](https://img.shields.io/badge/version-6.4.10-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versión](https://img.shields.io/badge/version-6.5.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licencia](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume la información y las instrucciones de uso para empaquetar las habilidades (skills) de Superpowers y el sistema de flujos de trabajo autónomos en un servidor **Model Context Protocol (MCP)** independiente, de alto rendimiento y seguro.
@@ -182,7 +182,14 @@ Para ayudarte a elegir el skill adecuado, hemos estructurado los 15 skills a lo 
 
 ## 🆕 Novedades recientes
 
-### v6.4.10 (última versión)
+### v6.5.0 (última versión)
+
+- **`read_skill` puede cargar los documentos de referencia de una skill**: nuevo argumento opcional `reference` (p. ej. `read_skill("subagent-driven-development", reference="fix-loop")`); las skills que incluyen `references/` ahora terminan con un índice, de modo que los clientes que solo acceden por MCP (sin sistema de archivos) pueden llegar al detalle al que apunta `SKILL.md`. Solo se pueden leer los `*.md` listados en el `references/` de esa skill: no se construye ninguna ruta con la entrada del cliente, se omiten los enlaces simbólicos y los errores nunca incluyen rutas del sistema de archivos (`tests/mcp_coverage_test.js`).
+- **Sincronización con upstream (obra/superpowers v7.0.0 → v7.0.2)**: todos los `SKILL.md` quedan por debajo del límite de 20.000 caracteres que Claude Code vuelve a adjuntar tras compactar — `subagent-driven-development` (42,8 KB → 19,9 KB), `executing-plans` (24 KB → 19,7 KB) y `brainstorming` (23,8 KB → 19,7 KB) movieron el detalle situacional a `references/`, y el nuevo `tests/skill-size/test-skill-size.sh` hace cumplir el límite. `writing-skills` se reorganizó bajo `references/` (nuevos `bulletproofing`, `discovery`, `flowcharts`). La reescritura de brainstorming de upstream 7.0.x no se adoptó a propósito.
+- **Corrección del setup YAML**: volver a ejecutar setup sobre una configuración de Hermes/Goose cuya lista `args:` usa el estilo PyYAML (`- item` con la misma sangría que `args:`) dejaba los elementos antiguos (YAML inválido); ahora se eliminan junto con la clave (`tests/setup_test.js`).
+- Verificación: `npm run build` pasó; `npm test` en verde — **17/24** suites (**7** suites de PowerShell omitidas sin `pwsh`).
+
+### v6.4.10
 
 - **`--remove` de la instalación ahora es completo** (CWE-459): TOML elimina todas las tablas de matriz `[[mcp_servers.superpowers]]` gestionadas y sus subtablas, JSON elimina todas las entradas raíz equivalentes y YAML elimina las entradas de flow map con contenido, dejando intacto un `mcp_servers:` anidado bajo otro padre (`tests/setup_test.js` ahora **100/100**).
 - **Comprobación de propietario de `SKILLS_PATH`** (CWE-22 / CWE-668): en POSIX la raíz debe ser un directorio existente, propiedad del usuario actual y sin permisos de escritura para grupo/otros. **Cambio de comportamiento:** `/tmp` en Linux (incluido `SKILLS_PATH=$(mktemp -d)`) se rechaza y se usan las skills incluidas; usa un directorio dentro de tu home. Las raíces `/private/var/folders` de macOS siguen funcionando.
