@@ -1364,17 +1364,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         try {
             if (referenceName !== "") {
-                // Only names the skill's own references/ directory actually lists
-                // are readable, so the client string never builds a path.
-                let available: string[];
+                // The client string never builds a path: it must match the strict
+                // reference-name pattern and exist as a plain file in the skill's
+                // own references/ directory (checked without following symlinks).
+                // This is independent of the capped listing, so documents beyond
+                // the enumeration limit stay readable.
+                const file = `${referenceName}.md`;
+                let exists: boolean;
                 try {
-                    available = await skillsManager.listSkillReferences(skill.skillPath);
+                    exists = await skillsManager.hasSkillReference(skill.skillPath, file);
                 } catch (err: unknown) {
                     rethrowIfSkillsRootChanged(err);
                     throw err;
                 }
-                const file = available.find((entry) => entry === `${referenceName}.md`);
-                if (!file) {
+                if (!exists) {
+                    let available: string[];
+                    try {
+                        available = await skillsManager.listSkillReferences(skill.skillPath);
+                    } catch (err: unknown) {
+                        rethrowIfSkillsRootChanged(err);
+                        throw err;
+                    }
                     const names = available.map((entry) => entry.replace(/\.md$/, ""));
                     throw new McpError(
                         ErrorCode.InvalidParams,

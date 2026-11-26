@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Versión](https://img.shields.io/badge/version-6.5.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Versión](https://img.shields.io/badge/version-6.5.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![Licencia](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Este documento resume la información y las instrucciones de uso para empaquetar las habilidades (skills) de Superpowers y el sistema de flujos de trabajo autónomos en un servidor **Model Context Protocol (MCP)** independiente, de alto rendimiento y seguro.
@@ -182,7 +182,15 @@ Para ayudarte a elegir el skill adecuado, hemos estructurado los 15 skills a lo 
 
 ## 🆕 Novedades recientes
 
-### v6.5.0 (última versión)
+### v6.5.1 (última versión)
+
+- **`setup` ya no se bloquea con un archivo de configuración que no es regular**: si la ruta de configuración del cliente era un FIFO, la lectura síncrona se quedaba esperando indefinidamente; ahora se abre sin bloqueo, se verifica que sea un archivo regular y se lee con un límite de 5 MiB.
+- **Los documentos de referencia de `read_skill` posteriores al 100.º ahora se pueden leer**: el límite de 100 solo afecta al listado; la lectura valida el nombre y comprueba que sea un archivo regular dentro de `references/` de la skill.
+- **Escaneo de skills más robusto**: un fallo de lectura transitorio ya no oculta una skill hasta que cambien sus archivos (los escaneos incompletos se reintentan), y el presupuesto de 20 MiB de la caché se aplica durante el escaneo.
+- **Guía de brainstorming**: adopta de forma selectiva la guía de upstream v7.0.2 (preguntar solo lo consecuente, decidir explícitamente los puntos menores, explicar compromisos); los tres caminos y las puertas de aprobación no cambian.
+- Verificación: `npm run build` correcto; `npm test` en verde — **18/25** suites (**7** suites de PowerShell omitidas sin `pwsh`). Alcance y limitaciones conocidas en [SECURITY.md](SECURITY.md).
+
+### v6.5.0
 
 - **`read_skill` puede cargar los documentos de referencia de una skill**: nuevo argumento opcional `reference` (p. ej. `read_skill("subagent-driven-development", reference="fix-loop")`); las skills que incluyen `references/` ahora terminan con un índice, de modo que los clientes que solo acceden por MCP (sin sistema de archivos) pueden llegar al detalle al que apunta `SKILL.md`. Solo se pueden leer los `*.md` listados en el `references/` de esa skill: no se construye ninguna ruta con la entrada del cliente, se omiten los enlaces simbólicos y los errores nunca incluyen rutas del sistema de archivos (`tests/mcp_coverage_test.js`).
 - **Sincronización con upstream (obra/superpowers v7.0.0 → v7.0.2)**: todos los `SKILL.md` quedan por debajo del límite de 20.000 caracteres que Claude Code vuelve a adjuntar tras compactar — `subagent-driven-development` (42,8 KB → 19,9 KB), `executing-plans` (24 KB → 19,7 KB) y `brainstorming` (23,8 KB → 19,7 KB) movieron el detalle situacional a `references/`, y el nuevo `tests/skill-size/test-skill-size.sh` hace cumplir el límite. `writing-skills` se reorganizó bajo `references/` (nuevos `bulletproofing`, `discovery`, `flowcharts`). La reescritura de brainstorming de upstream 7.0.x no se adoptó a propósito.

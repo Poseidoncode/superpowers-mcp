@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![バージョン](https://img.shields.io/badge/version-6.5.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![バージョン](https://img.shields.io/badge/version-6.5.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 このドキュメントは、Superpowers スキルライブラリと自律型ワークフローを、独立した高パフォーマンスかつ安全な **Model Context Protocol (MCP)** サーバーにパッケージ化した使用説明書です。
@@ -183,7 +183,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近の更新
 
-### v6.5.0（最新）
+### v6.5.1（最新）
+
+- **`setup` が通常ファイルでない設定ファイルでハングしなくなりました**：クライアント設定パスが FIFO の場合、同期読み取りが無期限にブロックされていました。現在は非ブロッキングで開き、通常ファイルであることを確認し、5 MiB 上限で読み取ります。
+- **101 番目以降の `read_skill` 参照ドキュメントも読めるようになりました**：100 件の上限は一覧表示のみに適用され、読み取り時はファイル名を検証し、スキルの `references/` 内の通常ファイルであることを確認します。
+- **スキルスキャンの堅牢化**：一時的な読み取り失敗でファイルが変更されるまでスキルが消え続ける問題を解消（不完全なスキャンは再試行）。20 MiB のコンテンツキャッシュ予算もスキャン中に適用されます。
+- **ブレインストーミングのガイダンス**：上流 v7.0.2 のガイダンスを選択的に採用（重要な質問のみ、軽微な進め方は明示的に決定、トレードオフを説明）。3 つのパスと承認ゲートは変更なし。
+- 検証：`npm run build` 成功、`npm test` 全て成功 — **18/25** スイート（`pwsh` なしのため PowerShell **7** スイートはスキップ）。範囲と既知の制限は [SECURITY.md](SECURITY.md) を参照。
+
+### v6.5.0
 
 - **`read_skill` がスキルの参照ドキュメントを読み込めるように**：任意の `reference` 引数を追加（例：`read_skill("subagent-driven-development", reference="fix-loop")`）。`references/` を持つスキルの本文末尾には索引が付くため、MCP 経由でしかアクセスできないクライアント（ファイルシステム権限なし）でも `SKILL.md` が指す詳細に到達できます。読めるのはそのスキル自身の `references/` に一覧された `*.md` のみで、クライアント入力からパスを組み立てず、シンボリックリンクは無視し、エラーにファイルシステムのパスを含めません（`tests/mcp_coverage_test.js`）。
 - **アップストリーム同期（obra/superpowers v7.0.0 → v7.0.2）**：すべての `SKILL.md` が Claude Code の圧縮後再読込上限（20,000 文字）未満になりました。`subagent-driven-development`（42.8 KB → 19.9 KB）、`executing-plans`（24 KB → 19.7 KB）、`brainstorming`（23.8 KB → 19.7 KB）は状況依存の詳細を `references/` へ移し、新しい `tests/skill-size/test-skill-size.sh` が上限を検証します。`writing-skills` も `references/` 配下に再編しました（`bulletproofing`・`discovery`・`flowcharts` を追加）。アップストリーム 7.0.x の brainstorming 書き直しは意図的に取り込んでいません。

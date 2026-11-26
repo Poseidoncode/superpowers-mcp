@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.5.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.5.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 이 문서는 Superpowers 스킬 라이브러리와 자율 에이전트 워크플로우를 독립적이고 고성능이며 안전한 **Model Context Protocol (MCP)** 서버로 패키징한 사용 지침을 요약한 것입니다.
@@ -181,7 +181,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 최근 업데이트
 
-### v6.5.0 (최신)
+### v6.5.1 (최신)
+
+- **`setup`이 일반 파일이 아닌 설정 파일에서 멈추지 않습니다**: 클라이언트 설정 경로가 FIFO이면 동기 읽기가 무기한 차단되었습니다. 이제 논블로킹으로 열고, 일반 파일인지 확인하며, 5 MiB 한도로 읽습니다.
+- **101번째 이후의 `read_skill` 참조 문서도 읽을 수 있습니다**: 100개 제한은 목록에만 적용되며, 읽기 시에는 파일 이름을 검증하고 스킬의 `references/` 디렉터리 안의 일반 파일인지 확인합니다.
+- **더 견고한 스킬 스캔**: 일시적인 읽기 실패로 파일이 바뀔 때까지 스킬이 사라지던 문제를 해결했고(불완전한 스캔은 재시도), 20 MiB 콘텐츠 캐시 예산이 스캔 도중에도 적용됩니다.
+- **브레인스토밍 지침**: 업스트림 v7.0.2 지침을 선택적으로 채택(중요한 질문만, 사소한 절차는 명시적으로 결정, 트레이드오프 설명). 세 가지 경로와 승인 게이트는 그대로입니다.
+- 검증: `npm run build` 통과, `npm test` 전부 통과 — **18/25** 스위트(`pwsh`가 없어 PowerShell **7**개 스위트 건너뜀). 범위와 알려진 제한 사항은 [SECURITY.md](SECURITY.md) 참조.
+
+### v6.5.0
 
 - **`read_skill`이 스킬의 참조 문서를 불러올 수 있습니다**: 선택 인자 `reference`를 추가했습니다(예: `read_skill("subagent-driven-development", reference="fix-loop")`). `references/`가 있는 스킬은 본문 끝에 색인이 붙어, MCP로만 접근하는 클라이언트(파일 시스템 권한 없음)도 `SKILL.md`가 가리키는 세부 내용에 닿을 수 있습니다. 해당 스킬의 `references/`에 실제로 있는 `*.md`만 읽을 수 있으며, 클라이언트 입력으로 경로를 만들지 않고, 심볼릭 링크는 건너뛰고, 오류 메시지에 파일 시스템 경로를 포함하지 않습니다(`tests/mcp_coverage_test.js`).
 - **업스트림 동기화(obra/superpowers v7.0.0 → v7.0.2)**: 모든 `SKILL.md`가 Claude Code의 압축 후 재첨부 한도(20,000자) 아래로 내려왔습니다. `subagent-driven-development`(42.8 KB → 19.9 KB), `executing-plans`(24 KB → 19.7 KB), `brainstorming`(23.8 KB → 19.7 KB)은 상황별 세부 내용을 `references/`로 옮겼고, 새 `tests/skill-size/test-skill-size.sh`가 한도를 검사합니다. `writing-skills`도 `references/` 아래로 재구성했습니다(`bulletproofing`, `discovery`, `flowcharts` 추가). 업스트림 7.0.x의 brainstorming 재작성은 의도적으로 가져오지 않았습니다.

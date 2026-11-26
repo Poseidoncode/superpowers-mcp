@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![Version](https://img.shields.io/badge/version-6.5.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![Version](https://img.shields.io/badge/version-6.5.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 This document summarizes the information and usage instructions for packaging the Superpowers skills and autonomous workflow system into an independent, high-performance, and secure **Model Context Protocol (MCP)** server.
@@ -182,7 +182,15 @@ To help you choose the right skill, we have structured all 15 skills across the 
 
 ## 🆕 Recent Updates
 
-### v6.5.0 (Latest)
+### v6.5.1 (Latest)
+
+- **`setup` no longer hangs on a non-regular config file**: a FIFO at a client config path used to block the synchronous read forever; config files are now opened non-blocking, verified as regular files and read with a 5 MiB bound.
+- **`read_skill` references beyond the 100th are now readable**: the 100-entry cap only limits listings; reads validate the file name and that it is a regular file in the skill's `references/` directory.
+- **More robust skill scanning**: a transient read failure no longer hides a skill until its files change (incomplete scans are retried), and the 20 MiB content-cache budget is enforced while scanning instead of afterwards.
+- **Brainstorming guidance**: selectively adopts upstream v7.0.2 guidance (ask only consequential questions, decide minor process points explicitly, explain trade-offs); the three paths and approval gates are unchanged.
+- Verification: `npm run build` passed; `npm test` green — **18/25** suites (**7** PowerShell suites skipped without `pwsh`). See [SECURITY.md](SECURITY.md) for scope and known limitations.
+
+### v6.5.0
 
 - **`read_skill` can load a skill's reference documents**: new optional `reference` argument (e.g. `read_skill("subagent-driven-development", reference="fix-loop")`), and skill bodies that ship `references/` now end with an index of them, so MCP-only clients (no filesystem access) can reach the detail `SKILL.md` points to. Only `*.md` files listed in that skill's own `references/` directory are readable — no path is built from client input, symlinks are skipped, and errors never include filesystem paths (`tests/mcp_coverage_test.js`).
 - **Upstream sync (obra/superpowers v7.0.0 → v7.0.2)**: every `SKILL.md` now stays under Claude Code's 20,000-character post-compaction re-attach limit — `subagent-driven-development` (42.8 KB → 19.9 KB), `executing-plans` (24 KB → 19.7 KB) and `brainstorming` (23.8 KB → 19.7 KB) moved situational detail into `references/`, and the new `tests/skill-size/test-skill-size.sh` enforces the limit. `writing-skills` was reorganized under `references/` (new `bulletproofing`, `discovery`, `flowcharts`). The upstream 7.0.x brainstorming rewrite was intentionally not adopted.

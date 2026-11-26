@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Português (BR)](README.pt-BR.md) | [हिन्दी](README.hi.md)
 
-[![版本](https://img.shields.io/badge/version-6.5.0-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
+[![版本](https://img.shields.io/badge/version-6.5.1-blue.svg)](https://github.com/Poseidoncode/superpowers-mcp)
 [![授權](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 本文檔總結了將 Superpowers 技能庫與自主 Agent 工作流架構打包成獨立、高效能且安全加固的 **Model Context Protocol (MCP)** 伺服器之相關資訊與使用說明。
@@ -181,7 +181,15 @@ systematic-debugging ➔ using-git-worktrees ➔ dispatching-parallel-agents ➔
 
 ## 🆕 最近更新
 
-### v6.5.0（最新版）
+### v6.5.1（最新版）
+
+- **`setup` 不再因非一般檔案的設定檔而卡住**：客戶端設定路徑若是 FIFO，過去會讓同步讀取無限等待；現在以非阻塞方式開檔、確認為一般檔案，並以 5 MiB 上限讀取。
+- **第 101 個以後的 `read_skill` 參考文件現在可讀取**：100 筆上限只限制列舉；讀取時改為驗證檔名，並確認它是該技能 `references/` 目錄內的一般檔案。
+- **技能掃描更穩健**：暫時性讀取失敗不再讓技能一直消失到檔案變動為止（不完整的掃描會重試），且 20 MiB 內容快取預算改為掃描期間即生效。
+- **Brainstorming 指引**：選擇性採納上游 v7.0.2 指引（只問關鍵問題、明確決定次要流程、說明取捨）；三條路徑與核准關卡不變。
+- 驗證：`npm run build` 通過；`npm test` 全綠——**18/25** 套件（**7** 個 PowerShell 因無 `pwsh` 跳過）。範圍與已知限制見 [SECURITY.md](SECURITY.md)。
+
+### v6.5.0
 
 - **`read_skill` 可載入技能的參考文件**：新增選用參數 `reference`（例如 `read_skill("subagent-driven-development", reference="fix-loop")`），附有 `references/` 的技能內容結尾會列出索引，讓只能透過 MCP 存取的用戶端（沒有檔案系統權限）也能取得 `SKILL.md` 所指向的細節。只有該技能自己 `references/` 目錄中列出的 `*.md` 檔可讀取——不會用用戶端輸入組路徑、略過符號連結，錯誤訊息也不含檔案系統路徑（`tests/mcp_coverage_test.js`）。
 - **上游同步（obra/superpowers v7.0.0 → v7.0.2）**：所有 `SKILL.md` 現都低於 Claude Code 壓縮後重新載入的 20,000 字元上限——`subagent-driven-development`（42.8 KB → 19.9 KB）、`executing-plans`（24 KB → 19.7 KB）、`brainstorming`（23.8 KB → 19.7 KB）把情境性細節搬進 `references/`，並新增 `tests/skill-size/test-skill-size.sh` 強制檢查。`writing-skills` 也重整到 `references/`（新增 `bulletproofing`、`discovery`、`flowcharts`）。上游 7.0.x 的 brainstorming 重寫刻意未採用。

@@ -2292,6 +2292,43 @@ export function safeWriteConfig(
  */
 const MAX_CONFIG_FILE_SIZE = 5 * 1024 * 1024;
 
+/**
+ * Reads an existing config file with bounded memory and no blocking.
+ *
+ * The path is opened non-blocking and type-checked on the descriptor itself
+ * (fstat), so a FIFO/device/directory planted at the config path is refused
+ * instead of hanging setup in a synchronous read, and there is no
+ * stat-then-open race. The read is chunked and stops one byte past the limit,
+ * so a file that grows mid-read cannot exhaust memory either.
+ */
+function readConfigFileBounded(configPath: string): string {
+    const fd = fs.openSync(configPath, fs.constants.O_RDONLY | (fs.constants.O_NONBLOCK ?? 0));
+    try {
+        const info = fs.fstatSync(fd);
+        if (!info.isFile()) {
+            throw new Error(`Refusing to read non-regular config file ${configPath}`);
+        }
+        if (info.size > MAX_CONFIG_FILE_SIZE) {
+            throw new Error(`Refusing to read oversized config file ${configPath} (${info.size} bytes, limit ${MAX_CONFIG_FILE_SIZE} bytes)`);
+        }
+        const chunks: Buffer[] = [];
+        let total = 0;
+        const chunk = Buffer.allocUnsafe(64 * 1024);
+        for (;;) {
+            const read = fs.readSync(fd, chunk, 0, chunk.length, null);
+            if (read === 0) break;
+            total += read;
+            if (total > MAX_CONFIG_FILE_SIZE) {
+                throw new Error(`Refusing to read oversized config file ${configPath} (exceeds limit ${MAX_CONFIG_FILE_SIZE} bytes)`);
+            }
+            chunks.push(Buffer.from(chunk.subarray(0, read)));
+        }
+        return Buffer.concat(chunks, total).toString("utf8");
+    } finally {
+        fs.closeSync(fd);
+    }
+}
+
 export interface SetupOptions {
     platform?: string;
     homeDir?: string;
@@ -2372,17 +2409,8 @@ export async function runSetup(options: SetupOptions = {}): Promise<SetupResult[
 
             let originalContent = "";
             if (fileExists) {
-                // Cap the config file size before reading (M7).
-                const configStat = fs.statSync(configPath);
-                if (configStat.size > MAX_CONFIG_FILE_SIZE) {
-                    throw new Error(`Refusing to read oversized config file ${configPath} (${configStat.size} bytes, limit ${MAX_CONFIG_FILE_SIZE} bytes)`);
-                }
-                originalContent = fs.readFileSync(configPath, "utf8");
-                // Post-read size check (TOCTOU): the file may have grown between
-                // statSync and readFileSync; fail closed instead of buffering it all.
-                if (originalContent.length > MAX_CONFIG_FILE_SIZE) {
-                    throw new Error(`Refusing to read oversized config file ${configPath} (length ${originalContent.length} exceeds limit ${MAX_CONFIG_FILE_SIZE} bytes)`);
-                }
+                // Regular-file + size cap enforced on the opened descriptor (M7).
+                originalContent = readConfigFileBounded(configPath);
             }
 
             let newContent = "";

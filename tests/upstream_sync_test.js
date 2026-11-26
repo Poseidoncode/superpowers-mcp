@@ -92,6 +92,15 @@ async function runUpstreamSyncTests() {
         expectContains(readSkill("brainstorming"), "A request for context is not an answer");
     });
 
+    check("3b (v7.0.2: focused brainstorming questions)", () => {
+        const brain = readSkill("brainstorming");
+        expectContains(brain, "answer could change what is built and cannot be found in context");
+        expectContains(brain, "Decide minor process details yourself and state the decision.");
+        expectContains(brain, "give trade-offs and a recommendation");
+        expectContains(brain, "use an open question when the purpose is unclear");
+        expectContains(brain, "A reply approves the stage actually presented.");
+    });
+
     // Test 4: PR #2265 — plan-specific execution handoff recommendation
     check("4 (PR #2265: contextual execution handoff)", () => {
         const plans = readSkill("writing-plans");

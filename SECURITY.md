@@ -47,6 +47,36 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **Initial Assessment**: Within 7 days
 - **Fix Released**: Within 30 days (depending on severity)
 
+## v6.5.1 — Config Read Hardening, Reference Reads & Scan Budget (2026-11-27)
+
+> **Scope and status:** fixes for findings from a code review of the MCP server, skill scanning/caching and
+> setup-write paths. **Not** a full-project security audit: shell and PowerShell helpers were not audited
+> line by line, and no soak, cross-platform or penetration testing was done. Two findings were reproduced
+> (FIFO hang, reference listing cap); the other two come from code reading and are pinned by regression
+> tests only. `npm audit` reported 0 known vulnerabilities (not proof of absence) and `npx tsc --noEmit`
+> was clean; `pwsh` was not available, so `tests/powershell/*` were not run.
+
+- **Setup config read could block indefinitely (CWE-400, local denial of service)** — `setup` checked only
+  the file size before a synchronous read, so a FIFO at a client config path (size 0) hung it. Exploiting
+  this requires control over the config path or the user's home directory; it is not a remote issue.
+  Fixed in `src/setup-runner.ts` (`readConfigFileBounded`): open with `O_NONBLOCK`, `fstat` must report a
+  regular file, chunked read aborted past 5 MiB. Regression: `tests/robustness_test.js`.
+- **Reference allow-list vs. listing cap** — the 100-entry cap from v6.5.0 is now only a listing limit.
+  `read_skill(..., reference)` validates the name against `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.md$` and
+  `lstat`s the file inside the skill's own `references/` directory (must be a regular file, symlinks not
+  followed); the no-follow, root-bounded reader and 20,000-character output budget are unchanged, and the
+  client string is still never used to build an unvalidated path.
+- **Scan memory bounded during the scan (availability)** — content bodies are retained against the
+  20 MiB budget while scanning rather than after, so many near-10 MiB skills no longer accumulate before
+  eviction. Peak memory was not profiled; the test checks the retained cache size and that over-budget
+  skills still list and read from disk.
+- **Incomplete scans are retried (integrity of results)** — a skill skipped due to a non-`ENOENT` read
+  error no longer gets its fingerprint cached, so it reappears once readable.
+- **Observed, accepted:** concurrent config updates by two processes can still overwrite each other (the
+  race window between comparison and `rename` described under v6.5.0; a cross-process lock is under
+  evaluation); over-long skill content is truncated without a continuation interface; `resources/list`
+  is not paginated (response size and CPU grow with the number of skills; not load-tested).
+
 ## v6.5.0 — Skill References over MCP & YAML Setup Fix (2026-11-22)
 
 > **Scope and status:** a focused review, **not** a new full-project security audit. `src/setup-runner.ts`
@@ -60,7 +90,7 @@ If you discover a security vulnerability in Superpowers MCP, please report it re
 - **New surface: `read_skill(skill_name, reference)`** — lets MCP-only clients read the `references/*.md`
   files a skill points to. Controls: the client string is never used to build a path; it must equal a
   file name returned by listing that skill's own `references/` directory (plain `*.md`, name pattern
-  `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.md$`, at most 100 entries, symlinked directories/files skipped);
+  `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.md$`, at most 100 entries listed — the cap no longer limits reads as of v6.5.1, symlinked directories/files skipped);
   the read then goes through the existing no-follow, root-bounded reader (realpath boundary, `O_NOFOLLOW`,
   single-link, inode/stat checks, 10 MB cap), output is truncated at the same 20,000-character budget as
   `SKILL.md`, and invalid/unknown/oversized/non-string references return `InvalidParams` without

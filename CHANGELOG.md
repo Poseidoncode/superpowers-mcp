@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [6.5.1] - 2026-11-27
+
+Robustness and security fixes from a code review of the MCP server, skill scanning/caching and setup
+paths, plus selective adoption of upstream brainstorming guidance. Two issues were reproduced
+dynamically (FIFO config hang, reference listing cap); the other two were found by code reading and are
+covered by regression tests.
+
+### Fixed
+
+- **`setup` no longer hangs on a non-regular config file** (CWE-400) — a client config path that is a
+  FIFO (size 0, so it passed the old size check) made the synchronous read block forever. Config files
+  are now opened with `O_NONBLOCK`, verified as regular files with `fstat`
+  (`Refusing to read non-regular config file` otherwise), and read in 64 KiB chunks that abort past the
+  5 MiB limit (`readConfigFileBounded` in `src/setup-runner.ts`).
+- **`read_skill` reference documents beyond the 100th were unreadable** — the 100-entry listing cap
+  doubled as the allow-list for reads. Reads now validate the file name and check that it is a regular
+  file inside the skill's `references/` directory (`hasSkillReference`, no symlink following); the cap
+  only applies to listings and error hints. Bundled skills have at most 12 references, so shipped content
+  was not affected.
+- **A transient read failure could hide a skill until its files changed** — a scan that skipped a skill
+  because of a non-`ENOENT` read error still recorded the directory fingerprint, so later calls reused the
+  incomplete list. Incomplete scans are no longer fingerprinted and are retried on the next call.
+- **Skill scan memory is bounded during the scan** — the 20 MiB content-cache budget was applied only
+  after every skill body had been collected. Bodies are now retained against the budget as they are read;
+  skills over budget are still listed and are read from disk on demand.
+
+### Changed
+
+- Selectively adopt upstream v7.0.2 brainstorming guidance: ask only consequential
+  questions not answered by context, make minor process decisions explicitly, and
+  explain trade-offs and recommendations for meaningful choices. The fork's
+  three paths and approval gates remain unchanged.
+
+### Tests
+
+- New `tests/robustness_test.js` (FIFO config, 101 references, transient read failure, 5 × 8 MiB scan
+  budget), registered in `scripts/run-tests.js`.
+
+### Known limitations (not changed)
+
+- Concurrent updates of the same client config by two processes can still overwrite each other (small
+  window between the content comparison and `rename`; documented in `SECURITY.md`). A cross-process lock
+  is being evaluated.
+- Over-long skill content is truncated without a continuation interface, and the `resources/list`
+  response is not paginated; both are design limits, not triggered by the bundled skills.
+
+### Verification
+
+- `npm run build` passed; `npm test` green — 18/25 suites (7 PowerShell suites skipped without `pwsh`).
+- `npx tsc --noEmit` clean. Scan memory was tested against the cache budget, not profiled for peak RSS.
+
 ## [6.5.0] - 2026-11-22
 
 Upstream sync with obra/superpowers v7.0.1 / v7.0.2 (baseline `bb92a77` → `22f0b46`), MCP access to skill

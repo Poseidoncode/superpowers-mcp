@@ -205,7 +205,8 @@ is the whole process.
 - Before asking detailed questions, assess scope: if the request describes multiple independent subsystems (e.g., "build a platform with chat, file storage, billing, and analytics"), flag this immediately. Don't spend questions refining details of a project that needs to be decomposed first.
 - If the project is too large for a single spec, help the user decompose into sub-projects: what are the independent pieces, how do they relate, what order should they be built? Then brainstorm the first sub-project through the normal design flow. Each sub-project gets its own spec → plan → implementation cycle.
 - For appropriately-scoped projects, ask questions one at a time to refine the idea
-- Prefer multiple choice questions when possible, but open-ended is fine too
+- Ask only when the answer could change what is built and cannot be found in context. Decide minor process details yourself and state the decision.
+- When meaningful choices can be named, give trade-offs and a recommendation; use an open question when the purpose is unclear.
 - Only one question per message - if a topic needs more exploration, break it into multiple questions
 - A request for context is not an answer - if the user asks for trade-offs, implications, or examples instead of choosing, give them that and then re-ask the same question. It stays the only open question until they decide; don't pair it with a new one
 - Focus on understanding: purpose, constraints, success criteria

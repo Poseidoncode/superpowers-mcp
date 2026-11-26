@@ -575,6 +575,7 @@ export class SkillsManager {
         const newContentStat = new Map<string, FileStatSnapshot>();
         const newCanonicalMap = new Map<string, string>();
         let scanned = false;
+        let incompleteScan = false;
 
         try {
             const entries = await fs.readdir(this.skillsPath, { withFileTypes: true });
@@ -589,6 +590,17 @@ export class SkillsManager {
                     prevMetaByResolved.set(path.resolve(item.skillPath), item);
                 }
             }
+
+            // Retained-body budget enforced DURING the scan: once the bodies kept so
+            // far reach the cache budget, later bodies are dropped as soon as they
+            // are parsed (they stay readable on demand), so peak memory stays near
+            // MAX_CONTENT_CACHE_BYTES instead of the whole library's size.
+            let retainedBodyBytes = 0;
+            const retainBody = (body: string, size: number): string | null => {
+                if (retainedBodyBytes + size > MAX_CONTENT_CACHE_BYTES) return null;
+                retainedBodyBytes += size;
+                return body;
+            };
 
             const loaded = await mapWithLimit(
                 skillCandidates,
@@ -615,7 +627,7 @@ export class SkillsManager {
                                         st.mtimeMs === snapshot.mtimeMs &&
                                         st.ctimeMs === snapshot.ctimeMs
                                     ) {
-                                        return { item: prevItem, body: cachedBody, realFilePath: canonical, directoryName: entry.name, stat: st };
+                                        return { item: prevItem, body: retainBody(cachedBody, st.size), realFilePath: canonical, directoryName: entry.name, stat: st };
                                     }
                                 } catch {
                                     // stat 失敗就走完整讀取路徑產生正確錯誤。
@@ -639,7 +651,7 @@ export class SkillsManager {
                             description,
                             skillPath: skillFile,
                         };
-                        return { item, body, realFilePath, directoryName: entry.name, stat };
+                        return { item, body: retainBody(body, stat.size), realFilePath, directoryName: entry.name, stat };
                     } catch (err: unknown) {
                         const isEnoent =
                             err &&
@@ -647,6 +659,9 @@ export class SkillsManager {
                             "code" in err &&
                             (err as { code?: string }).code === "ENOENT";
                         if (!isEnoent) {
+                            // A skill that failed to read for a non-ENOENT reason
+                            // (EACCES, EIO, ...) makes this scan incomplete.
+                            incompleteScan = true;
                             this.logScanWarning(entry.name, err instanceof Error ? err.message : String(err));
                         }
                         return null;
@@ -661,7 +676,6 @@ export class SkillsManager {
             // dropped because some other skill already claimed its directory name
             // as an alias — that alias is simply not resolvable.
             const accepted: typeof ordered = [];
-            let cachedBodyBytes = 0;
             for (const result of ordered) {
                 const { item, directoryName } = result!;
                 const nameKey = item.name.toLowerCase();
@@ -671,7 +685,7 @@ export class SkillsManager {
                     );
                     // Best-effort transient-memory reduction: a skipped duplicate's
                     // body is never cached, so release it immediately.
-                    result!.body = "";
+                    result!.body = null;
                     continue;
                 }
                 // Freeze internal entries so a caller holding a previous reference
@@ -692,23 +706,21 @@ export class SkillsManager {
                 skills.push(item);
 
                 const resolvedPath = path.resolve(item.skillPath);
-                newContentCache.set(realFilePath, body);
-                newContentStat.set(realFilePath, {
-                    dev: stat.dev,
-                    ino: stat.ino,
-                    size: stat.size,
-                    mtimeMs: stat.mtimeMs,
-                    ctimeMs: stat.ctimeMs,
-                });
+                // A body dropped by the scan budget is simply not cached; it is
+                // re-read from disk on demand (and the alias map is still filled).
+                if (body !== null) {
+                    newContentCache.set(realFilePath, body);
+                    newContentStat.set(realFilePath, {
+                        dev: stat.dev,
+                        ino: stat.ino,
+                        size: stat.size,
+                        mtimeMs: stat.mtimeMs,
+                        ctimeMs: stat.ctimeMs,
+                    });
+                    result.body = null;
+                }
                 newCanonicalMap.set(resolvedPath, realFilePath);
                 newCanonicalMap.set(realFilePath, realFilePath);
-                cachedBodyBytes += Buffer.byteLength(body, "utf-8");
-                if (cachedBodyBytes > MAX_CONTENT_CACHE_BYTES) {
-                    // Best-effort transient-memory reduction: the body is already
-                    // copied into newContentCache above, so release it from the
-                    // loaded entry once the running total exceeds budget.
-                    result.body = "";
-                }
             }
             scanned = true;
         } catch (_dirErr) {
@@ -724,7 +736,10 @@ export class SkillsManager {
             this.contentCache = newContentCache;
             this.contentCacheStat = newContentStat;
             this.canonicalPathMap = newCanonicalMap;
-            this.skillSignature = signature;
+            // An incomplete scan (some skill failed to read) must not be recorded
+            // as "unchanged": a transient failure would otherwise keep the skill
+            // missing until an unrelated file change. Null forces a rescan.
+            this.skillSignature = incompleteScan ? null : signature;
             return this.cloneSkills(this.cachedSkills);
         }
         if (scanned) {
@@ -915,6 +930,29 @@ export class SkillsManager {
             if ((err as { code?: string }).code === "ENOENT" || (err as { code?: string }).code === "ENOTDIR") {
                 return [];
             }
+            throw err;
+        }
+    }
+
+    /**
+     * Whether `references/<referenceFile>` exists as a plain file for this skill.
+     * Unlike listSkillReferences this is not subject to the enumeration cap, so a
+     * valid document is readable even when the directory holds more than
+     * MAX_SKILL_REFERENCES files. Symlinks are rejected (lstat, never followed).
+     */
+    public async hasSkillReference(skillPath: string, referenceFile: string): Promise<boolean> {
+        if (!SKILL_REFERENCE_FILE_PATTERN.test(referenceFile)) return false;
+        await this.assertSkillsRootUnchanged();
+        const resolvedSkillPath = path.isAbsolute(skillPath)
+            ? path.resolve(skillPath)
+            : path.resolve(this.skillsPath, skillPath);
+        const referencesDir = path.join(path.dirname(resolvedSkillPath), "references");
+        try {
+            if (!(await fs.lstat(referencesDir)).isDirectory()) return false;
+            return (await fs.lstat(path.join(referencesDir, referenceFile))).isFile();
+        } catch (err) {
+            const code = (err as { code?: string }).code;
+            if (code === "ENOENT" || code === "ENOTDIR") return false;
             throw err;
         }
     }

@@ -60,6 +60,7 @@ const SUITES = [
     "tests/mcp_coverage_test.js",
     "tests/drift_test.js",
     "tests/setup_test.js",
+    "tests/robustness_test.js",
     "tests/executing-plans/test-task-start.sh",
     "tests/executing-plans/test-task-done.sh",
     "tests/sdd/test-sdd-workspace.sh",
